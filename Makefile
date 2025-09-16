@@ -76,7 +76,8 @@ classes.dex: src/main/java/com/speechcode/repl/MainActivity.java \
 	@echo "Creating classes.dex."
 	$(BUILD_TOOLS)/d8 --classpath $(ANDROID_JAR) --output . \
 		build/classes/com/speechcode/repl/MainActivity.class \
-		build/classes/com/speechcode/repl/SchemeInterface.class
+		build/classes/com/speechcode/repl/SchemeInterface.class \
+		build/classes/com/speechcode/repl/InternetReplService.class
 	@echo "Java compilation completed"
 
 clean:

@@ -90,8 +90,65 @@ body {
   font-weight: bold;
 }
 
+#server-url-display {
+  color: #1976D2;
+  font-size: 12px;
+  font-weight: bold;
+}
+
 #webview-messages {
   min-height: 20px;
+}
+
+.connection-status-bar {
+  background: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+}
+
+.connection-status-bar.connected {
+  background: #e8f5e8;
+  color: #2E7D32;
+  border-bottom-color: #4CAF50;
+}
+
+.connection-status-bar.error {
+  background: #ffebee;
+  color: #D32F2F;
+  border-bottom-color: #f44336;
+}
+
+.connection-status-bar.warning {
+  background: #fff3e0;
+  color: #F57C00;
+  border-bottom-color: #ff9800;
+}
+
+.local-result {
+  color: #2E7D32;
+}
+
+.remote-result {
+  color: #1976D2;
+  font-weight: bold;
+}
+
+.queued-result {
+  color: #FF9800;
+  font-style: italic;
+}
+
+.error-result {
+  color: #D32F2F;
+  font-weight: bold;
+}
+
+.info-result {
+  color: #7B1FA2;
+  font-style: italic;
 }
 </style>
 <script>
@@ -120,6 +177,102 @@ const schemeExpressions = [
   "(factorial 10)"
 ];
 
+// Send expression to server for remote execution
+function sendToServer(expression) {
+  try {
+    if (window.Scheme && window.Scheme.sendToServer) {
+      window.Scheme.sendToServer(expression);
+      displayLocalResult("📤 Sent to server: " + expression, "queued");
+    } else {
+      displayLocalResult("❌ Server interface not available", "error");
+    }
+  } catch (e) {
+    displayLocalResult("❌ Error sending to server: " + e.message, "error");
+  }
+}
+
+// Set server URL
+function setServerUrl() {
+  // First, test if the function is being called
+  displayLocalResult("🔧 Set Server URL button clicked!", "info");
+
+  try {
+    const currentUrl = getCurrentServerUrl();
+    displayLocalResult("📊 Current URL: " + currentUrl, "info");
+
+    // Cycle between production TLS endpoints
+    const commonUrls = [
+      "https://speechcode.com/chb-eval",
+      "https://speechcode.local/chb-eval"
+    ];
+
+    const currentIndex = commonUrls.indexOf(currentUrl);
+    const nextIndex = (currentIndex + 1) % commonUrls.length;
+    const url = commonUrls[nextIndex];
+
+    displayLocalResult("🔄 Cycling from: " + currentUrl, "info");
+    displayLocalResult("🔄 Switching to: " + url, "info");
+
+    if (url && url.trim()) {
+      if (window.Scheme && window.Scheme.setServerUrl) {
+        window.Scheme.setServerUrl(url);
+        updateServerUrlDisplay(url);
+        displayLocalResult("✅ Server URL updated to: " + url, "info");
+      } else {
+        displayLocalResult("❌ Server interface not available", "error");
+      }
+    } else {
+      displayLocalResult("⚠️ URL change cancelled or empty", "info");
+    }
+  } catch (e) {
+    displayLocalResult("❌ Error in setServerUrl: " + e.message, "error");
+  }
+}
+
+// Get current server URL from display
+function getCurrentServerUrl() {
+  const display = document.getElementById("server-url-display");
+  if (display) {
+    const text = display.textContent;
+    const match = text.match(/Server: (.+)/);
+    return match ? match[1] : "https://speechcode.com/chb-eval";
+  }
+  return "https://speechcode.com/chb-eval";
+}
+
+// Update server URL display
+function updateServerUrlDisplay(url) {
+  const display = document.getElementById("server-url-display");
+  if (display) {
+    display.textContent = "Server: " + url;
+  }
+}
+
+// Update connection status display (called from Java)
+function updateConnectionStatusDisplay(status, statusType) {
+  const statusBar = document.getElementById("connection-status-bar");
+  const statusText = document.getElementById("connection-status-text");
+
+  if (statusText) {
+    statusText.textContent = status;
+  }
+
+  if (statusBar) {
+    // Remove existing status classes
+    statusBar.classList.remove("connected", "error", "warning");
+
+    // Add appropriate status class
+    if (statusType === "connected") {
+      statusBar.classList.add("connected");
+    } else if (statusType === "error") {
+      statusBar.classList.add("error");
+    } else if (statusType === "warning") {
+      statusBar.classList.add("warning");
+    }
+  }
+}
+
+
 // Generate buttons dynamically.
 function generateSchemeButtons() {
   const buttonGrid = document.querySelector(".button-grid");
@@ -128,29 +281,80 @@ function generateSchemeButtons() {
 
   // Add Scheme expression buttons.
   schemeExpressions.forEach(expression => {
-    const button = document.createElement("button");
+    // Local evaluation button
+    const localButton = document.createElement("button");
+    localButton.className = "scheme-button";
+    localButton.textContent = "📱 " + expression;
+    localButton.onclick = () => runSchemeExpression(expression);
+    localButton.title = "Run locally";
+    buttonGrid.appendChild(localButton);
 
-    button.className = "scheme-button";
-    button.textContent = expression;
-    button.onclick = () => runSchemeExpression(expression);
-    buttonGrid.appendChild(button);
+    // Send to server button
+    const serverButton = document.createElement("button");
+    serverButton.className = "scheme-button";
+    serverButton.textContent = "📤 " + expression;
+    serverButton.onclick = () => sendToServer(expression);
+    serverButton.title = "Send to server";
+    serverButton.style.background = "#f0f0ff";
+    serverButton.style.borderColor = "#4169E1";
+    serverButton.style.color = "#1e3a8a";
+    buttonGrid.appendChild(serverButton);
   });
 
-  // Add hard-coded Clear Output button.
+  // Add utility buttons
   const clearButton = document.createElement("button");
-
   clearButton.className = "scheme-button";
-  clearButton.textContent = "Clear Output";
+  clearButton.textContent = "🗑️ Clear Output";
   clearButton.onclick = () => document.getElementById("scheme-content").innerHTML = "";
   buttonGrid.appendChild(clearButton);
+
+
+  const configButton = document.createElement("button");
+  configButton.className = "scheme-button";
+  configButton.textContent = "🔄 Cycle Server URL";
+  configButton.onclick = function() {
+    console.log("Set Server URL button clicked"); // Debug log
+    setServerUrl();
+  };
+  configButton.style.background = "#fff0f0";
+  configButton.style.borderColor = "#dc2626";
+  configButton.style.color = "#7f1d1d";
+  buttonGrid.appendChild(configButton);
+
+  console.log("Set Server URL button created and added"); // Debug log
+
 }
 
 // Interactive Scheme evaluation.
 function runSchemeExpression(expression) {
   const result = evaluateScheme(expression);
+  displayLocalResult("📱 " + expression + " = " + result, "local");
+}
+
+// Display local result with type indicator
+function displayLocalResult(text, type) {
   const schemeContent = document.getElementById("scheme-content");
 
-  schemeContent.innerHTML = schemeContent.innerHTML + "<br>🔸 " + expression + " = " + result;
+  let className = "";
+  switch (type) {
+    case "local":
+      className = "local-result";
+      break;
+    case "remote":
+      className = "remote-result";
+      break;
+    case "queued":
+      className = "queued-result";
+      break;
+    case "error":
+      className = "error-result";
+      break;
+    case "info":
+      className = "info-result";
+      break;
+  }
+
+  schemeContent.innerHTML += `<br><span class="${className}">${text}</span>`;
 
   // Auto-scroll to bottom.
   schemeContent.scrollTop = schemeContent.scrollHeight;
@@ -166,7 +370,13 @@ window.addEventListener("load", initializePage);
 </head>
   <body>
     <div class="status-bar">
-      <div>WebView Full-Screen Mode</div></div>
+      <div>WebView + Internet REPL</div>
+      <div id="server-url-display">Server: https://speechcode.com/chb-eval</div>
+    </div>
+
+    <div id="connection-status-bar" class="connection-status-bar">
+      <div id="connection-status-text">Starting...</div>
+    </div>
 
     <div class="main-content">
       <div class="section">

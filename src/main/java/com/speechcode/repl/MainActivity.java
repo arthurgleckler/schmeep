@@ -15,6 +15,7 @@ import android.annotation.SuppressLint;
 public class MainActivity extends Activity {
     private static final String TAG = "repl";
     private WebView webView;
+    private InternetReplService internetReplService;
 
     // Load native library.
     static {
@@ -80,10 +81,26 @@ public class MainActivity extends Activity {
         // Load the HTML file from assets.
         webView.loadUrl("file:///android_asset/test.html");
 
+        // Initialize Internet REPL service
+        internetReplService = new InternetReplService(this, webView);
+        internetReplService.start();
+
         Log.i(TAG, "WebView setup completed.");
     }
 
-    // TODO: JavaScript interface will be added later once API compatibility is resolved.
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (internetReplService != null) {
+            internetReplService.stop();
+            internetReplService = null;
+        }
+        Log.i(TAG, "MainActivity destroyed");
+    }
+
+    public InternetReplService getInternetReplService() {
+        return internetReplService;
+    }
 
     // Native method declarations.
     public native void initializeScheme();
