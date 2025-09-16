@@ -1,5 +1,6 @@
 .claude/
 .aider*
+*.apk
 *.keystore
 AndroidManifest.xml
 build/
