@@ -24,5 +24,4 @@ public class SchemeInterface {
             mainActivity.getInternetReplService().setServerUrl(url);
         }
     }
-
 }
