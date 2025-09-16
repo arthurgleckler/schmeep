@@ -177,20 +177,6 @@ const schemeExpressions = [
   "(factorial 10)"
 ];
 
-// Send expression to server for remote execution
-function sendToServer(expression) {
-  try {
-    if (window.Scheme && window.Scheme.sendToServer) {
-      window.Scheme.sendToServer(expression);
-      displayLocalResult("📤 Sent to server: " + expression, "queued");
-    } else {
-      displayLocalResult("❌ Server interface not available", "error");
-    }
-  } catch (e) {
-    displayLocalResult("❌ Error sending to server: " + e.message, "error");
-  }
-}
-
 // Set server URL
 function setServerUrl() {
   // First, test if the function is being called
@@ -213,17 +199,12 @@ function setServerUrl() {
     displayLocalResult("🔄 Cycling from: " + currentUrl, "info");
     displayLocalResult("🔄 Switching to: " + url, "info");
 
-    if (url && url.trim()) {
-      if (window.Scheme && window.Scheme.setServerUrl) {
-        window.Scheme.setServerUrl(url);
-        updateServerUrlDisplay(url);
-        displayLocalResult("✅ Server URL updated to: " + url, "info");
-      } else {
-        displayLocalResult("❌ Server interface not available", "error");
-      }
-    } else {
-      displayLocalResult("⚠️ URL change cancelled or empty", "info");
+    if (window.Scheme && window.Scheme.setServerUrl) {
+      window.Scheme.setServerUrl(url);
     }
+    updateServerUrlDisplay(url);
+    displayLocalResult("✅ Server URL updated to: " + url, "info");
+
   } catch (e) {
     displayLocalResult("❌ Error in setServerUrl: " + e.message, "error");
   }
@@ -288,17 +269,6 @@ function generateSchemeButtons() {
     localButton.onclick = () => runSchemeExpression(expression);
     localButton.title = "Run locally";
     buttonGrid.appendChild(localButton);
-
-    // Send to server button
-    const serverButton = document.createElement("button");
-    serverButton.className = "scheme-button";
-    serverButton.textContent = "📤 " + expression;
-    serverButton.onclick = () => sendToServer(expression);
-    serverButton.title = "Send to server";
-    serverButton.style.background = "#f0f0ff";
-    serverButton.style.borderColor = "#4169E1";
-    serverButton.style.color = "#1e3a8a";
-    buttonGrid.appendChild(serverButton);
   });
 
   // Add utility buttons

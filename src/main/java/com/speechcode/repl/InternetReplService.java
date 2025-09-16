@@ -26,7 +26,6 @@ public class InternetReplService {
     private final WebView webView;
     private final ExecutorService executorService;
     private final AtomicBoolean isRunning;
-    private final BlockingQueue<String> outgoingQueue;
 
     private String serverUrl;
     private int retryDelay;
@@ -35,9 +34,8 @@ public class InternetReplService {
     public InternetReplService(MainActivity activity, WebView webView) {
         this.mainActivity = activity;
         this.webView = webView;
-        this.executorService = Executors.newFixedThreadPool(2);
+        this.executorService = Executors.newSingleThreadExecutor();
         this.isRunning = new AtomicBoolean(false);
-        this.outgoingQueue = new LinkedBlockingQueue<>();
         this.serverUrl = DEFAULT_SERVER_URL;
         this.retryDelay = 1000; // Start with 1 second
         this.lastConnectionStatus = "Starting...";
@@ -52,9 +50,6 @@ public class InternetReplService {
 
             // Start the incoming message thread
             executorService.execute(this::handleIncomingMessages);
-
-            // Start the outgoing message thread
-            executorService.execute(this::handleOutgoingMessages);
         }
     }
 
@@ -64,13 +59,6 @@ public class InternetReplService {
             updateConnectionStatus("Disconnected");
             updateStatusDisplay("Disconnected", "error");
             executorService.shutdown();
-        }
-    }
-
-    public void queueExpression(String expression) {
-        if (isRunning.get()) {
-            outgoingQueue.offer(expression);
-            Log.i(TAG, "Queued expression for server: " + expression);
         }
     }
 
@@ -111,26 +99,6 @@ public class InternetReplService {
         }
     }
 
-    private void handleOutgoingMessages() {
-        while (isRunning.get()) {
-            try {
-                // Wait for expression to send
-                String expression = outgoingQueue.take();
-
-                // Send to server queue
-                sendExpressionToQueue(expression);
-                Log.i(TAG, "Sent expression to server queue: " + expression);
-
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            } catch (Exception e) {
-                Log.e(TAG, "Error sending expression to server: " + e.getMessage());
-                lastConnectionStatus = "Send error: " + e.getMessage();
-                updateStatusDisplay("Send error: " + e.getMessage(), "error");
-            }
-        }
-    }
 
     private String waitForExpression() throws IOException {
         URL url = new URL(serverUrl + "/wait-for-expression");
@@ -193,29 +161,6 @@ public class InternetReplService {
         }
     }
 
-    private void sendExpressionToQueue(String expression) throws IOException {
-        URL url = new URL(serverUrl + "/queue");
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-
-        connection.setRequestMethod("POST");
-        connection.setConnectTimeout(10000);
-        connection.setReadTimeout(10000);
-        connection.setDoOutput(true);
-        connection.setRequestProperty("Content-Type", "text/plain; charset=UTF-8");
-
-        byte[] expressionBytes = expression.getBytes(StandardCharsets.UTF_8);
-        connection.setRequestProperty("Content-Length", String.valueOf(expressionBytes.length));
-
-        OutputStream outputStream = connection.getOutputStream();
-        outputStream.write(expressionBytes);
-        outputStream.flush();
-        outputStream.close();
-
-        int responseCode = connection.getResponseCode();
-        if (responseCode != 200) {
-            throw new IOException("Queue send got HTTP " + responseCode);
-        }
-    }
 
     private void displayRemoteResult(String expression, String result) {
         // Use main thread to update WebView
