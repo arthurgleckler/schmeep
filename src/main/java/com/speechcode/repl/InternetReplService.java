@@ -92,7 +92,7 @@ public class InternetReplService {
 
 
     private String waitForExpression() throws IOException {
-        URL url = new URL(serverUrl + "/wait-for-expression");
+        URL url = new URL(serverUrl);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
         connection.setRequestMethod("GET");
@@ -124,7 +124,7 @@ public class InternetReplService {
 
     private void sendResult(String result) {
         try {
-            URL url = new URL(serverUrl + "/result");
+            URL url = new URL(serverUrl);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
             connection.setRequestMethod("POST");
