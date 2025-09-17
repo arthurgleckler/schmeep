@@ -308,18 +308,26 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
   }
 
   LOGI("JNI: Evaluating Scheme expression: %s", expr_cstr);
+  LOGI("JNI: About to call sexp_read_from_string - ctx=%p", scheme_ctx);
 
   sexp code_sexp = sexp_read_from_string(scheme_ctx, expr_cstr, -1);
+
+  LOGI("JNI: sexp_read_from_string returned - code_sexp=%p", code_sexp);
 
   (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
 
   if (!code_sexp || sexp_exceptionp(code_sexp)) {
-    LOGE("JNI: Failed to parse Scheme expression.");
+    LOGE("JNI: Failed to parse Scheme expression - code_sexp=%p exception=%d",
+         code_sexp, code_sexp ? sexp_exceptionp(code_sexp) : -1);
     pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Parse error");
   }
 
+  LOGI("JNI: About to call sexp_eval - ctx=%p code_sexp=%p env=%p", scheme_ctx, code_sexp, scheme_env);
+
   sexp result = sexp_eval(scheme_ctx, code_sexp, scheme_env);
+
+  LOGI("JNI: sexp_eval returned - result=%p", result);
 
   if (!result || sexp_exceptionp(result)) {
     LOGE("JNI: Failed to evaluate Scheme expression.");
@@ -334,15 +342,24 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
     return (*env)->NewStringUTF(env, "Error: Evaluation error");
   }
 
+  LOGI("JNI: About to call sexp_write_to_string - ctx=%p result=%p", scheme_ctx, result);
+
   sexp result_str = sexp_write_to_string(scheme_ctx, result);
 
+  LOGI("JNI: sexp_write_to_string returned - result_str=%p", result_str);
+
   if (!result_str || sexp_exceptionp(result_str)) {
-    LOGE("JNI: Failed to convert result to string.");
+    LOGE("JNI: Failed to convert result to string - result_str=%p exception=%d",
+         result_str, result_str ? sexp_exceptionp(result_str) : -1);
     pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Result conversion error");
   }
 
+  LOGI("JNI: About to call sexp_string_data - result_str=%p", result_str);
+
   const char *result_cstr = sexp_string_data(result_str);
+
+  LOGI("JNI: sexp_string_data returned - result_cstr=%p", result_cstr);
 
   if (!result_cstr) {
     LOGE("JNI: sexp_string_data returned NULL for valid result_str.");
