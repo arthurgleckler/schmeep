@@ -32,8 +32,7 @@ int init_scheme() {
   LOGI("init_scheme: Starting Scheme initialization.");
   extract_chibi_scheme_assets();
   sexp_scheme_init();
-
-  scheme_ctx = sexp_make_eval_context(NULL, NULL, NULL, 0, 0);
+  scheme_ctx = sexp_make_eval_context(NULL, NULL, NULL, 1024*1024, 8*1024*1024);
   if (!scheme_ctx) {
     LOGE("init_scheme: Failed to create Scheme context.");
     return -1;
