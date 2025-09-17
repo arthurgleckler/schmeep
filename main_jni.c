@@ -292,10 +292,12 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
   pthread_mutex_lock(&scheme_mutex);
 
   if (scheme_ctx == NULL || scheme_env == NULL) {
-    LOGE("JNI: Scheme not initialized.");
+    LOGE("JNI: Scheme not initialized - ctx=%p env=%p", scheme_ctx, scheme_env);
     pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Scheme not initialized");
   }
+
+  LOGI("JNI: Context validation passed - ctx=%p env=%p", scheme_ctx, scheme_env);
 
   const char *expr_cstr = (*env)->GetStringUTFChars(env, expression, NULL);
 
@@ -341,6 +343,13 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
   }
 
   const char *result_cstr = sexp_string_data(result_str);
+
+  if (!result_cstr) {
+    LOGE("JNI: sexp_string_data returned NULL for valid result_str.");
+    pthread_mutex_unlock(&scheme_mutex);
+    return (*env)->NewStringUTF(env, "Error: String data extraction failed");
+  }
+
   LOGI("JNI: Scheme result: %s", result_cstr);
 
   jstring java_result = (*env)->NewStringUTF(env, result_cstr);
