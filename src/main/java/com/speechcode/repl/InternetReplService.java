@@ -156,14 +156,14 @@ public class InternetReplService {
     private void displayRemoteResult(String expression, String result) {
         webView.post(() -> {
             try {
-                String escapedExpression = expression.replace("'", "\\'").replace("\"", "\\\"");
-                String escapedResult = result.replace("'", "\\'").replace("\"", "\\\"");
+                String escapedExpression = expression.replace("\"", "\\\"");
+                String escapedResult = result.replace("\"", "\\\"");
                 String javascript = String.format(
-                    "console.log('Displaying remote result: %s = %s'); " +
-                    "if (typeof displayLocalResult === 'function') { " +
-                    "  displayLocalResult('🌐 %s = %s', 'remote'); " +
+                    "console.log(\"Displaying remote result: %s = %s\"); " +
+                    "if (typeof displayResult === \"function\") { " +
+                    "  displayResult(\"🌐 %s = %s\", \"remote\"); " +
                     "} else { " +
-                    "  console.error('displayLocalResult function not found'); " +
+                    "  console.error(\"displayResult function not found\"); " +
                     "}",
                     escapedExpression, escapedResult, escapedExpression, escapedResult
                 );
@@ -184,10 +184,10 @@ public class InternetReplService {
         webView.post(() -> {
 		String javascript
 		    = String.format("(function() { " +
-				    "var statusElement = document.querySelector('.status-bar div');" +
-				    "if (statusElement) statusElement.textContent = 'WebView + Internet REPL: %s';" +
+				    "var statusElement = document.querySelector(\".status-bar div\");" +
+				    "if (statusElement) statusElement.textContent = \"WebView + Internet REPL: %s\";" +
 				    "})();",
-				    status.replace("'", "\\'"));
+				    status.replace("\"", "\\\""));
 		webView.evaluateJavascript(javascript, null);
 	    });
     }
@@ -209,11 +209,11 @@ public class InternetReplService {
     private void updateStatusDisplay(String status, String statusType) {
         webView.post(() -> {
 		String javascript
-		    = String.format("if (typeof updateConnectionStatusDisplay === 'function') {" +
-				    "  updateConnectionStatusDisplay('%s', '%s');" +
+		    = String.format("if (typeof updateConnectionStatusDisplay === \"function\") {" +
+				    "  updateConnectionStatusDisplay(\"%s\", \"%s\");" +
 				    "}",
-				    status.replace("'", "\\'").replace("\"", "\\\""),
-				    statusType.replace("'", "\\'"));
+				    status.replace("\"", "\\\""),
+				    statusType.replace("\"", "\\\""));
 		webView.evaluateJavascript(javascript, null);
 	    });
     }

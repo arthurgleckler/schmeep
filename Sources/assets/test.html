@@ -182,11 +182,11 @@ const schemeExpressions = [
 // Set server URL
 function setServerUrl() {
   // First, test if the function is being called
-  displayLocalResult("🔧 Set Server URL button clicked!", "info");
+  displayResult("🔧 Set Server URL button clicked!", "info");
 
   try {
     const currentUrl = getCurrentServerUrl();
-    displayLocalResult("📊 Current URL: " + currentUrl, "info");
+    displayResult("📊 Current URL: " + currentUrl, "info");
 
     // Cycle between production TLS endpoints
     const commonUrls = [
@@ -198,17 +198,17 @@ function setServerUrl() {
     const nextIndex = (currentIndex + 1) % commonUrls.length;
     const url = commonUrls[nextIndex];
 
-    displayLocalResult("🔄 Cycling from: " + currentUrl, "info");
-    displayLocalResult("🔄 Switching to: " + url, "info");
+    displayResult("🔄 Cycling from: " + currentUrl, "info");
+    displayResult("🔄 Switching to: " + url, "info");
 
     if (window.Scheme && window.Scheme.setServerUrl) {
       window.Scheme.setServerUrl(url);
     }
     updateServerUrlDisplay(url);
-    displayLocalResult("✅ Server URL updated to: " + url, "info");
+    displayResult("✅ Server URL updated to: " + url, "info");
 
   } catch (e) {
-    displayLocalResult("❌ Error in setServerUrl: " + e.message, "error");
+    displayResult("❌ Error in setServerUrl: " + e.message, "error");
   }
 }
 
@@ -300,11 +300,11 @@ function generateSchemeButtons() {
 // Interactive Scheme evaluation.
 function runSchemeExpression(expression) {
   const result = evaluateScheme(expression);
-  displayLocalResult("📱 " + expression + " = " + result, "local");
+  displayResult("📱 " + expression + " = " + result, "local");
 }
 
-// Display local result with type indicator
-function displayLocalResult(text, type) {
+// Display result with type indicator
+function displayResult(text, type) {
   const schemeContent = document.getElementById("scheme-content");
 
   let className = "";
