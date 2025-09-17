@@ -7,6 +7,7 @@
 #include <android/log.h>
 #include <jni.h>
 #include <sys/stat.h>
+#include <pthread.h>
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "repl", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "repl", __VA_ARGS__)
@@ -16,6 +17,7 @@
 
 sexp scheme_ctx = NULL;
 sexp scheme_env = NULL;
+static pthread_mutex_t scheme_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void extract_chibi_scheme_assets() {
   LOGI("extract_chibi_scheme_assets: Starting asset extraction for JNI mode.");
@@ -281,8 +283,12 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 {
   LOGI("JNI: evaluateScheme called.");
 
+  // Lock mutex to ensure thread-safe access to Scheme context
+  pthread_mutex_lock(&scheme_mutex);
+
   if (scheme_ctx == NULL || scheme_env == NULL) {
     LOGE("JNI: Scheme not initialized.");
+    pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Scheme not initialized");
   }
 
@@ -290,6 +296,7 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
   if (!expr_cstr) {
     LOGE("JNI: Failed to convert expression string.");
+    pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Invalid expression string");
   }
 
@@ -301,6 +308,7 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
   if (!code_sexp || sexp_exceptionp(code_sexp)) {
     LOGE("JNI: Failed to parse Scheme expression.");
+    pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Parse error");
   }
 
@@ -315,6 +323,7 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
         LOGE("JNI: Scheme error: %s", sexp_string_data(msg));
       }
     }
+    pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Evaluation error");
   }
 
@@ -322,11 +331,17 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
   if (!result_str || sexp_exceptionp(result_str)) {
     LOGE("JNI: Failed to convert result to string.");
+    pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Result conversion error");
   }
 
   const char *result_cstr = sexp_string_data(result_str);
   LOGI("JNI: Scheme result: %s", result_cstr);
 
-  return (*env)->NewStringUTF(env, result_cstr);
+  jstring java_result = (*env)->NewStringUTF(env, result_cstr);
+
+  // Release mutex before returning
+  pthread_mutex_unlock(&scheme_mutex);
+
+  return java_result;
 }
