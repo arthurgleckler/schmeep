@@ -155,24 +155,38 @@ public class InternetReplService {
 
     private void displayRemoteResult(String expression, String result) {
         webView.post(() -> {
-		String escapedExpression = expression.replace("'", "\\'").replace("\"", "\\\"");
-		String escapedResult = result.replace("'", "\\'").replace("\"", "\\\"");
+            try {
+                String escapedExpression = expression.replace("'", "\\'").replace("\"", "\\\"");
+                String escapedResult = result.replace("'", "\\'").replace("\"", "\\\"");
+                String javascript = String.format(
+                    "console.log('Displaying remote result: %s = %s'); " +
+                    "if (typeof displayLocalResult === 'function') { " +
+                    "  displayLocalResult('🌐 %s = %s', 'remote'); " +
+                    "} else { " +
+                    "  console.error('displayLocalResult function not found'); " +
+                    "}",
+                    escapedExpression, escapedResult, escapedExpression, escapedResult
+                );
 
-		String javascript
-		    = String.format("const schemeContent = document.getElementById('scheme-content');" +
-				    "schemeContent.innerHTML += '<br>🌐 %s = %s';" +
-				    "schemeContent.scrollTop = schemeContent.scrollHeight;",
-				    escapedExpression, escapedResult);
-
-		webView.evaluateJavascript(javascript, null);
-	    });
+                Log.d(TAG, "Executing JavaScript for remote result: " + expression + " = " + result);
+                webView.evaluateJavascript(javascript, jsResult -> {
+                    if (jsResult != null) {
+                        Log.d(TAG, "JavaScript execution result: " + jsResult);
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error in displayRemoteResult: " + e.getMessage());
+            }
+        });
     }
 
     private void updateConnectionStatus(String status) {
         webView.post(() -> {
 		String javascript
-		    = String.format("const statusElement = document.querySelector('.status-bar div');" +
-				    "if (statusElement) statusElement.textContent = 'WebView + Internet REPL: %s';",
+		    = String.format("(function() { " +
+				    "var statusElement = document.querySelector('.status-bar div');" +
+				    "if (statusElement) statusElement.textContent = 'WebView + Internet REPL: %s';" +
+				    "})();",
 				    status.replace("'", "\\'"));
 		webView.evaluateJavascript(javascript, null);
 	    });

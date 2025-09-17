@@ -78,16 +78,19 @@ AndroidManifest.xml:
 		envsubst '$$ANDROID_TARGET $$ANDROID_VERSION $$APPNAME $$PACKAGE_NAME' \
 		< AndroidManifest.xml.template > AndroidManifest.xml
 
-classes.dex: src/main/java/com/speechcode/repl/MainActivity.java \
+classes.dex: src/main/java/com/speechcode/repl/DebugWebChromeClient.java \
+	src/main/java/com/speechcode/repl/InternetReplService.java \
+	src/main/java/com/speechcode/repl/MainActivity.java \
 	src/main/java/com/speechcode/repl/SchemeInterface.java
 	@echo "Compiling Java sources."
 	mkdir -p build/classes
 	javac -cp $(ANDROID_JAR) -d build/classes src/main/java/com/speechcode/repl/*.java
 	@echo "Creating classes.dex."
 	$(BUILD_TOOLS)/d8 --classpath $(ANDROID_JAR) --output . \
+		build/classes/com/speechcode/repl/DebugWebChromeClient.class \
+		build/classes/com/speechcode/repl/InternetReplService.class \
 		build/classes/com/speechcode/repl/MainActivity.class \
-		build/classes/com/speechcode/repl/SchemeInterface.class \
-		build/classes/com/speechcode/repl/InternetReplService.class
+		build/classes/com/speechcode/repl/SchemeInterface.class
 	@echo "Java compilation completed"
 
 clean:

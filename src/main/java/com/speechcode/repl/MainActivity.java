@@ -1,16 +1,17 @@
 package com.speechcode.repl;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.os.Bundle;
-import android.webkit.WebView;
-import android.webkit.WebSettings;
+import android.util.Log;
+import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
-import android.webkit.WebViewClient;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
-import android.webkit.WebChromeClient;
-import android.util.Log;
-import android.annotation.SuppressLint;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 public class MainActivity extends Activity {
     private static final String TAG = "repl";
@@ -66,6 +67,7 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             Log.e(TAG, "Failed to add JavaScript interface: " + e.getMessage());
         }
+        webView.setWebChromeClient(new DebugWebChromeClient());
         webView.loadUrl("file:///android_asset/test.html");
         internetReplService = new InternetReplService(this, webView);
         internetReplService.start();
