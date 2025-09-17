@@ -6,6 +6,7 @@
 #include <byteswap.h>
 #include <android/log.h>
 #include <jni.h>
+#include <sys/stat.h>
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "repl", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "repl", __VA_ARGS__)
@@ -134,6 +135,18 @@ int init_scheme()
     scheme_env = std_env;
   }
 
+  // Set up library search path for dynamic loading
+  const char* set_path_expr = "(current-module-path (cons \"/data/data/com.speechcode.repl/lib\" (current-module-path)))";
+  sexp path_sexp = sexp_read_from_string(scheme_ctx, set_path_expr, -1);
+  if (path_sexp && !sexp_exceptionp(path_sexp)) {
+    sexp path_result = sexp_eval(scheme_ctx, path_sexp, scheme_env);
+    if (path_result && !sexp_exceptionp(path_result)) {
+      LOGI("init_scheme: Library search path configured.");
+    } else {
+      LOGE("init_scheme: Failed to set library search path.");
+    }
+  }
+
   // Define factorial function.
   const char* factorial_def = "(define (factorial n) (if (<= n 1) 1 (* n (factorial (- n 1)))))";
   sexp code_sexp = sexp_read_from_string(scheme_ctx, factorial_def, -1);
@@ -147,6 +160,7 @@ int init_scheme()
   } else {
     LOGE("init_scheme: Failed to parse factorial definition.");
   }
+
 
   LOGI("init_scheme: Scheme context initialized successfully.");
   return 0;
@@ -221,6 +235,9 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
     "lib/srfi/1/selectors.scm",
     "lib/srfi/9.sld",
     "lib/srfi/11.sld",
+    "lib/srfi/27.sld",
+    "lib/srfi/27/constructors.scm",
+    "lib/srfi/27/rand.so",
     "lib/srfi/39.sld",
     NULL
   };
@@ -272,7 +289,14 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 	  if (fp) {
 	    fwrite(bufferPtr, 1, bytesRead, fp);
 	    fclose(fp);
-	    LOGI("Extracted essential file: %s (%d bytes)", extract_path, bytesRead);
+
+	    // Set executable permissions for .so files
+	    if (strstr(target_path, ".so") != NULL) {
+	      chmod(target_path, 0755);
+	      LOGI("Extracted shared library: %s (%d bytes)", extract_path, bytesRead);
+	    } else {
+	      LOGI("Extracted essential file: %s (%d bytes)", extract_path, bytesRead);
+	    }
 	    count++;
 	  } else {
 	    LOGE("Failed to write file: %s", target_path);
@@ -369,6 +393,12 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
   if (!result || sexp_exceptionp(result)) {
     LOGE("JNI: Failed to evaluate Scheme expression.");
+    if (result && sexp_exceptionp(result)) {
+      sexp msg = sexp_exception_message(result);
+      if (msg && sexp_stringp(msg)) {
+        LOGE("JNI: Scheme error: %s", sexp_string_data(msg));
+      }
+    }
     return (*env)->NewStringUTF(env, "Error: Evaluation error");
   }
 

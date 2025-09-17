@@ -108,7 +108,8 @@ date && adb logcat --buffer=all --clear
 **Comprehensive JNI Asset Extraction**: On first launch, the app extracts 25+ essential Scheme library files from the APK to `/data/data/com.speechcode.repl/lib/` using JNI AssetManager calls. This includes:
 - **R7RS Core**: `init-7.scm` (52KB), `meta-7.scm` (17KB), complete `scheme/*` modules
 - **Chibi Extensions**: `chibi/equiv.sld`, `chibi/string.sld`, `chibi/io.sld`, `chibi/ast.sld`
-- **SRFI Libraries**: `srfi/9.sld`, `srfi/11.sld`, `srfi/39.sld` for record types and parameter objects
+- **SRFI Libraries**: `srfi/9.sld`, `srfi/11.sld`, `srfi/27.sld`,
+  `srfi/39.sld` for record types, parameter objects, and random numbers
 - **Full APK Integration**: All 583 Scheme files packaged and available for extraction
 
 ## Important Debugging Notes
