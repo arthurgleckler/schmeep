@@ -262,6 +262,9 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(JNIEnv *env, jobject thiz)
 {
   LOGI("JNI: initializeScheme called.");
+
+  pthread_mutex_lock(&scheme_mutex);
+
   if (scheme_ctx == NULL) {
     LOGI("JNI: Initializing Chibi Scheme.");
     if (extract_chibi_assets_jni(env, thiz) == 0) {
@@ -277,6 +280,8 @@ JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(JN
   } else {
     LOGI("JNI: Chibi Scheme already initialized.");
   }
+
+  pthread_mutex_unlock(&scheme_mutex);
 }
 
 JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(JNIEnv *env, jobject thiz, jstring expression)
