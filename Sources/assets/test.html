@@ -168,6 +168,8 @@ function evaluateScheme(expression) {
 
 // Array of expressions for buttons.
 const schemeExpressions = [
+  "(define (factorial n) (if (<= n 1) 1 (* n (factorial (- n 1)))))",
+  "(import (srfi 27))",
   "(+ 1 2 3 4 5)",
   "(* 6 7)",
   "(sqrt 64)",

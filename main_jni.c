@@ -147,21 +147,6 @@ int init_scheme()
     }
   }
 
-  // Define factorial function.
-  const char* factorial_def = "(define (factorial n) (if (<= n 1) 1 (* n (factorial (- n 1)))))";
-  sexp code_sexp = sexp_read_from_string(scheme_ctx, factorial_def, -1);
-  if (code_sexp && !sexp_exceptionp(code_sexp)) {
-    sexp result = sexp_eval(scheme_ctx, code_sexp, scheme_env);
-    if (result && !sexp_exceptionp(result)) {
-      LOGI("init_scheme: factorial function defined successfully.");
-    } else {
-      LOGE("init_scheme: Failed to define factorial function.");
-    }
-  } else {
-    LOGE("init_scheme: Failed to parse factorial definition.");
-  }
-
-
   LOGI("init_scheme: Scheme context initialized successfully.");
   return 0;
 }
