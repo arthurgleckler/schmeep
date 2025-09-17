@@ -11,78 +11,33 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "repl", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "repl", __VA_ARGS__)
 
-// Chibi Scheme includes
 #include "chibi/eval.h"
 #include "chibi/sexp.h"
 
-// Global Scheme variables
 sexp scheme_ctx = NULL;
 sexp scheme_env = NULL;
 
-// Forward declarations (WebView-only stubs).
-void AndroidDisplayKeyboard(int pShow) { /* WebView handles keyboard. */ }
-void AndroidSendToBack(int pShow) { /* Not needed in WebView-only mode. */ }
-
-void HandleKey( int keycode, int bDown )
-{
-  // Back button handling removed for WebView-only mode.
-}
-
-void HandleButton( int x, int y, int button, int bDown )
-{
-  // Mouse/touch handling removed for WebView-only mode.
-}
-
-void HandleMotion( int x, int y, int mask )
-{
-  // Motion handling removed for WebView-only mode.
-}
-
-void HandleDestroy()
-{
-  // Clean up resources on destroy.
-  if (scheme_ctx) {
-    sexp_destroy_context(scheme_ctx);
-    scheme_ctx = NULL;
-    scheme_env = NULL;
-  }
-}
-
-// Extract Chibi Scheme assets from APK.
-void extract_chibi_scheme_assets()
-{
+void extract_chibi_scheme_assets() {
   LOGI("extract_chibi_scheme_assets: Starting asset extraction for JNI mode.");
 
-  // For JNI mode, we will attempt a basic extraction using standard paths.
-  // Create base target directory.
   char target_base[] = "/data/data/com.speechcode.repl/lib";
   char mkdir_cmd[256];
+
   snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", target_base);
   system(mkdir_cmd);
-
-  LOGI("extract_chibi_scheme_assets: Created target directory %s", target_base);
   LOGI("extract_chibi_scheme_assets: Completed (JNI mode - assets should be extracted by build system).");
 }
 
-// Initialize Scheme system.
-int init_scheme()
-{
+int init_scheme() {
   LOGI("init_scheme: Starting Scheme initialization.");
-
-  // First extract Chibi Scheme library files.
   extract_chibi_scheme_assets();
-
-  // Initialize Scheme system.
   sexp_scheme_init();
 
-  // Create Scheme evaluation context.
   scheme_ctx = sexp_make_eval_context(NULL, NULL, NULL, 0, 0);
   if (!scheme_ctx) {
     LOGE("init_scheme: Failed to create Scheme context.");
     return -1;
   }
-
-  // Get the default environment.
   scheme_env = sexp_context_env(scheme_ctx);
   if (!scheme_env) {
     LOGE("init_scheme: Failed to get Scheme environment.");
@@ -90,22 +45,22 @@ int init_scheme()
     scheme_ctx = NULL;
     return -1;
   }
-
-  // Configure module search paths for Android.
   LOGI("init_scheme: Setting up Android-specific module paths.");
+
   sexp module_path_string = sexp_c_string(scheme_ctx, "/data/data/com.speechcode.repl/lib", -1);
+
   sexp_global(scheme_ctx, SEXP_G_MODULE_PATH) = sexp_list1(scheme_ctx, module_path_string);
   LOGI("init_scheme: Set module directory to: /data/data/com.speechcode.repl/lib.");
-
-  // Load standard ports.
   sexp_load_standard_ports(scheme_ctx, scheme_env, stdin, stdout, stderr, 1);
-
-  // Try to load R7RS standard environment. Fall back to simpler versions if needed.
   LOGI("init_scheme: Attempting to load R7RS standard environment.");
+
   sexp std_env = sexp_load_standard_env(scheme_ctx, scheme_env, SEXP_SEVEN);
+
   if (sexp_exceptionp(std_env)) {
     LOGE("init_scheme: Warning: Failed to load R7RS standard environment. Trying R5RS.");
+
     sexp msg = sexp_exception_message(std_env);
+
     if (msg && sexp_stringp(msg)) {
       LOGE("init_scheme: R7RS Error: %s", sexp_string_data(msg));
     }
@@ -113,7 +68,9 @@ int init_scheme()
     std_env = sexp_load_standard_env(scheme_ctx, scheme_env, SEXP_FIVE);
     if (sexp_exceptionp(std_env)) {
       LOGE("init_scheme: Warning: Failed to load R5RS. Trying basic environment.");
+
       sexp msg = sexp_exception_message(std_env);
+
       if (msg && sexp_stringp(msg)) {
 	LOGE("init_scheme: R5RS Error: %s", sexp_string_data(msg));
       }
@@ -121,7 +78,6 @@ int init_scheme()
       std_env = sexp_load_standard_env(scheme_ctx, scheme_env, SEXP_THREE);
       if (sexp_exceptionp(std_env)) {
 	LOGE("init_scheme: Warning: All standard environments failed. Using minimal environment.");
-	// Keep the basic environment that was already created.
       } else {
 	LOGI("init_scheme: R3RS environment loaded successfully.");
 	scheme_env = std_env;
@@ -135,9 +91,9 @@ int init_scheme()
     scheme_env = std_env;
   }
 
-  // Set up library search path for dynamic loading
   const char* set_path_expr = "(current-module-path (cons \"/data/data/com.speechcode.repl/lib\" (current-module-path)))";
   sexp path_sexp = sexp_read_from_string(scheme_ctx, set_path_expr, -1);
+
   if (path_sexp && !sexp_exceptionp(path_sexp)) {
     sexp path_result = sexp_eval(scheme_ctx, path_sexp, scheme_env);
     if (path_result && !sexp_exceptionp(path_result)) {
@@ -146,14 +102,11 @@ int init_scheme()
       LOGE("init_scheme: Failed to set library search path.");
     }
   }
-
   LOGI("init_scheme: Scheme context initialized successfully.");
   return 0;
 }
 
-// Clean up Scheme system.
-void cleanup_scheme()
-{
+void cleanup_scheme() {
   if (scheme_ctx) {
     LOGI("cleanup_scheme: Destroying Scheme context.");
     sexp_destroy_context(scheme_ctx);
@@ -162,9 +115,7 @@ void cleanup_scheme()
   }
 }
 
-// Extract assets from APK using JNI.
 int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
-  // Get AssetManager from the activity context.
   jclass activityClass = (*env)->GetObjectClass(env, activity);
   jmethodID getAssetsMethod = (*env)->GetMethodID(env, activityClass, "getAssets", "()Landroid/content/res/AssetManager;");
   jobject assetManager = (*env)->CallObjectMethod(env, activity, getAssetsMethod);
@@ -174,16 +125,18 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
     return -1;
   }
 
-  // Create base target directory.
   char target_base[] = "/data/data/com.speechcode.repl/lib";
   char mkdir_cmd[256];
+
   snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", target_base);
   system(mkdir_cmd);
-
   LOGI("Starting essential Scheme library extraction.");
 
-  // Essential R7RS files for basic functionality.
   const char* essential_files[] = {
+    "lib/chibi/ast.sld",
+    "lib/chibi/equiv.sld",
+    "lib/chibi/io.sld",
+    "lib/chibi/string.sld",
     "lib/init-7.scm",
     "lib/meta-7.scm",
     "lib/scheme/base.sld",
@@ -202,12 +155,6 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
     "lib/scheme/repl.sld",
     "lib/scheme/time.sld",
     "lib/scheme/write.sld",
-    // Chibi core modules needed by scheme/base
-    "lib/chibi/equiv.sld",
-    "lib/chibi/string.sld",
-    "lib/chibi/io.sld",
-    "lib/chibi/ast.sld",
-    // SRFI modules needed by scheme/base and essential list operations
     "lib/srfi/1.sld",
     "lib/srfi/1/alists.scm",
     "lib/srfi/1/constructors.scm",
@@ -218,16 +165,15 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
     "lib/srfi/1/predicates.scm",
     "lib/srfi/1/search.scm",
     "lib/srfi/1/selectors.scm",
-    "lib/srfi/9.sld",
     "lib/srfi/11.sld",
     "lib/srfi/27.sld",
     "lib/srfi/27/constructors.scm",
     "lib/srfi/27/rand.so",
     "lib/srfi/39.sld",
+    "lib/srfi/9.sld",
     NULL
   };
 
-  // Get AAssetManager native pointer.
   jclass assetManagerClass = (*env)->GetObjectClass(env, assetManager);
   jmethodID openMethod = (*env)->GetMethodID(env, assetManagerClass, "open", "(Ljava/lang/String;)Ljava/io/InputStream;");
 
@@ -240,7 +186,6 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
     jobject inputStream = (*env)->CallObjectMethod(env, assetManager, openMethod, assetPath);
 
     if (inputStream) {
-      // Read from InputStream.
       jclass inputStreamClass = (*env)->GetObjectClass(env, inputStream);
       jmethodID availableMethod = (*env)->GetMethodID(env, inputStreamClass, "available", "()I");
       jmethodID readMethod = (*env)->GetMethodID(env, inputStreamClass, "read", "([B)I");
@@ -252,11 +197,9 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 	jint bytesRead = (*env)->CallIntMethod(env, inputStream, readMethod, buffer);
 
 	if (bytesRead > 0) {
-	  // Get byte array elements.
 	  jbyte* bufferPtr = (*env)->GetByteArrayElements(env, buffer, NULL);
-
-	  // Create target path and parent directory.
 	  char target_path[512];
+
 	  snprintf(target_path, sizeof(target_path), "%s/%s", target_base, extract_path);
 
 	  char parent_dir[512];
@@ -269,13 +212,12 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 	    system(mkdir_cmd);
 	  }
 
-	  // Write file.
 	  FILE* fp = fopen(target_path, "wb");
+
 	  if (fp) {
 	    fwrite(bufferPtr, 1, bytesRead, fp);
 	    fclose(fp);
 
-	    // Set executable permissions for .so files
 	    if (strstr(target_path, ".so") != NULL) {
 	      chmod(target_path, 0755);
 	      LOGI("Extracted shared library: %s (%d bytes)", extract_path, bytesRead);
@@ -315,24 +257,17 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
   }
 }
 
-// JNI Functions for Java Activity Integration.
 
 JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(JNIEnv *env, jobject thiz)
 {
   LOGI("JNI: initializeScheme called.");
-
-  // Initialize Scheme system.
   if (scheme_ctx == NULL) {
     LOGI("JNI: Initializing Chibi Scheme.");
-
-    // Extract Chibi Scheme assets using JNI.
     if (extract_chibi_assets_jni(env, thiz) == 0) {
       LOGI("JNI: Asset extraction successful.");
     } else {
       LOGE("JNI: Asset extraction failed. Continuing with basic environment.");
     }
-
-    // Initialize Scheme context.
     if (init_scheme() == 0) {
       LOGI("JNI: Chibi Scheme initialized successfully.");
     } else {
@@ -347,14 +282,13 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 {
   LOGI("JNI: evaluateScheme called.");
 
-  // Check if Scheme is initialized.
   if (scheme_ctx == NULL || scheme_env == NULL) {
     LOGE("JNI: Scheme not initialized.");
     return (*env)->NewStringUTF(env, "Error: Scheme not initialized");
   }
 
-  // Convert Java string to C string.
   const char *expr_cstr = (*env)->GetStringUTFChars(env, expression, NULL);
+
   if (!expr_cstr) {
     LOGE("JNI: Failed to convert expression string.");
     return (*env)->NewStringUTF(env, "Error: Invalid expression string");
@@ -362,10 +296,8 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
   LOGI("JNI: Evaluating Scheme expression: %s", expr_cstr);
 
-  // Parse and evaluate expression.
   sexp code_sexp = sexp_read_from_string(scheme_ctx, expr_cstr, -1);
 
-  // Release the Java string.
   (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
 
   if (!code_sexp || sexp_exceptionp(code_sexp)) {
@@ -373,13 +305,13 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
     return (*env)->NewStringUTF(env, "Error: Parse error");
   }
 
-  // Evaluate the expression.
   sexp result = sexp_eval(scheme_ctx, code_sexp, scheme_env);
 
   if (!result || sexp_exceptionp(result)) {
     LOGE("JNI: Failed to evaluate Scheme expression.");
     if (result && sexp_exceptionp(result)) {
       sexp msg = sexp_exception_message(result);
+
       if (msg && sexp_stringp(msg)) {
         LOGE("JNI: Scheme error: %s", sexp_string_data(msg));
       }
@@ -387,8 +319,8 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
     return (*env)->NewStringUTF(env, "Error: Evaluation error");
   }
 
-  // Convert result to string.
   sexp result_str = sexp_write_to_string(scheme_ctx, result);
+
   if (!result_str || sexp_exceptionp(result_str)) {
     LOGE("JNI: Failed to convert result to string.");
     return (*env)->NewStringUTF(env, "Error: Result conversion error");
@@ -397,8 +329,5 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
   const char *result_cstr = sexp_string_data(result_str);
   LOGI("JNI: Scheme result: %s", result_cstr);
 
-  // Convert C string back to Java string.
-  jstring java_result = (*env)->NewStringUTF(env, result_cstr);
-
-  return java_result;
+  return (*env)->NewStringUTF(env, result_cstr);
 }
