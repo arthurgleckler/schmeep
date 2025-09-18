@@ -128,8 +128,6 @@ public class BluetoothReplService {
         }
     }
 
-    public void setServerUrl(String ignored) {
-    }
 
     private boolean hasBluetoothPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
