@@ -19,9 +19,9 @@ public class SchemeInterface {
 
     @JavascriptInterface
     public void setServerUrl(String url) {
-        Log.i(TAG, "JavaScript Interface: Setting server URL: " + url);
-        if (mainActivity.getInternetReplService() != null) {
-            mainActivity.getInternetReplService().setServerUrl(url);
+        Log.i(TAG, "JavaScript Interface: Setting server URL (ignored for Bluetooth): " + url);
+        if (mainActivity.getBluetoothReplService() != null) {
+            mainActivity.getBluetoothReplService().setServerUrl(url);
         }
     }
 }

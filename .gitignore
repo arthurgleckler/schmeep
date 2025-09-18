@@ -3,6 +3,7 @@
 *.apk
 *.keystore
 AndroidManifest.xml
+bluetooth_client
 build/
 classes.dex
 makecapk/

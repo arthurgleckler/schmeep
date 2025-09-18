@@ -1,7 +1,10 @@
 package com.speechcode.repl;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.webkit.ConsoleMessage;
@@ -15,8 +18,9 @@ import android.webkit.WebViewClient;
 
 public class MainActivity extends Activity {
     private static final String TAG = "repl";
+    private static final int BLUETOOTH_REQUEST_CODE = 1001;
     private WebView webView;
-    private InternetReplService internetReplService;
+    private BluetoothReplService bluetoothReplService;
 
     static {
         System.loadLibrary("repl");
@@ -69,8 +73,15 @@ public class MainActivity extends Activity {
         }
         webView.setWebChromeClient(new DebugWebChromeClient());
         webView.loadUrl("file:///android_asset/test.html");
-        internetReplService = new InternetReplService(this, webView);
-        internetReplService.start();
+
+        bluetoothReplService = new BluetoothReplService(this, webView);
+
+        requestBluetoothPermissions();
+
+        // Only start if we already have permissions, otherwise wait for callback
+        if (hasBluetoothPermissions()) {
+            bluetoothReplService.start();
+        }
 
         Log.i(TAG, "WebView setup completed.");
     }
@@ -78,15 +89,62 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (internetReplService != null) {
-            internetReplService.stop();
-            internetReplService = null;
+        if (bluetoothReplService != null) {
+            bluetoothReplService.stop();
+            bluetoothReplService = null;
         }
         Log.i(TAG, "MainActivity destroyed");
     }
 
-    public InternetReplService getInternetReplService() {
-        return internetReplService;
+    public BluetoothReplService getBluetoothReplService() {
+        return bluetoothReplService;
+    }
+
+    private boolean hasBluetoothPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+                   checkSelfPermission(Manifest.permission.BLUETOOTH_ADVERTISE) == PackageManager.PERMISSION_GRANTED;
+        } else {
+            return checkSelfPermission(Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED &&
+                   checkSelfPermission(Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED;
+        }
+    }
+
+    private void requestBluetoothPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            String[] permissions = {
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_ADVERTISE
+            };
+            for (String permission : permissions) {
+                if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(permissions, BLUETOOTH_REQUEST_CODE);
+                    break;
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == BLUETOOTH_REQUEST_CODE) {
+            boolean allGranted = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+            if (allGranted) {
+                Log.i(TAG, "Bluetooth permissions granted");
+                if (bluetoothReplService != null) {
+                    bluetoothReplService.start();
+                }
+            } else {
+                Log.w(TAG, "Bluetooth permissions denied");
+            }
+        }
     }
 
     public native void initializeScheme();

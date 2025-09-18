@@ -1,4 +1,4 @@
-.PHONY: push run
+.PHONY: push run bluetooth_client
 
 ADB ?= adb
 ANDROID_VERSION ?= 33
@@ -67,7 +67,7 @@ $(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64)
 	cp makecapk/lib/arm64-v8a/srfi-27-rand.so $@/srfi/27/rand.so
 	@echo "Chibi Scheme assets and shared libraries copied"
 
-all: makecapk.apk
+all: bluetooth_client makecapk.apk
 
 AndroidManifest.xml:
 	rm -rf AndroidManifest.xml
@@ -78,8 +78,14 @@ AndroidManifest.xml:
 		envsubst '$$ANDROID_TARGET $$ANDROID_VERSION $$APPNAME $$PACKAGE_NAME' \
 		< AndroidManifest.xml.template > AndroidManifest.xml
 
-classes.dex: src/main/java/com/speechcode/repl/DebugWebChromeClient.java \
-	src/main/java/com/speechcode/repl/InternetReplService.java \
+bluetooth_client: bluetooth_client.c
+	@echo "Compiling Bluetooth client"
+	gcc -o bluetooth_client bluetooth_client.c -lbluetooth
+	@echo "Bluetooth client compiled successfully"
+
+classes.dex: \
+	src/main/java/com/speechcode/repl/BluetoothReplService.java \
+	src/main/java/com/speechcode/repl/DebugWebChromeClient.java \
 	src/main/java/com/speechcode/repl/MainActivity.java \
 	src/main/java/com/speechcode/repl/SchemeInterface.java
 	@echo "Compiling Java sources."
@@ -87,14 +93,14 @@ classes.dex: src/main/java/com/speechcode/repl/DebugWebChromeClient.java \
 	javac -cp $(ANDROID_JAR) -d build/classes src/main/java/com/speechcode/repl/*.java
 	@echo "Creating classes.dex."
 	$(BUILD_TOOLS)/d8 --classpath $(ANDROID_JAR) --output . \
+		build/classes/com/speechcode/repl/BluetoothReplService.class \
 		build/classes/com/speechcode/repl/DebugWebChromeClient.class \
-		build/classes/com/speechcode/repl/InternetReplService.class \
 		build/classes/com/speechcode/repl/MainActivity.class \
 		build/classes/com/speechcode/repl/SchemeInterface.class
 	@echo "Java compilation completed"
 
 clean:
-	rm -rf AndroidManifest.xml $(APKFILE) classes.dex build/ makecapk.apk makecapk temp.apk
+	rm -rf AndroidManifest.xml $(APKFILE) classes.dex build/ makecapk.apk makecapk temp.apk bluetooth_client
 
 makecapk.apk: $(TARGETS) $(CHIBI_ASSETS_DIR) AndroidManifest.xml classes.dex
 	rm -f $(APKFILE)

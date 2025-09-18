@@ -16,8 +16,8 @@ combines:
    communication for Scheme evaluation
 4. **JNI Asset Extraction**: Runtime extraction of R7RS library files
    from APK to device filesystem
-5. **Internet REPL Service**: Real-time server communication for
-   remote Scheme expression evaluation
+5. **Bluetooth SPP REPL Service**: Two-way Bluetooth Serial Port Profile
+   communication for remote Scheme expression evaluation
 
 ### Core Components
 
@@ -25,8 +25,8 @@ combines:
   JNI integration, and WebView console logging
 - **SchemeInterface.java**: Separate class providing JavaScript
   interface to avoid inner class compilation issues
-- **InternetReplService.java**: Background service for server
-  communication and result display with thread-safe operations
+- **BluetoothReplService.java**: Background Bluetooth SPP server for
+  client communication and result display with thread-safe operations
 - **DebugWebChromeClient.java**: Separate WebView console logging
   implementation for JavaScript debugging
 - **main_jni.c**: JNI implementation with Chibi Scheme integration,
@@ -51,6 +51,54 @@ system:
   including SRFI 27 shared libraries on first launch
 - **Result Display**: `displayResult()` function handles both local
   and remote results with proper styling and IIFE scope isolation
+
+### Bluetooth SPP Communication System
+
+The application implements a complete two-way Bluetooth Serial Port Profile
+(SPP) communication system for remote Scheme expression evaluation:
+
+**Android Server Components:**
+- **BluetoothReplService.java**: SPP server implementing custom UUID service
+  registration with both secure and insecure connection modes for maximum
+  compatibility
+- **Custom UUID**: `611a1a1a-94ba-11f0-b0a8-5f754c08f133` for reliable
+  service discovery
+- **Length-Prefixed Protocol**: 4-byte big-endian length prefix + UTF-8
+  message content for multi-line expression support
+- **Service Discovery**: Registers as "SchemeREPL" service in SDP for client
+  discovery
+- **Bluetooth Permissions**: Complete Android 12+ permission handling with
+  runtime permission requests
+
+**Linux Client:**
+- **bluetooth_client.c**: C client with UUID-based service discovery
+- **Automatic Port Discovery**: Uses SDP queries with custom UUID to find
+  correct RFCOMM channel automatically
+- **Interactive REPL**: Full command-line interface for real-time Scheme
+  evaluation
+- **Robust Protocol**: Implements same length-prefixed binary protocol as
+  Android server
+
+**Protocol Specification:**
+```
+Message Format: [4-byte length][UTF-8 content]
+Length Encoding: Big-endian 32-bit unsigned integer
+Content Encoding: UTF-8 text (supports multi-line expressions)
+Connection Type: RFCOMM (Bluetooth SPP)
+Service UUID: 611a1a1a-94ba-11f0-b0a8-5f754c08f133
+```
+
+**Usage:**
+```bash
+# Compile client
+gcc -o bluetooth_client bluetooth_client.c -lbluetooth
+
+# Interactive mode
+./bluetooth_client AA:BB:CC:DD:EE:FF
+
+# Pipe expressions
+echo "(+ 2 3)" | ./bluetooth_client AA:BB:CC:DD:EE:FF
+```
 
 ### Build System Integration
 
@@ -97,6 +145,28 @@ adb logcat | grep UnsatisfiedLinkError
 date && adb logcat --buffer=all --clear
 ```
 
+### Bluetooth Testing and Debugging
+```bash
+# Test Bluetooth client (replace with actual device address)
+./bluetooth_client AA:BB:CC:DD:EE:FF
+
+# Check Bluetooth service discovery
+python3 -c "
+import bluetooth
+services = bluetooth.find_service(address='AA:BB:CC:DD:EE:FF')
+for s in services:
+    if s.get('name') == 'SchemeREPL':
+        print('SchemeREPL found on port:', s.get('port'))
+"
+
+# Monitor Bluetooth connections during testing
+timeout 10s adb logcat -s repl | grep -E "(Client connected|Waiting for|Bluetooth)"
+
+# Test expressions via Bluetooth
+echo "(+ 2 3)" | ./bluetooth_client AA:BB:CC:DD:EE:FF
+echo -e "(define x 42)\nx\n(* x 2)" | ./bluetooth_client AA:BB:CC:DD:EE:FF
+```
+
 ### Development Workflow
 - Always check build completion before installing.
 - Always check timestamps before examining adb logcat output to avoid
@@ -134,7 +204,7 @@ date && adb logcat --buffer=all --clear
   main_jni.c with thread safety
 - **Real-time Evaluation**: Synchronous JavaScript calls with
   immediate Scheme results
-- **Internet REPL**: Background service handles server communication
+- **Bluetooth REPL**: Background SPP service handles client communication
   with proper result display using `displayResult()`
 - **IIFE Scope Isolation**: JavaScript variable declarations wrapped
   in immediately invoked function expressions to prevent conflicts
@@ -154,6 +224,15 @@ date && adb logcat --buffer=all --clear
 - `PACKAGENAME`: Android package identifier (default:
   "com.speechcode.repl")
 - `ANDROIDVERSION`: Target Android API level (default: 33)
+
+### Bluetooth Configuration
+- **Service UUID**: `611a1a1a-94ba-11f0-b0a8-5f754c08f133` (hardcoded in both
+  Android server and C client)
+- **Service Name**: "SchemeREPL" (registered in SDP for discovery)
+- **Required Permissions**: BLUETOOTH, BLUETOOTH_ADMIN, BLUETOOTH_CONNECT,
+  BLUETOOTH_ADVERTISE (automatically added via AndroidManifest.xml.template)
+- **Protocol**: Length-prefixed binary (4-byte big-endian length + UTF-8 content)
+- **Client Dependencies**: libbluetooth-dev package on Linux
 
 ### Asset Management
 **Comprehensive JNI Asset Extraction**: On first launch, the app
