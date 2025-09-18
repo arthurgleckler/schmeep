@@ -97,6 +97,7 @@ clean:
 	rm -rf AndroidManifest.xml $(APKFILE) classes.dex build/ makecapk.apk makecapk temp.apk
 
 makecapk.apk: $(TARGETS) $(CHIBI_ASSETS_DIR) AndroidManifest.xml classes.dex
+	rm -f $(APKFILE)
 	mkdir -p makecapk/assets
 	cp -r Sources/assets/* makecapk/assets
 	cp classes.dex makecapk/
