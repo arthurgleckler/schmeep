@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<style>
+body {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  font-family: "Roboto Mono", "Courier New", monospace;
+  height: 100vh;
+  margin: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.button-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin-top: 12px;
+}
+
+.debug-info {
+  border-radius: 4px;
+  margin-top: 8px;
+  padding: 8px;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.scheme-button {
+  background: #f0f8f0;
+  border: 1px solid #4CAF50;
+  border-radius: 4px;
+  color: #2E7D32;
+  cursor: pointer;
+  padding: 8px 12px;
+  text-align: center;
+  transition: background 0.2s;
+}
+
+.scheme-button:active {
+  background: #d4f4d4;
+}
+
+.scheme-button:hover {
+  background: #e8f5e8;
+}
+
+.scheme-output {
+  font-family: "Roboto Mono", "Courier New", monospace;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.section {
+  border-left: 3px solid #4CAF50;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.section-title {
+  font-variant: small-caps;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.status-bar {
+  align-items: center;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+}
+
+#scheme-content {
+  min-height: 40px;
+}
+
+#screen-dimensions {
+  font-weight: bold;
+}
+
+#webview-messages {
+  min-height: 20px;
+}
+</style>
+<script>
+// Scheme evaluation using JavaScript interface.
+function evaluateScheme(expression) {
+  try {
+    // Check if the Scheme interface is available.
+    if (window.Scheme && window.Scheme.eval) {
+      return window.Scheme.eval(expression);
+    } else {
+      return "Scheme bridge not available.";
+    }
+  } catch (e) {
+    return "Error: " + e.message;
+  }
+}
+
+// Array of expressions for buttons.
+const schemeExpressions = [
+  "(+ 1 2 3 4 5)",
+  "(* 6 7)",
+  "(sqrt 64)",
+  "(expt 2 8)",
+  "(abs -42)",
+  "(min 5 3 8 1 9)",
+  "(factorial 10)"
+];
+
+// Generate buttons dynamically.
+function generateSchemeButtons() {
+  const buttonGrid = document.querySelector(".button-grid");
+
+  buttonGrid.innerHTML = "";
+
+  // Add Scheme expression buttons.
+  schemeExpressions.forEach(expression => {
+    const button = document.createElement("button");
+
+    button.className = "scheme-button";
+    button.textContent = expression;
+    button.onclick = () => runSchemeExpression(expression);
+    buttonGrid.appendChild(button);
+  });
+
+  // Add hard-coded Clear Output button.
+  const clearButton = document.createElement("button");
+
+  clearButton.className = "scheme-button";
+  clearButton.textContent = "Clear Output";
+  clearButton.onclick = () => document.getElementById("scheme-content").innerHTML = "";
+  buttonGrid.appendChild(clearButton);
+}
+
+// Interactive Scheme evaluation.
+function runSchemeExpression(expression) {
+  const result = evaluateScheme(expression);
+  const schemeContent = document.getElementById("scheme-content");
+
+  schemeContent.innerHTML = schemeContent.innerHTML + "<br>🔸 " + expression + " = " + result;
+
+  // Auto-scroll to bottom.
+  schemeContent.scrollTop = schemeContent.scrollHeight;
+}
+
+function initializePage() {
+  generateSchemeButtons();
+}
+
+// Auto-initialize when page loads.
+window.addEventListener("load", initializePage);
+</script>
+</head>
+  <body>
+    <div class="status-bar">
+      <div>WebView Full-Screen Mode</div></div>
+
+    <div class="main-content">
+      <div class="section">
+	<div class="section-title">Scheme REPL</div>
+	<div id="scheme-content" class="scheme-output"></div>
+      </div>
+
+      <div class="section">
+	<div class="section-title">Interactive Scheme Demo</div>
+	<div class="button-grid"></div>
+      </div>
+
+      <div class="section">
+	<div class="section-title">WebView Messages</div>
+	<div class="debug-info">
+	  Debug: JavaScript → JNI → Chibi Scheme → Result</div></div></body></html>

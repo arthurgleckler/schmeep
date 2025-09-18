@@ -1,0 +1,11 @@
+.claude/
+.aider*
+*.keystore
+AndroidManifest.xml
+build/
+classes.dex
+makecapk/
+output.map
+repl.apk
+repl.apk.idsig
+Sources/assets/lib/

@@ -1,0 +1,3 @@
+[submodule "chibi-scheme"]
+	path = chibi-scheme
+	url = git@github.com:ashinn/chibi-scheme.git

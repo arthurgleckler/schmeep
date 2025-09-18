@@ -1,0 +1,19 @@
+package com.speechcode.repl;
+
+import android.webkit.JavascriptInterface;
+import android.util.Log;
+
+public class SchemeInterface {
+    private static final String TAG = "repl";
+    private MainActivity mainActivity;
+
+    public SchemeInterface(MainActivity activity) {
+        this.mainActivity = activity;
+    }
+
+    @JavascriptInterface
+    public String eval(String expression) {
+        Log.i(TAG, "JavaScript Interface: Evaluating Scheme expression: " + expression);
+        return mainActivity.evaluateScheme(expression);
+    }
+}
