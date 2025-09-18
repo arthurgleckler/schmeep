@@ -21,7 +21,7 @@ public class BluetoothReplService {
     private static final String TAG = "repl";
     private static final UUID SCHEME_REPL_UUID = UUID.fromString("611a1a1a-94ba-11f0-b0a8-5f754c08f133");
     private static final UUID SPP_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    private static final String SERVICE_NAME = "SchemeREPL";
+    private static final String SERVICE_NAME = "CHB";
     private static final int MAX_MESSAGE_LENGTH = 1048576;
 
     private final MainActivity mainActivity;

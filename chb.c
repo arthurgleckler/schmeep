@@ -12,12 +12,165 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 #define MAX_MESSAGE_LENGTH 1048576
 #define SCHEME_REPL_UUID "611a1a1a-94ba-11f0-b0a8-5f754c08f133"
+#define CACHE_DIR ".cache/chb"
+#define CACHE_FILE "mac-address.txt"
 
 // Forward declarations
 char* scan_known_addresses();
+char* load_cached_address();
+void save_cached_address(const char* address);
+char* get_cache_file_path();
+bool check_address_for_scheme_repl(const char* address);
+
+// Get the full path to the cache file
+char* get_cache_file_path() {
+    const char* home = getenv("HOME");
+    if (!home) {
+        return NULL;
+    }
+
+    char* path = malloc(strlen(home) + strlen(CACHE_DIR) + strlen(CACHE_FILE) + 3);
+    if (!path) {
+        return NULL;
+    }
+
+    sprintf(path, "%s/%s/%s", home, CACHE_DIR, CACHE_FILE);
+    return path;
+}
+
+// Load cached MAC address if available
+char* load_cached_address() {
+    char* cache_path = get_cache_file_path();
+    if (!cache_path) {
+        return NULL;
+    }
+
+    FILE* file = fopen(cache_path, "r");
+    free(cache_path);
+
+    if (!file) {
+        return NULL;
+    }
+
+    char* address = malloc(19); // AA:BB:CC:DD:EE:FF + null terminator
+    if (!address) {
+        fclose(file);
+        return NULL;
+    }
+
+    if (fgets(address, 19, file) == NULL) {
+        free(address);
+        fclose(file);
+        return NULL;
+    }
+
+    fclose(file);
+
+    // Remove newline if present
+    size_t len = strlen(address);
+    if (len > 0 && address[len-1] == '\n') {
+        address[len-1] = '\0';
+    }
+
+    // Validate format (should be XX:XX:XX:XX:XX:XX)
+    if (strlen(address) != 17) {
+        free(address);
+        return NULL;
+    }
+
+    return address;
+}
+
+// Save MAC address to cache
+void save_cached_address(const char* address) {
+    if (!address) {
+        return;
+    }
+
+    char* cache_path = get_cache_file_path();
+    if (!cache_path) {
+        return;
+    }
+
+    // Create cache directory if it doesn't exist
+    const char* home = getenv("HOME");
+    if (home) {
+        char* cache_dir = malloc(strlen(home) + strlen(CACHE_DIR) + 2);
+        if (cache_dir) {
+            sprintf(cache_dir, "%s/%s", home, CACHE_DIR);
+            mkdir(cache_dir, 0755); // Create directory, ignore if exists
+            free(cache_dir);
+        }
+    }
+
+    FILE* file = fopen(cache_path, "w");
+    free(cache_path);
+
+    if (!file) {
+        return;
+    }
+
+    fprintf(file, "%s\n", address);
+    fclose(file);
+}
+
+// Check if a specific address has CHB service
+bool check_address_for_scheme_repl(const char* address) {
+    printf("Checking cached address %s...", address);
+    fflush(stdout);
+
+    bdaddr_t target;
+    str2ba(address, &target);
+
+    sdp_session_t* session = sdp_connect(BDADDR_ANY, &target, SDP_RETRY_IF_BUSY);
+    if (!session) {
+        printf(" (connection failed)\n");
+        return false;
+    }
+
+    // Look for CHB service
+    uuid_t rfcomm_uuid;
+    sdp_uuid16_create(&rfcomm_uuid, RFCOMM_UUID);
+    sdp_list_t* search_list = sdp_list_append(NULL, &rfcomm_uuid);
+    uint32_t range = 0x0000ffff;
+    sdp_list_t* attr_list = sdp_list_append(NULL, &range);
+    sdp_list_t* rsp_list = NULL;
+
+    int result = sdp_service_search_attr_req(session, search_list,
+                                           SDP_ATTR_REQ_RANGE, attr_list, &rsp_list);
+
+    bool found_scheme_repl = false;
+    if (result == 0) {
+        sdp_list_t* r = rsp_list;
+        for (; r && !found_scheme_repl; r = r->next) {
+            sdp_record_t* rec = (sdp_record_t*) r->data;
+            sdp_data_t* service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
+            if (service_name && service_name->dtd == SDP_TEXT_STR8) {
+                if (strstr(service_name->val.str, "CHB")) {
+                    found_scheme_repl = true;
+                }
+            }
+        }
+    }
+
+    if (search_list) sdp_list_free(search_list, 0);
+    if (attr_list) sdp_list_free(attr_list, 0);
+    if (rsp_list) sdp_list_free(rsp_list, 0);
+    sdp_close(session);
+
+    if (found_scheme_repl) {
+        printf(" CHB found!\n");
+        return true;
+    } else {
+        printf(" (no CHB service)\n");
+        return false;
+    }
+}
 
 int send_message(int sock, const char* message) {
     size_t len = strlen(message);
@@ -162,7 +315,7 @@ cleanup:
 }
 
 char* scan_paired_devices() {
-    printf("Scanning paired Bluetooth devices for SchemeREPL service...\n");
+    printf("Scanning paired Bluetooth devices for CHB service...\n");
 
     int dev_id = hci_get_route(NULL);
     if (dev_id < 0) {
@@ -197,7 +350,7 @@ char* scan_paired_devices() {
         return scan_known_addresses();
     }
 
-    printf("Found %d active connections, checking for SchemeREPL...\n", cl->conn_num);
+    printf("Found %d active connections, checking for CHB...\n", cl->conn_num);
 
     for (int i = 0; i < cl->conn_num; i++) {
         char addr_str[19];
@@ -206,14 +359,14 @@ char* scan_paired_devices() {
         printf("Checking %s...", addr_str);
         fflush(stdout);
 
-        // Try to find SchemeREPL service on this device
+        // Try to find CHB service on this device
         sdp_session_t* session = sdp_connect(BDADDR_ANY, &ci[i].bdaddr, SDP_RETRY_IF_BUSY);
         if (!session) {
             printf(" (SDP connection failed)\n");
             continue;
         }
 
-        // Look for SchemeREPL service by name
+        // Look for CHB service by name
         uuid_t rfcomm_uuid;
         sdp_uuid16_create(&rfcomm_uuid, RFCOMM_UUID);
         sdp_list_t* search_list = sdp_list_append(NULL, &rfcomm_uuid);
@@ -231,7 +384,7 @@ char* scan_paired_devices() {
                 sdp_record_t* rec = (sdp_record_t*) r->data;
                 sdp_data_t* service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
                 if (service_name && service_name->dtd == SDP_TEXT_STR8) {
-                    if (strstr(service_name->val.str, "SchemeREPL")) {
+                    if (strstr(service_name->val.str, "CHB")) {
                         found_scheme_repl = true;
                     }
                 }
@@ -244,14 +397,14 @@ char* scan_paired_devices() {
         sdp_close(session);
 
         if (found_scheme_repl) {
-            printf(" SchemeREPL found!\n");
+            printf(" CHB found!\n");
             char* result_addr = malloc(19);
             strcpy(result_addr, addr_str);
             free(cl);
             close(sock);
             return result_addr;
         } else {
-            printf(" (no SchemeREPL service)\n");
+            printf(" (no CHB service)\n");
         }
     }
 
@@ -283,7 +436,7 @@ char* scan_known_addresses() {
             continue;
         }
 
-        // Look for SchemeREPL service
+        // Look for CHB service
         uuid_t rfcomm_uuid;
         sdp_uuid16_create(&rfcomm_uuid, RFCOMM_UUID);
         sdp_list_t* search_list = sdp_list_append(NULL, &rfcomm_uuid);
@@ -301,7 +454,7 @@ char* scan_known_addresses() {
                 sdp_record_t* rec = (sdp_record_t*) r->data;
                 sdp_data_t* service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
                 if (service_name && service_name->dtd == SDP_TEXT_STR8) {
-                    if (strstr(service_name->val.str, "SchemeREPL")) {
+                    if (strstr(service_name->val.str, "CHB")) {
                         found_scheme_repl = true;
                     }
                 }
@@ -314,12 +467,12 @@ char* scan_known_addresses() {
         sdp_close(session);
 
         if (found_scheme_repl) {
-            printf(" SchemeREPL found!\n");
+            printf(" CHB found!\n");
             char* result_addr = malloc(19);
             strcpy(result_addr, known_addresses[i]);
             return result_addr;
         } else {
-            printf(" (no SchemeREPL service)\n");
+            printf(" (no CHB service)\n");
         }
     }
 
@@ -330,19 +483,40 @@ int main(int argc, char* argv[]) {
     const char* bt_addr = NULL;
 
     if (argc == 1) {
-        // Auto-discovery mode
-        char* discovered_addr = scan_paired_devices();
-        if (!discovered_addr) {
-            fprintf(stderr, "No SchemeREPL service found\n");
-            fprintf(stderr, "Usage: %s [bluetooth_address]\n", argv[0]);
-            fprintf(stderr, "Example: %s AA:BB:CC:DD:EE:FF\n", argv[0]);
-            return 1;
+        // Auto-discovery mode - try cached address first
+        char* cached_addr = load_cached_address();
+        char* discovered_addr = NULL;
+
+        if (cached_addr) {
+            if (check_address_for_scheme_repl(cached_addr)) {
+                discovered_addr = cached_addr;
+                printf("Using cached device: %s\n", discovered_addr);
+            } else {
+                free(cached_addr);
+                cached_addr = NULL;
+            }
         }
+
+        if (!discovered_addr) {
+            printf("No cached address or cached address failed, scanning devices...\n");
+            discovered_addr = scan_paired_devices();
+            if (!discovered_addr) {
+                fprintf(stderr, "No CHB service found\n");
+                fprintf(stderr, "Usage: %s [bluetooth_address]\n", argv[0]);
+                fprintf(stderr, "Example: %s AA:BB:CC:DD:EE:FF\n", argv[0]);
+                return 1;
+            }
+            printf("Using discovered device: %s\n", discovered_addr);
+            // Save new address to cache
+            save_cached_address(discovered_addr);
+        }
+
         bt_addr = discovered_addr;
-        printf("Using discovered device: %s\n", bt_addr);
     } else if (argc == 2) {
         // Manual address mode
         bt_addr = argv[1];
+        // Save manually specified address to cache for future use
+        save_cached_address(bt_addr);
     } else {
         fprintf(stderr, "Usage: %s [bluetooth_address]\n", argv[0]);
         fprintf(stderr, "Example: %s AA:BB:CC:DD:EE:FF\n", argv[0]);
@@ -364,6 +538,13 @@ int main(int argc, char* argv[]) {
         perror("Failed to create socket");
         return 1;
     }
+
+    // Set connection timeout
+    struct timeval tv;
+    tv.tv_sec = 5;  // 5 second connection timeout
+    tv.tv_usec = 0;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
     // Set up connection address
     struct sockaddr_rc addr = {0};

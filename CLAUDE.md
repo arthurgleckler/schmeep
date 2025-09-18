@@ -65,7 +65,7 @@ The application implements a complete two-way Bluetooth Serial Port Profile
   service discovery
 - **Length-Prefixed Protocol**: 4-byte big-endian length prefix + UTF-8
   message content for multi-line expression support
-- **Service Discovery**: Registers as "SchemeREPL" service in SDP for client
+- **Service Discovery**: Registers as "CHB" service in SDP for client
   discovery
 - **Bluetooth Permissions**: Complete Android 12+ permission handling with
   runtime permission requests
@@ -161,8 +161,8 @@ python3 -c "
 import bluetooth
 services = bluetooth.find_service(address='AA:BB:CC:DD:EE:FF')
 for s in services:
-    if s.get('name') == 'SchemeREPL':
-        print('SchemeREPL found on port:', s.get('port'))
+    if s.get('name') == 'CHB':
+        print('CHB found on port:', s.get('port'))
 "
 
 # Monitor Bluetooth connections during testing
@@ -234,7 +234,7 @@ echo -e "(define x 42)\nx\n(* x 2)" | ./chb AA:BB:CC:DD:EE:FF
 ### Bluetooth Configuration
 - **Service UUID**: `611a1a1a-94ba-11f0-b0a8-5f754c08f133` (hardcoded in both
   Android server and C client)
-- **Service Name**: "SchemeREPL" (registered in SDP for discovery)
+- **Service Name**: "CHB" (registered in SDP for discovery)
 - **Required Permissions**: BLUETOOTH, BLUETOOTH_ADMIN, BLUETOOTH_CONNECT,
   BLUETOOTH_ADVERTISE (automatically added via AndroidManifest.xml.template)
 - **Protocol**: Length-prefixed binary (4-byte big-endian length + UTF-8 content)
