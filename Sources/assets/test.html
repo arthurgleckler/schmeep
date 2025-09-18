@@ -300,7 +300,13 @@ function generateSchemeButtons() {
 // Interactive Scheme evaluation.
 function runSchemeExpression(expression) {
   const result = evaluateScheme(expression);
-  displayResult("📱 " + expression + " = " + result, "local");
+
+  // Check if the result is an error and display it appropriately
+  if (result.startsWith("Parse Error:") || result.startsWith("Error:")) {
+    displayResult("📱 " + expression + " → " + result, "error");
+  } else {
+    displayResult("📱 " + expression + " = " + result, "local");
+  }
 }
 
 // Display result with type indicator

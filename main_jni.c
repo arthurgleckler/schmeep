@@ -528,14 +528,47 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
          code_sexp, code_sexp ? sexp_exceptionp(code_sexp) : -1);
     LOGE("JNI: INPUT EXPRESSION WAS: '%s'", expr_cstr);
 
+    char parse_error_message[1024];
+    int pos = snprintf(parse_error_message, sizeof(parse_error_message), "Parse Error: ");
+
     if (code_sexp && sexp_exceptionp(code_sexp)) {
-      log_scheme_exception_details(code_sexp, scheme_ctx, "JNI Parse", expr_cstr);
+      // Note: Skip detailed logging to avoid crashes on corrupted objects
+      LOGE("JNI Parse: Parse error detected for expression: %s", expr_cstr);
+
+      // Safely extract error information with validation
+      int extracted_info = 0;
+
+      // Try to get error message first (most reliable)
+      sexp msg = NULL;
+      const char* msg_data = NULL;
+
+      // Use a try-catch like approach by checking each step
+      if (pos < sizeof(parse_error_message) - 50) {
+        msg = sexp_exception_message(code_sexp);
+        if (msg && sexp_stringp(msg)) {
+          msg_data = sexp_string_data(msg);
+          if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
+            pos += snprintf(parse_error_message + pos, sizeof(parse_error_message) - pos, "%s", msg_data);
+            extracted_info = 1;
+          }
+        }
+      }
+
+      // If we couldn't get the message, just use a generic error
+      if (!extracted_info && pos < sizeof(parse_error_message) - 20) {
+        pos += snprintf(parse_error_message + pos, sizeof(parse_error_message) - pos, "Invalid syntax");
+      }
+    } else if (pos < sizeof(parse_error_message) - 30) {
+      snprintf(parse_error_message + pos, sizeof(parse_error_message) - pos, "Failed to parse expression");
     }
 
-    (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
+    // Ensure null termination
+    parse_error_message[sizeof(parse_error_message) - 1] = '\0';
+
     sexp_gc_release1(scheme_ctx);
     pthread_mutex_unlock(&scheme_mutex);
-    return (*env)->NewStringUTF(env, "Error: Evaluation error");
+    (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
+    return (*env)->NewStringUTF(env, parse_error_message);
   }
 
   (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
@@ -552,25 +585,67 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
   if (!result || sexp_exceptionp(result)) {
     LOGE("JNI: Failed to evaluate Scheme expression.");
     LOGE("JNI: INPUT EXPRESSION WAS: '%s'", expr_cstr);
+
+    char error_message[1024];
+    int pos = snprintf(error_message, sizeof(error_message), "Error: ");
+
     if (result && sexp_exceptionp(result)) {
-      log_scheme_exception_details(result, scheme_ctx, "JNI Eval", expr_cstr);
+      // Note: Skip detailed logging to avoid crashes on corrupted objects
+      LOGE("JNI Eval: Evaluation error detected for expression: %s", expr_cstr);
 
-      log_scheme_stack_context_info(scheme_ctx, scheme_env, "JNI Eval");
+      // Safely extract error information with validation
+      int extracted_info = 0;
 
+      // Try to get error message (most reliable)
+      if (pos < sizeof(error_message) - 50) {
+        sexp msg = sexp_exception_message(result);
+        if (msg && sexp_stringp(msg)) {
+          const char* msg_data = sexp_string_data(msg);
+          if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
+            pos += snprintf(error_message + pos, sizeof(error_message) - pos, "%s", msg_data);
+            extracted_info = 1;
+          }
+        }
+      }
+
+      // Try to add error kind if we have space and didn't get a message
+      if (!extracted_info && pos < sizeof(error_message) - 50) {
+        sexp kind = sexp_exception_kind(result);
+        if (kind && sexp_symbolp(kind)) {
+          sexp kind_str = sexp_symbol_to_string(scheme_ctx, kind);
+          if (kind_str && sexp_stringp(kind_str)) {
+            const char* kind_data = sexp_string_data(kind_str);
+            if (kind_data && strlen(kind_data) > 0 && strlen(kind_data) < 50) {
+              pos += snprintf(error_message + pos, sizeof(error_message) - pos, "%s error", kind_data);
+              extracted_info = 1;
+            }
+          }
+        }
+      }
+
+      // If we couldn't extract specific info, use generic message
+      if (!extracted_info && pos < sizeof(error_message) - 20) {
+        pos += snprintf(error_message + pos, sizeof(error_message) - pos, "Evaluation failed");
+      }
+
+      // Log procedure info for debugging but don't try to extract it for user message
       sexp proc = sexp_exception_procedure(result);
-
       if (proc) {
         LOGE("JNI Eval: Error procedure present (proc=%p)", proc);
-        if (sexp_procedurep(proc)) {
-          LOGE("JNI Eval: Error procedure is a procedure object");
-        }
       }
     } else {
       LOGE("JNI: Result is NULL or not an exception (result=%p)", result);
+      if (pos < sizeof(error_message) - 30) {
+        snprintf(error_message + pos, sizeof(error_message) - pos, "Unknown evaluation error");
+      }
     }
+
+    // Ensure null termination
+    error_message[sizeof(error_message) - 1] = '\0';
+
     sexp_gc_release1(scheme_ctx);
     pthread_mutex_unlock(&scheme_mutex);
-    return (*env)->NewStringUTF(env, "Error: Evaluation error");
+    return (*env)->NewStringUTF(env, error_message);
   }
 
   LOGI("JNI: About to call sexp_write_to_string - ctx=%p result=%p", scheme_ctx, result);
