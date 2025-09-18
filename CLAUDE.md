@@ -71,7 +71,7 @@ The application implements a complete two-way Bluetooth Serial Port Profile
   runtime permission requests
 
 **Linux Client:**
-- **bluetooth_client.c**: C client with UUID-based service discovery
+- **chb.c**: C client with UUID-based service discovery
 - **Automatic Port Discovery**: Uses SDP queries with custom UUID to find
   correct RFCOMM channel automatically
 - **Interactive REPL**: Full command-line interface for real-time Scheme
@@ -91,13 +91,16 @@ Service UUID: 611a1a1a-94ba-11f0-b0a8-5f754c08f133
 **Usage:**
 ```bash
 # Compile client
-gcc -o bluetooth_client bluetooth_client.c -lbluetooth
+make chb
 
 # Interactive mode
-./bluetooth_client AA:BB:CC:DD:EE:FF
+./chb AA:BB:CC:DD:EE:FF
+
+# Auto-discovery mode
+./chb
 
 # Pipe expressions
-echo "(+ 2 3)" | ./bluetooth_client AA:BB:CC:DD:EE:FF
+echo "(+ 2 3)" | ./chb AA:BB:CC:DD:EE:FF
 ```
 
 ### Build System Integration
@@ -148,7 +151,10 @@ date && adb logcat --buffer=all --clear
 ### Bluetooth Testing and Debugging
 ```bash
 # Test Bluetooth client (replace with actual device address)
-./bluetooth_client AA:BB:CC:DD:EE:FF
+./chb AA:BB:CC:DD:EE:FF
+
+# Auto-discovery mode (scans paired/connected devices)
+./chb
 
 # Check Bluetooth service discovery
 python3 -c "
@@ -163,8 +169,8 @@ for s in services:
 timeout 10s adb logcat -s repl | grep -E "(Client connected|Waiting for|Bluetooth)"
 
 # Test expressions via Bluetooth
-echo "(+ 2 3)" | ./bluetooth_client AA:BB:CC:DD:EE:FF
-echo -e "(define x 42)\nx\n(* x 2)" | ./bluetooth_client AA:BB:CC:DD:EE:FF
+echo "(+ 2 3)" | ./chb AA:BB:CC:DD:EE:FF
+echo -e "(define x 42)\nx\n(* x 2)" | ./chb AA:BB:CC:DD:EE:FF
 ```
 
 ### Development Workflow

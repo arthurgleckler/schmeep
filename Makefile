@@ -1,4 +1,4 @@
-.PHONY: push run bluetooth_client
+.PHONY: push run
 
 ADB ?= adb
 ANDROID_VERSION ?= 33
@@ -67,7 +67,7 @@ $(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64)
 	cp makecapk/lib/arm64-v8a/srfi-27-rand.so $@/srfi/27/rand.so
 	@echo "Chibi Scheme assets and shared libraries copied"
 
-all: bluetooth_client makecapk.apk
+all: chb makecapk.apk
 
 AndroidManifest.xml:
 	rm -rf AndroidManifest.xml
@@ -78,9 +78,9 @@ AndroidManifest.xml:
 		envsubst '$$ANDROID_TARGET $$ANDROID_VERSION $$APPNAME $$PACKAGE_NAME' \
 		< AndroidManifest.xml.template > AndroidManifest.xml
 
-bluetooth_client: bluetooth_client.c
+chb: chb.c
 	@echo "Compiling Bluetooth client"
-	gcc -o bluetooth_client bluetooth_client.c -lbluetooth
+	gcc -o chb chb.c -lbluetooth
 	@echo "Bluetooth client compiled successfully"
 
 classes.dex: \
@@ -100,7 +100,7 @@ classes.dex: \
 	@echo "Java compilation completed"
 
 clean:
-	rm -rf AndroidManifest.xml $(APKFILE) classes.dex build/ makecapk.apk makecapk temp.apk bluetooth_client
+	rm -rf AndroidManifest.xml $(APKFILE) chb classes.dex build/ makecapk.apk makecapk temp.apk
 
 makecapk.apk: $(TARGETS) $(CHIBI_ASSETS_DIR) AndroidManifest.xml classes.dex
 	rm -f $(APKFILE)
