@@ -16,6 +16,8 @@
 #include <errno.h>
 #include <signal.h>
 #include <pthread.h>
+#include <termios.h>
+#include <sys/select.h>
 
 #define MAX_MESSAGE_LENGTH 1048576
 #define SCHEME_REPL_UUID "611a1a1a-94ba-11f0-b0a8-5f754c08f133"
@@ -28,9 +30,12 @@
 static volatile sig_atomic_t interrupt_requested = 0;
 static volatile sig_atomic_t input_complete = 0;
 static volatile sig_atomic_t message_sent = 0;
+static volatile sig_atomic_t response_received = 0;
 static int global_sock = -1;
+static int signal_pipe[2] = {-1, -1};  // For safe signal communication
 static pthread_mutex_t message_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t message_cond = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t response_cond = PTHREAD_COND_INITIALIZER;
 
 // Forward declarations
 char* scan_known_addresses();
@@ -42,6 +47,8 @@ void sigint_handler(int sig);
 void* input_thread(void* arg);
 int send_expression_message(int sock, const char* message);
 int send_interrupt_message(int sock);
+char* receive_message(int sock);
+char* receive_message_with_signal_check(int sock);
 
 // Get the full path to the cache file
 char* get_cache_file_path() {
@@ -190,11 +197,25 @@ bool check_address_for_scheme_repl(const char* address) {
 
 void sigint_handler(int sig) {
     if (sig == SIGINT) {
-        interrupt_requested = 1;
-        if (global_sock >= 0) {
-            send_interrupt_message(global_sock);
-            printf("^C\n");
+        // Signal handlers should only do async-signal-safe operations
+        char msg[] = "\n[DEBUG] SIGINT handler called\n";
+        write(STDERR_FILENO, msg, sizeof(msg) - 1);
+
+        char byte = 1;
+        ssize_t result = write(signal_pipe[1], &byte, 1);  // Notify main thread
+
+        if (result == 1) {
+            char success[] = "[DEBUG] Signal pipe write successful\n";
+            write(STDERR_FILENO, success, sizeof(success) - 1);
+        } else {
+            char fail[] = "[DEBUG] Signal pipe write failed\n";
+            write(STDERR_FILENO, fail, sizeof(fail) - 1);
         }
+
+        interrupt_requested = 1;
+
+        char end[] = "[DEBUG] SIGINT handler ending\n";
+        write(STDERR_FILENO, end, sizeof(end) - 1);
     }
 }
 
@@ -228,21 +249,80 @@ int send_expression_message(int sock, const char* message) {
 int send_interrupt_message(int sock) {
     uint8_t msg_type = MSG_TYPE_INTERRUPT;
 
-    if (send(sock, &msg_type, 1, 0) != 1) {
+    printf("[DEBUG] Sending interrupt message (type=%d)\n", msg_type);
+    fflush(stdout);
+
+    ssize_t result = send(sock, &msg_type, 1, 0);
+    if (result != 1) {
+        printf("[DEBUG] Failed to send interrupt: result=%ld, errno=%d\n", result, errno);
         perror("Failed to send interrupt");
         return -1;
     }
 
+    printf("[DEBUG] Interrupt message sent successfully\n");
+    fflush(stdout);
     return 0;
+}
+
+char* receive_message_with_signal_check(int sock) {
+    // Use select to monitor both socket and signal pipe
+    while (1) {
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(sock, &readfds);
+        FD_SET(signal_pipe[0], &readfds);
+
+        int max_fd = (sock > signal_pipe[0]) ? sock : signal_pipe[0];
+        int select_result = select(max_fd + 1, &readfds, NULL, NULL, NULL);
+
+        if (select_result < 0) {
+            if (errno == EINTR) {
+                printf("[DEBUG] select() interrupted by signal, retrying...\n");
+                continue;
+            }
+            perror("select failed");
+            return NULL;
+        }
+
+        // Check for signal first
+        if (FD_ISSET(signal_pipe[0], &readfds)) {
+            char byte;
+            read(signal_pipe[0], &byte, 1);  // Clear the pipe
+
+            printf("\n[DEBUG] Signal detected during receive, sending interrupt...\n");
+            fflush(stdout);
+
+            send_interrupt_message(sock);
+            // Continue to read the response
+        }
+
+        // Check if socket has data
+        if (FD_ISSET(sock, &readfds)) {
+            return receive_message(sock);
+        }
+    }
 }
 
 char* receive_message(int sock) {
     uint32_t network_len;
 
-    // Read length prefix
-    if (recv(sock, &network_len, 4, MSG_WAITALL) != 4) {
-        perror("Failed to receive length");
-        return NULL;
+    // Read length prefix with EINTR retry
+    ssize_t bytes_received = 0;
+    while (bytes_received < 4) {
+        ssize_t result = recv(sock, ((char*)&network_len) + bytes_received, 4 - bytes_received, 0);
+        if (result < 0) {
+            if (errno == EINTR) {
+                printf("[DEBUG] recv() interrupted by signal, retrying...\n");
+                continue;  // Retry on signal interruption
+            }
+            perror("Failed to receive length");
+            return NULL;
+        }
+        if (result == 0) {
+            printf("[DEBUG] Connection closed by peer\n");
+            return NULL;
+        }
+        bytes_received += result;
     }
 
     uint32_t len = ntohl(network_len);
@@ -260,10 +340,25 @@ char* receive_message(int sock) {
         return NULL;
     }
 
-    if (recv(sock, buffer, len, MSG_WAITALL) != (ssize_t)len) {
-        perror("Failed to receive message");
-        free(buffer);
-        return NULL;
+    // Read message content with EINTR retry
+    bytes_received = 0;
+    while (bytes_received < (ssize_t)len) {
+        ssize_t result = recv(sock, buffer + bytes_received, len - bytes_received, 0);
+        if (result < 0) {
+            if (errno == EINTR) {
+                printf("[DEBUG] recv() interrupted by signal, retrying...\n");
+                continue;  // Retry on signal interruption
+            }
+            perror("Failed to receive message");
+            free(buffer);
+            return NULL;
+        }
+        if (result == 0) {
+            printf("[DEBUG] Connection closed by peer during message\n");
+            free(buffer);
+            return NULL;
+        }
+        bytes_received += result;
     }
 
     buffer[len] = '\0';
@@ -602,9 +697,29 @@ int main(int argc, char* argv[]) {
     printf("Connected! Starting REPL session...\n");
     printf("Type Scheme expressions (or 'quit' to exit). Press Ctrl-C to interrupt long-running evaluations.\n\n");
 
-    // Set up signal handler
+    // Set up signal communication pipe
+    if (pipe(signal_pipe) < 0) {
+        perror("Failed to create signal pipe");
+        close(sock);
+        return 1;
+    }
+
+    // Set up signal handler with extensive logging
     global_sock = sock;
-    signal(SIGINT, sigint_handler);
+    struct sigaction sa;
+    sa.sa_handler = sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    if (sigaction(SIGINT, &sa, NULL) < 0) {
+        perror("Failed to set signal handler");
+        close(sock);
+        return 1;
+    }
+    printf("[DEBUG] Signal handler installed successfully\n");
+    fflush(stdout);
+
+    printf("[DEBUG] Starting main loop\n");
+    fflush(stdout);
 
     // Create input thread
     pthread_t input_tid;
@@ -614,12 +729,43 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Main thread handles responses
+    // Main thread handles responses and signals
     while (1) {
-        // Wait for a message to be sent before trying to receive response
+        printf("[DEBUG] Main loop iteration starting\n");
+        fflush(stdout);
+
+        // Wait for a message to be sent or signal
         pthread_mutex_lock(&message_mutex);
+        printf("[DEBUG] Acquired message mutex, waiting for condition\n");
+        fflush(stdout);
+
         while (!message_sent && !input_complete) {
+            printf("[DEBUG] Waiting for message_sent or input_complete...\n");
+            fflush(stdout);
             pthread_cond_wait(&message_cond, &message_mutex);
+            printf("[DEBUG] Condition wait returned\n");
+            fflush(stdout);
+        }
+
+        // Check for signal notification before attempting to receive
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(signal_pipe[0], &readfds);
+        struct timeval timeout = {0, 0};  // Non-blocking check
+
+        if (select(signal_pipe[0] + 1, &readfds, NULL, NULL, &timeout) > 0) {
+            if (FD_ISSET(signal_pipe[0], &readfds)) {
+                // Interrupt signal received
+                char byte;
+                read(signal_pipe[0], &byte, 1);  // Clear the pipe
+
+                printf("\n[DEBUG] Processing interrupt signal...\n");
+                fflush(stdout);
+
+                send_interrupt_message(sock);
+                message_sent = 1;
+                response_received = 0;
+            }
         }
 
         // If input completed without sending a message, exit
@@ -628,22 +774,31 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        // Reset the flag for next iteration
+        // Reset the flags for next iteration
         message_sent = 0;
+        response_received = 0;
         pthread_mutex_unlock(&message_mutex);
 
-        char* result = receive_message(sock);
+        char* result = receive_message_with_signal_check(sock);
         if (!result) {
             break;
         }
 
         if (interrupt_requested) {
+            printf("[DEBUG] Received interrupt response: %s\n", result);
             printf(" => %s\n\n", result);
             interrupt_requested = 0;
         } else {
+            printf("[DEBUG] Received normal response: %s\n", result);
             printf(" => %s\n\n", result);
         }
         free(result);
+
+        // Signal that response was received
+        pthread_mutex_lock(&message_mutex);
+        response_received = 1;
+        pthread_cond_signal(&response_cond);
+        pthread_mutex_unlock(&message_mutex);
 
         // For piped input, exit after receiving the first response
         if (input_complete) {
@@ -651,11 +806,27 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Clean up
+    printf("[DEBUG] Main loop exited, cleaning up\n");
+    fflush(stdout);
+
+    // Clean up - wake up input thread if it's waiting
+    pthread_mutex_lock(&message_mutex);
+    input_complete = 1;
+    pthread_cond_signal(&response_cond);
+    pthread_mutex_unlock(&message_mutex);
+
+    printf("[DEBUG] Canceling input thread\n");
+    fflush(stdout);
+
     pthread_cancel(input_tid);
     pthread_join(input_tid, NULL);
 
+    printf("[DEBUG] Input thread joined, closing connections\n");
+    fflush(stdout);
+
     close(sock);
+    close(signal_pipe[0]);
+    close(signal_pipe[1]);
     printf("Connection closed.\n");
 
     // Clean up discovered address if allocated
@@ -671,24 +842,68 @@ void* input_thread(void* arg) {
     char input[1024];
     bool stdin_is_terminal = isatty(STDIN_FILENO);
 
+    printf("[DEBUG] Input thread started\n");
+    fflush(stdout);
+
     while (1) {
+        printf("[DEBUG] Input thread loop iteration\n");
+        fflush(stdout);
+
         if (stdin_is_terminal) {
             printf("scheme> ");
             fflush(stdout);
         }
 
-        if (!fgets(input, sizeof(input), stdin)) {
+        // Try getline instead of fgets - it might handle signals better
+        char* line = NULL;
+        size_t len = 0;
+        ssize_t nread;
+
+        printf("[DEBUG] About to call getline\n");
+        fflush(stdout);
+
+        errno = 0;
+        nread = getline(&line, &len, stdin);
+
+        printf("[DEBUG] getline returned: nread=%ld, errno=%d\n", nread, errno);
+        fflush(stdout);
+
+        if (nread == -1) {
+            if (errno == EINTR) {
+                // Signal interrupted getline - wait for interrupt response before continuing
+                printf("[DEBUG] getline interrupted by signal\n");
+                fflush(stdout);
+                if (line) free(line);
+
+                // Wait for interrupt response before showing next prompt
+                printf("[DEBUG] Waiting for interrupt response...\n");
+                fflush(stdout);
+                pthread_mutex_lock(&message_mutex);
+                while (!response_received && !input_complete && interrupt_requested) {
+                    pthread_cond_wait(&response_cond, &message_mutex);
+                }
+                pthread_mutex_unlock(&message_mutex);
+                printf("[DEBUG] Interrupt response received, continuing...\n");
+                fflush(stdout);
+                continue;
+            }
             // EOF reached - for piped input, wait a bit for response then exit
             if (!stdin_is_terminal) {
                 sleep(1);  // Give time for response
             }
+            if (line) free(line);
             break;
         }
 
+        // Copy to input buffer and free allocated line
+        strncpy(input, line, sizeof(input) - 1);
+        input[sizeof(input) - 1] = '\0';
+        free(line);
+
         // Remove newline
-        size_t len = strlen(input);
-        if (len > 0 && input[len-1] == '\n') {
-            input[len-1] = '\0';
+        size_t input_len = strlen(input);
+        if (input_len > 0 && input[input_len-1] == '\n') {
+            input[input_len-1] = '\0';
         }
 
         if (strcmp(input, "quit") == 0 || strcmp(input, "exit") == 0 || strcmp(input, ":q") == 0) {
@@ -707,6 +922,7 @@ void* input_thread(void* arg) {
         // Signal that a message was sent
         pthread_mutex_lock(&message_mutex);
         message_sent = 1;
+        response_received = 0;  // Reset for this request
         pthread_cond_signal(&message_cond);
         pthread_mutex_unlock(&message_mutex);
 
@@ -715,6 +931,13 @@ void* input_thread(void* arg) {
             input_complete = 1;
             break;
         }
+
+        // Wait for response before showing next prompt
+        pthread_mutex_lock(&message_mutex);
+        while (!response_received && !input_complete) {
+            pthread_cond_wait(&response_cond, &message_mutex);
+        }
+        pthread_mutex_unlock(&message_mutex);
     }
 
     // Signal completion to main thread

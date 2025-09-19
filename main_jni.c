@@ -494,19 +494,16 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(
 {
   LOGI("JNI: interruptScheme called.");
 
-  pthread_mutex_lock(&scheme_mutex);
-
+  // Don't acquire mutex - this would cause deadlock since evaluation thread holds it
+  // Just check if context exists and set interrupt flag directly
   if (scheme_ctx == NULL) {
     LOGE("JNI: Scheme not initialized for interrupt - ctx=%p", scheme_ctx);
-    pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Interrupted (Scheme not initialized)");
   }
 
-  LOGI("JNI: Setting interrupt flag - ctx=%p", scheme_ctx);
+  LOGI("JNI: Setting interrupt flag without mutex - ctx=%p", scheme_ctx);
   sexp_context_interruptp(scheme_ctx) = 1;
   LOGI("JNI: Interrupt flag set successfully");
-
-  pthread_mutex_unlock(&scheme_mutex);
 
   return (*env)->NewStringUTF(env, "Interrupted");
 }

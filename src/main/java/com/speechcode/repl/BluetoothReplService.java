@@ -205,8 +205,10 @@ public class BluetoothReplService {
                         }
                     }
                 } else if (msgType == MSG_TYPE_INTERRUPT) {
-                    Log.i(TAG, "Received interrupt request");
+                    Log.i(TAG, "*** INTERRUPT MESSAGE RECEIVED ***");
+                    Log.i(TAG, "About to call handleInterrupt()");
                     handleInterrupt();
+                    Log.i(TAG, "handleInterrupt() completed");
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Error in message handling: " + e.getMessage());
@@ -249,9 +251,11 @@ public class BluetoothReplService {
 
     private void handleInterrupt() {
         try {
+            Log.i(TAG, "*** CALLING interruptScheme() ***");
             String result = mainActivity.interruptScheme();
+            Log.i(TAG, "*** interruptScheme() returned: " + result + " ***");
             writeMessage(outputStream, result);
-            Log.i(TAG, "Sent interrupt response: " + result);
+            Log.i(TAG, "*** Sent interrupt response: " + result + " ***");
         } catch (IOException e) {
             Log.e(TAG, "Error sending interrupt response: " + e.getMessage());
         }
