@@ -80,12 +80,13 @@ AndroidManifest.xml:
 
 chb: chb.c
 	@echo "Compiling Bluetooth client"
-	gcc -o chb chb.c -lbluetooth
+	gcc -o chb chb.c -lbluetooth -lpthread
 	@echo "Bluetooth client compiled successfully"
 
 classes.dex: \
 	src/main/java/com/speechcode/repl/BluetoothReplService.java \
 	src/main/java/com/speechcode/repl/DebugWebChromeClient.java \
+	src/main/java/com/speechcode/repl/EvaluationRequest.java \
 	src/main/java/com/speechcode/repl/MainActivity.java \
 	src/main/java/com/speechcode/repl/SchemeInterface.java
 	@echo "Compiling Java sources."
@@ -95,6 +96,7 @@ classes.dex: \
 	$(BUILD_TOOLS)/d8 --classpath $(ANDROID_JAR) --output . \
 		build/classes/com/speechcode/repl/BluetoothReplService.class \
 		build/classes/com/speechcode/repl/DebugWebChromeClient.class \
+		build/classes/com/speechcode/repl/EvaluationRequest.class \
 		build/classes/com/speechcode/repl/MainActivity.class \
 		build/classes/com/speechcode/repl/SchemeInterface.class
 	@echo "Java compilation completed"

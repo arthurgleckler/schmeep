@@ -15,6 +15,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BluetoothReplService {
@@ -24,10 +26,15 @@ public class BluetoothReplService {
     private static final String SERVICE_NAME = "CHB";
     private static final int MAX_MESSAGE_LENGTH = 1048576;
 
+    private static final byte MSG_TYPE_EXPRESSION = 0x00;
+    private static final byte MSG_TYPE_INTERRUPT = 0x01;
+
     private final MainActivity mainActivity;
     private final WebView webView;
     private final ExecutorService executorService;
+    private final ExecutorService evaluatorService;
     private final AtomicBoolean isRunning;
+    private final BlockingQueue<EvaluationRequest> evaluationQueue;
 
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothServerSocket serverSocket;
@@ -41,9 +48,12 @@ public class BluetoothReplService {
         this.mainActivity = activity;
         this.webView = webView;
         this.executorService = Executors.newSingleThreadExecutor();
+        this.evaluatorService = Executors.newSingleThreadExecutor();
         this.isRunning = new AtomicBoolean(false);
+        this.evaluationQueue = new LinkedBlockingQueue<>();
         this.connectionStatus = "Bluetooth disabled";
     }
+
 
     public void start() {
         if (isRunning.compareAndSet(false, true)) {
@@ -101,6 +111,7 @@ public class BluetoothReplService {
 
                 updateConnectionStatus("Bluetooth server started - waiting for connections");
                 executorService.execute(this::handleIncomingConnections);
+                evaluatorService.execute(this::handleEvaluations);
 
             } catch (IOException e) {
                 Log.e(TAG, "Failed to start Bluetooth server: " + e.getMessage());
@@ -124,7 +135,9 @@ public class BluetoothReplService {
             }
 
             closeClientConnection();
+            evaluationQueue.clear();
             executorService.shutdown();
+            evaluatorService.shutdown();
         }
     }
 
@@ -176,18 +189,24 @@ public class BluetoothReplService {
     private void handleClientSession() throws IOException {
         while (isRunning.get()) {
             try {
-                String expression = readMessage();
+                byte msgType = readMessageType();
 
-                if (expression != null && !expression.trim().isEmpty()) {
-                    Log.i(TAG, "Received expression: " + expression.replace("\n", "\\n"));
+                if (msgType == MSG_TYPE_EXPRESSION) {
+                    String expression = readExpressionMessage();
+                    if (expression != null && !expression.trim().isEmpty()) {
+                        Log.i(TAG, "Received expression: " + expression.replace("\n", "\\n"));
 
-                    String result = mainActivity.evaluateScheme(expression.trim());
-
-                    Log.i(TAG, "Evaluated result: " + result.replace("\n", "\\n"));
-
-                    writeMessage(result);
-
-                    displayRemoteResult(expression.trim(), result);
+                        // Queue expression for evaluation
+                        try {
+                            evaluationQueue.put(new EvaluationRequest(expression.trim(), outputStream));
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+                } else if (msgType == MSG_TYPE_INTERRUPT) {
+                    Log.i(TAG, "Received interrupt request");
+                    handleInterrupt();
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Error in message handling: " + e.getMessage());
@@ -196,7 +215,72 @@ public class BluetoothReplService {
         }
     }
 
-    private String readMessage() throws IOException {
+    private void handleEvaluations() {
+        Log.i(TAG, "Evaluation thread started");
+        while (isRunning.get()) {
+            try {
+                Log.i(TAG, "Waiting for evaluation request...");
+                EvaluationRequest request = evaluationQueue.take();
+
+                Log.i(TAG, "Evaluating expression: " + request.expression.replace("\n", "\\n"));
+                String result = mainActivity.evaluateScheme(request.expression);
+                Log.i(TAG, "Evaluated result: " + result.replace("\n", "\\n"));
+
+                writeMessage(request.responseStream, result);
+                Log.i(TAG, "Response sent successfully");
+                displayRemoteResult(request.expression, result);
+
+            } catch (InterruptedException e) {
+                Log.i(TAG, "Evaluation thread interrupted");
+                Thread.currentThread().interrupt();
+                break;
+            } catch (IOException e) {
+                Log.e(TAG, "Error in evaluation handling: " + e.getMessage());
+                // Don't break - continue processing other requests
+                continue;
+            } catch (Exception e) {
+                Log.e(TAG, "Unexpected error in evaluation handling: " + e.getMessage());
+                e.printStackTrace();
+                // Continue running instead of breaking
+            }
+        }
+        Log.i(TAG, "Evaluation thread ended");
+    }
+
+    private void handleInterrupt() {
+        try {
+            String result = mainActivity.interruptScheme();
+            writeMessage(outputStream, result);
+            Log.i(TAG, "Sent interrupt response: " + result);
+        } catch (IOException e) {
+            Log.e(TAG, "Error sending interrupt response: " + e.getMessage());
+        }
+    }
+
+    private byte readMessageType() throws IOException {
+        // Check if data is available before blocking read
+        while (inputStream.available() == 0) {
+            try {
+                Thread.sleep(100); // Wait 100ms before checking again
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while waiting for data");
+            }
+
+            // Check if service is still running
+            if (!isRunning.get()) {
+                throw new IOException("Service stopped while waiting for data");
+            }
+        }
+
+        int msgType = inputStream.read();
+        if (msgType == -1) {
+            throw new IOException("Connection closed while reading message type");
+        }
+        return (byte) msgType;
+    }
+
+    private String readExpressionMessage() throws IOException {
         byte[] lengthBytes = new byte[4];
         int bytesRead = 0;
         while (bytesRead < 4) {
@@ -229,7 +313,7 @@ public class BluetoothReplService {
         return new String(messageBytes, StandardCharsets.UTF_8);
     }
 
-    private void writeMessage(String message) throws IOException {
+    private void writeMessage(OutputStream stream, String message) throws IOException {
         byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
         int length = messageBytes.length;
 
@@ -239,9 +323,9 @@ public class BluetoothReplService {
         lengthBytes[2] = (byte) ((length >> 8) & 0xFF);
         lengthBytes[3] = (byte) (length & 0xFF);
 
-        outputStream.write(lengthBytes);
-        outputStream.write(messageBytes);
-        outputStream.flush();
+        stream.write(lengthBytes);
+        stream.write(messageBytes);
+        stream.flush();
     }
 
     private void displayRemoteResult(String expression, String result) {

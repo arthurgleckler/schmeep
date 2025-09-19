@@ -150,4 +150,6 @@ public class MainActivity extends Activity {
     public native void initializeScheme();
 
     public native String evaluateScheme(String expression);
+
+    public native String interruptScheme();
 }

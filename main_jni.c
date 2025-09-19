@@ -490,6 +490,27 @@ JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(JN
   pthread_mutex_unlock(&scheme_mutex);
 }
 
+JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(JNIEnv *env, jobject thiz)
+{
+  LOGI("JNI: interruptScheme called.");
+
+  pthread_mutex_lock(&scheme_mutex);
+
+  if (scheme_ctx == NULL) {
+    LOGE("JNI: Scheme not initialized for interrupt - ctx=%p", scheme_ctx);
+    pthread_mutex_unlock(&scheme_mutex);
+    return (*env)->NewStringUTF(env, "Interrupted (Scheme not initialized)");
+  }
+
+  LOGI("JNI: Setting interrupt flag - ctx=%p", scheme_ctx);
+  sexp_context_interruptp(scheme_ctx) = 1;
+  LOGI("JNI: Interrupt flag set successfully");
+
+  pthread_mutex_unlock(&scheme_mutex);
+
+  return (*env)->NewStringUTF(env, "Interrupted");
+}
+
 JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(JNIEnv *env, jobject thiz, jstring expression)
 {
   LOGI("JNI: evaluateScheme called.");

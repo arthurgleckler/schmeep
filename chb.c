@@ -14,11 +14,23 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <signal.h>
+#include <pthread.h>
 
 #define MAX_MESSAGE_LENGTH 1048576
 #define SCHEME_REPL_UUID "611a1a1a-94ba-11f0-b0a8-5f754c08f133"
 #define CACHE_DIR ".cache/chb"
 #define CACHE_FILE "mac-address.txt"
+
+#define MSG_TYPE_EXPRESSION 0x00
+#define MSG_TYPE_INTERRUPT 0x01
+
+static volatile sig_atomic_t interrupt_requested = 0;
+static volatile sig_atomic_t input_complete = 0;
+static volatile sig_atomic_t message_sent = 0;
+static int global_sock = -1;
+static pthread_mutex_t message_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t message_cond = PTHREAD_COND_INITIALIZER;
 
 // Forward declarations
 char* scan_known_addresses();
@@ -26,6 +38,10 @@ char* load_cached_address();
 void save_cached_address(const char* address);
 char* get_cache_file_path();
 bool check_address_for_scheme_repl(const char* address);
+void sigint_handler(int sig);
+void* input_thread(void* arg);
+int send_expression_message(int sock, const char* message);
+int send_interrupt_message(int sock);
 
 // Get the full path to the cache file
 char* get_cache_file_path() {
@@ -172,9 +188,26 @@ bool check_address_for_scheme_repl(const char* address) {
     }
 }
 
-int send_message(int sock, const char* message) {
+void sigint_handler(int sig) {
+    if (sig == SIGINT) {
+        interrupt_requested = 1;
+        if (global_sock >= 0) {
+            send_interrupt_message(global_sock);
+            printf("^C\n");
+        }
+    }
+}
+
+int send_expression_message(int sock, const char* message) {
     size_t len = strlen(message);
     uint32_t network_len = htonl(len);
+    uint8_t msg_type = MSG_TYPE_EXPRESSION;
+
+    // Send message type
+    if (send(sock, &msg_type, 1, 0) != 1) {
+        perror("Failed to send message type");
+        return -1;
+    }
 
     // Send length prefix
     if (send(sock, &network_len, 4, 0) != 4) {
@@ -189,6 +222,17 @@ int send_message(int sock, const char* message) {
     }
 
     printf("Sent: %s\n", message);
+    return 0;
+}
+
+int send_interrupt_message(int sock) {
+    uint8_t msg_type = MSG_TYPE_INTERRUPT;
+
+    if (send(sock, &msg_type, 1, 0) != 1) {
+        perror("Failed to send interrupt");
+        return -1;
+    }
+
     return 0;
 }
 
@@ -539,12 +583,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Set connection timeout
-    struct timeval tv;
-    tv.tv_sec = 5;  // 5 second connection timeout
-    tv.tv_usec = 0;
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    // No socket timeout - let user control evaluation time with Ctrl-C
 
     // Set up connection address
     struct sockaddr_rc addr = {0};
@@ -561,15 +600,88 @@ int main(int argc, char* argv[]) {
     }
 
     printf("Connected! Starting REPL session...\n");
-    printf("Type Scheme expressions (or 'quit' to exit):\n\n");
+    printf("Type Scheme expressions (or 'quit' to exit). Press Ctrl-C to interrupt long-running evaluations.\n\n");
 
-    // Interactive REPL
-    char input[1024];
+    // Set up signal handler
+    global_sock = sock;
+    signal(SIGINT, sigint_handler);
+
+    // Create input thread
+    pthread_t input_tid;
+    if (pthread_create(&input_tid, NULL, input_thread, &sock) != 0) {
+        perror("Failed to create input thread");
+        close(sock);
+        return 1;
+    }
+
+    // Main thread handles responses
     while (1) {
-        printf("scheme> ");
-        fflush(stdout);
+        // Wait for a message to be sent before trying to receive response
+        pthread_mutex_lock(&message_mutex);
+        while (!message_sent && !input_complete) {
+            pthread_cond_wait(&message_cond, &message_mutex);
+        }
+
+        // If input completed without sending a message, exit
+        if (input_complete && !message_sent) {
+            pthread_mutex_unlock(&message_mutex);
+            break;
+        }
+
+        // Reset the flag for next iteration
+        message_sent = 0;
+        pthread_mutex_unlock(&message_mutex);
+
+        char* result = receive_message(sock);
+        if (!result) {
+            break;
+        }
+
+        if (interrupt_requested) {
+            printf(" => %s\n\n", result);
+            interrupt_requested = 0;
+        } else {
+            printf(" => %s\n\n", result);
+        }
+        free(result);
+
+        // For piped input, exit after receiving the first response
+        if (input_complete) {
+            break;
+        }
+    }
+
+    // Clean up
+    pthread_cancel(input_tid);
+    pthread_join(input_tid, NULL);
+
+    close(sock);
+    printf("Connection closed.\n");
+
+    // Clean up discovered address if allocated
+    if (argc == 1 && bt_addr) {
+        free((char*)bt_addr);
+    }
+
+    return 0;
+}
+
+void* input_thread(void* arg) {
+    int sock = *(int*)arg;
+    char input[1024];
+    bool stdin_is_terminal = isatty(STDIN_FILENO);
+
+    while (1) {
+        if (stdin_is_terminal) {
+            printf("scheme> ");
+            fflush(stdout);
+        }
 
         if (!fgets(input, sizeof(input), stdin)) {
+            // EOF reached - for piped input, wait a bit for response then exit
+            if (!stdin_is_terminal) {
+                sleep(1);  // Give time for response
+            }
             break;
         }
 
@@ -587,27 +699,33 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        // Send expression and get result
-        if (send_message(sock, input) < 0) {
+        // Send expression
+        if (send_expression_message(sock, input) < 0) {
             break;
         }
 
-        char* result = receive_message(sock);
-        if (!result) {
+        // Signal that a message was sent
+        pthread_mutex_lock(&message_mutex);
+        message_sent = 1;
+        pthread_cond_signal(&message_cond);
+        pthread_mutex_unlock(&message_mutex);
+
+        // For piped input, signal completion but don't close socket yet
+        if (!stdin_is_terminal) {
+            input_complete = 1;
             break;
         }
-
-        printf(" => %s\n\n", result);
-        free(result);
     }
 
-    close(sock);
-    printf("Connection closed.\n");
+    // Signal completion to main thread
+    pthread_mutex_lock(&message_mutex);
+    input_complete = 1;
+    pthread_cond_signal(&message_cond);
+    pthread_mutex_unlock(&message_mutex);
 
-    // Clean up discovered address if allocated
-    if (argc == 1 && bt_addr) {
-        free((char*)bt_addr);
+    // For interactive mode, signal main thread to exit
+    if (stdin_is_terminal) {
+        shutdown(sock, SHUT_RDWR);
     }
-
-    return 0;
+    return NULL;
 }
