@@ -163,6 +163,7 @@ function evaluateScheme(expression) {
 
 // Array of expressions for buttons.
 const schemeExpressions = [
+  "(lambda (x) (+ x 1))",
   "(define (factorial n) (if (<= n 1) 1 (* n (factorial (- n 1)))))",
   "(+ 1 2 3 4 5)",
   "(* 6 7)",
@@ -236,7 +237,7 @@ function runSchemeExpression(expression) {
   if (result.startsWith("Parse Error:") || result.startsWith("Error:")) {
     displayResult("📱 " + expression + " → " + result, "error");
   } else {
-    displayResult("📱 " + expression + " = " + result, "local");
+    displayResult("📱 Received: " + result, "local");
   }
 }
 
@@ -263,7 +264,14 @@ function displayResult(text, type) {
       break;
   }
 
-  schemeContent.innerHTML += `<br><span class="${className}">${text}</span>`;
+  // Create elements safely to avoid HTML parsing issues with < and > characters
+  const br = document.createElement("br");
+  const span = document.createElement("span");
+  span.className = className;
+  span.textContent = text;
+
+  schemeContent.appendChild(br);
+  schemeContent.appendChild(span);
 
   // Auto-scroll to bottom.
   schemeContent.scrollTop = schemeContent.scrollHeight;

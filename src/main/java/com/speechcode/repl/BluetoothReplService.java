@@ -252,11 +252,11 @@ public class BluetoothReplService {
                 String javascript = String.format(
                     "console.log(\"Displaying Bluetooth result: %s = %s\"); " +
                     "if (typeof displayResult === \"function\") { " +
-                    "  displayResult(\"📱 %s = %s\", \"remote\"); " +
+                    "  displayResult(\"🔗 Received: %s\", \"remote\"); " +
                     "} else { " +
                     "  console.error(\"displayResult function not found\"); " +
                     "}",
-                    escapedExpression, escapedResult, escapedExpression, escapedResult
+                    escapedExpression, escapedResult, escapedResult
                 );
 
                 Log.d(TAG, "Executing JavaScript for Bluetooth result: " + expression + " = " + result);
