@@ -501,11 +501,34 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(
     return (*env)->NewStringUTF(env, "Interrupted (Scheme not initialized)");
   }
 
-  LOGI("JNI: Setting interrupt flag without mutex - ctx=%p", scheme_ctx);
+  LOGI("JNI: INTERRUPT using context pointer: %p", scheme_ctx);
+
+  // Set interrupt flag on main context
+  LOGI("JNI: Setting interrupt flag on main context - ctx=%p", scheme_ctx);
+  LOGI("JNI: Main context interrupt flag before: %d", sexp_context_interruptp(scheme_ctx));
   sexp_context_interruptp(scheme_ctx) = 1;
-  LOGI("JNI: Interrupt flag set successfully");
+  LOGI("JNI: Main context interrupt flag after: %d", sexp_context_interruptp(scheme_ctx));
+
+  // Set interrupt flag on child context (where eval actually runs)
+  sexp thread = scheme_ctx;
+
+  for ( ; thread && sexp_contextp(thread); thread=sexp_context_child(thread)) {
+    LOGI("JNI: Setting interrupt flag on child context - ctx=%p", thread);
+    LOGI("JNI: Child context interrupt flag before: %d", sexp_context_interruptp(thread));
+    sexp_context_interruptp(thread) = 1;
+    LOGI("JNI: Child context interrupt flag after: %d", sexp_context_interruptp(thread));
+  }
 
   return (*env)->NewStringUTF(env, "Interrupted");
+}
+
+// Global flag to track if we're in user evaluation
+static int in_user_evaluation = 0;
+
+// Function to check if we're in user evaluation (for VM logging)
+// Export this function for the VM to use
+__attribute__((visibility("default"))) int is_in_user_evaluation() {
+  return in_user_evaluation;
 }
 
 JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(JNIEnv *env, jobject thiz, jstring expression)
@@ -514,14 +537,19 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
   pthread_mutex_lock(&scheme_mutex);
 
+  // Set flag to indicate we're now in user evaluation
+  in_user_evaluation = 1;
+
 
   if (scheme_ctx == NULL || scheme_env == NULL) {
     LOGE("JNI: Scheme not initialized - ctx=%p env=%p", scheme_ctx, scheme_env);
+    in_user_evaluation = 0;
     pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Scheme not initialized");
   }
 
   LOGI("JNI: Context validation passed - ctx=%p env=%p", scheme_ctx, scheme_env);
+  LOGI("JNI: EVAL using context pointer: %p", scheme_ctx);
 
   const char *expr_cstr = (*env)->GetStringUTFChars(env, expression, NULL);
 
@@ -592,15 +620,25 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
   (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
 
   LOGI("JNI: About to call sexp_eval - ctx=%p code_sexp=%p env=%p", scheme_ctx, code_sexp, scheme_env);
-
+  LOGI("JNI: Interrupt flag before sexp_eval: %d", sexp_context_interruptp(scheme_ctx));
 
   sexp result = sexp_eval(scheme_ctx, code_sexp, scheme_env);
 
-
   LOGI("JNI: sexp_eval returned - result=%p", result);
+  LOGI("JNI: Interrupt flag after sexp_eval: %d", sexp_context_interruptp(scheme_ctx));
 
 
   if (!result || sexp_exceptionp(result)) {
+    // Check if this is an interrupt error
+    if (result && sexp_exceptionp(result)) {
+      sexp interrupt_error = sexp_global(scheme_ctx, SEXP_G_INTERRUPT_ERROR);
+      if (result == interrupt_error) {
+        LOGI("JNI: Interrupt error detected - evaluation was interrupted successfully");
+        pthread_mutex_unlock(&scheme_mutex);
+        return (*env)->NewStringUTF(env, "Interrupted");
+      }
+    }
+
     LOGE("JNI: Failed to evaluate Scheme expression.");
     LOGE("JNI: INPUT EXPRESSION WAS: '%s'", expr_cstr);
 
@@ -701,6 +739,8 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
 
   sexp_gc_release1(scheme_ctx);
+  // Reset flag when evaluation completes
+  in_user_evaluation = 0;
   pthread_mutex_unlock(&scheme_mutex);
 
   return java_result;

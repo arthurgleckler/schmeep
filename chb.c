@@ -33,6 +33,7 @@ static volatile sig_atomic_t message_sent = 0;
 static volatile sig_atomic_t response_received = 0;
 static int global_sock = -1;
 static int signal_pipe[2] = {-1, -1};  // For safe signal communication
+static pthread_t input_thread_id;
 static pthread_mutex_t message_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t message_cond = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t response_cond = PTHREAD_COND_INITIALIZER;
@@ -213,6 +214,12 @@ void sigint_handler(int sig) {
         }
 
         interrupt_requested = 1;
+
+        // Send SIGINT directly to the input thread to interrupt getline()
+        // This ensures the input thread receives the signal even if it wasn't delivered there initially
+        if (input_thread_id != 0) {
+            pthread_kill(input_thread_id, SIGINT);
+        }
 
         char end[] = "[DEBUG] SIGINT handler ending\n";
         write(STDERR_FILENO, end, sizeof(end) - 1);
@@ -722,8 +729,7 @@ int main(int argc, char* argv[]) {
     fflush(stdout);
 
     // Create input thread
-    pthread_t input_tid;
-    if (pthread_create(&input_tid, NULL, input_thread, &sock) != 0) {
+    if (pthread_create(&input_thread_id, NULL, input_thread, &sock) != 0) {
         perror("Failed to create input thread");
         close(sock);
         return 1;
@@ -753,6 +759,7 @@ int main(int argc, char* argv[]) {
         FD_SET(signal_pipe[0], &readfds);
         struct timeval timeout = {0, 0};  // Non-blocking check
 
+        bool processing_interrupt = false;
         if (select(signal_pipe[0] + 1, &readfds, NULL, NULL, &timeout) > 0) {
             if (FD_ISSET(signal_pipe[0], &readfds)) {
                 // Interrupt signal received
@@ -765,6 +772,8 @@ int main(int argc, char* argv[]) {
                 send_interrupt_message(sock);
                 message_sent = 1;
                 response_received = 0;
+                interrupt_requested = 1;
+                processing_interrupt = true;
             }
         }
 
@@ -774,9 +783,11 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        // Reset the flags for next iteration
-        message_sent = 0;
-        response_received = 0;
+        // Only reset flags if not processing an interrupt
+        if (!processing_interrupt) {
+            message_sent = 0;
+            response_received = 0;
+        }
         pthread_mutex_unlock(&message_mutex);
 
         char* result = receive_message_with_signal_check(sock);
@@ -784,10 +795,10 @@ int main(int argc, char* argv[]) {
             break;
         }
 
+        bool was_interrupt = interrupt_requested;
         if (interrupt_requested) {
             printf("[DEBUG] Received interrupt response: %s\n", result);
             printf(" => %s\n\n", result);
-            interrupt_requested = 0;
         } else {
             printf("[DEBUG] Received normal response: %s\n", result);
             printf(" => %s\n\n", result);
@@ -798,6 +809,39 @@ int main(int argc, char* argv[]) {
         pthread_mutex_lock(&message_mutex);
         response_received = 1;
         pthread_cond_signal(&response_cond);
+
+        // After processing an interrupt, reset flags to prepare for next message
+        if (was_interrupt) {
+            message_sent = 0;
+            response_received = 0;
+            interrupt_requested = 0;
+            printf("[DEBUG] Reset flags after interrupt processing\n");
+            fflush(stdout);
+
+            // Drain any pending signals from signal pipe to prevent signal storm
+            printf("[DEBUG] Draining signal pipe after interrupt processing\n");
+            fflush(stdout);
+            char byte;
+            fd_set readfds;
+            struct timeval timeout = {0, 0};  // Non-blocking
+            int drained_count = 0;
+            while (1) {
+                FD_ZERO(&readfds);
+                FD_SET(signal_pipe[0], &readfds);
+                int result = select(signal_pipe[0] + 1, &readfds, NULL, NULL, &timeout);
+                if (result > 0 && FD_ISSET(signal_pipe[0], &readfds)) {
+                    if (read(signal_pipe[0], &byte, 1) > 0) {
+                        drained_count++;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            printf("[DEBUG] Drained %d pending signals from pipe\n", drained_count);
+            fflush(stdout);
+        }
         pthread_mutex_unlock(&message_mutex);
 
         // For piped input, exit after receiving the first response
@@ -818,8 +862,8 @@ int main(int argc, char* argv[]) {
     printf("[DEBUG] Canceling input thread\n");
     fflush(stdout);
 
-    pthread_cancel(input_tid);
-    pthread_join(input_tid, NULL);
+    pthread_cancel(input_thread_id);
+    pthread_join(input_thread_id, NULL);
 
     printf("[DEBUG] Input thread joined, closing connections\n");
     fflush(stdout);
@@ -846,7 +890,7 @@ void* input_thread(void* arg) {
     fflush(stdout);
 
     while (1) {
-        printf("[DEBUG] Input thread loop iteration\n");
+        printf("[DEBUG] Input thread loop iteration - about to check terminal and show prompt\n");
         fflush(stdout);
 
         if (stdin_is_terminal) {
@@ -879,11 +923,19 @@ void* input_thread(void* arg) {
                 printf("[DEBUG] Waiting for interrupt response...\n");
                 fflush(stdout);
                 pthread_mutex_lock(&message_mutex);
+                printf("[DEBUG] Initial flags: response_received=%d, input_complete=%d, interrupt_requested=%d\n",
+                       response_received, input_complete, interrupt_requested);
+                fflush(stdout);
                 while (!response_received && !input_complete && interrupt_requested) {
+                    printf("[DEBUG] About to wait for interrupt response condition...\n");
+                    fflush(stdout);
                     pthread_cond_wait(&response_cond, &message_mutex);
+                    printf("[DEBUG] Woke up from interrupt wait - flags: response_received=%d, input_complete=%d, interrupt_requested=%d\n",
+                           response_received, input_complete, interrupt_requested);
+                    fflush(stdout);
                 }
                 pthread_mutex_unlock(&message_mutex);
-                printf("[DEBUG] Interrupt response received, continuing...\n");
+                printf("[DEBUG] Interrupt response received, continuing to next input loop iteration...\n");
                 fflush(stdout);
                 continue;
             }

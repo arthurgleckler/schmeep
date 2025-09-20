@@ -206,9 +206,26 @@ public class BluetoothReplService {
                     }
                 } else if (msgType == MSG_TYPE_INTERRUPT) {
                     Log.i(TAG, "*** INTERRUPT MESSAGE RECEIVED ***");
-                    Log.i(TAG, "About to call handleInterrupt()");
-                    handleInterrupt();
-                    Log.i(TAG, "handleInterrupt() completed");
+                    Log.i(TAG, "About to submit handleInterrupt() to executor (non-blocking)");
+                    Log.i(TAG, "ExecutorService state: shutdown=" + executorService.isShutdown() + " terminated=" + executorService.isTerminated());
+                    Log.i(TAG, "MainActivity reference: " + (mainActivity != null ? "VALID" : "NULL"));
+
+                    // CRITICAL FIX: Don't block the receiver thread with interrupt handling
+                    // Use a separate thread since both executors are busy
+                    final OutputStream currentOutputStream = outputStream;
+                    new Thread(() -> {
+                        try {
+                            Log.i(TAG, "*** EXECUTOR TASK STARTED - About to call interruptScheme() ***");
+                            Log.i(TAG, "*** CALLING interruptScheme() (async) ***");
+                            String result = mainActivity.interruptScheme();
+                            Log.i(TAG, "*** interruptScheme() returned: " + result + " ***");
+                            writeMessage(currentOutputStream, result);
+                            Log.i(TAG, "*** Sent interrupt response: " + result + " ***");
+                        } catch (Exception e) {
+                            Log.e(TAG, "Exception in interrupt thread: " + e.getMessage(), e);
+                        }
+                    }).start();
+                    Log.i(TAG, "handleInterrupt() submitted to executor, receiver thread continuing");
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Error in message handling: " + e.getMessage());
@@ -249,23 +266,12 @@ public class BluetoothReplService {
         Log.i(TAG, "Evaluation thread ended");
     }
 
-    private void handleInterrupt() {
-        try {
-            Log.i(TAG, "*** CALLING interruptScheme() ***");
-            String result = mainActivity.interruptScheme();
-            Log.i(TAG, "*** interruptScheme() returned: " + result + " ***");
-            writeMessage(outputStream, result);
-            Log.i(TAG, "*** Sent interrupt response: " + result + " ***");
-        } catch (IOException e) {
-            Log.e(TAG, "Error sending interrupt response: " + e.getMessage());
-        }
-    }
 
     private byte readMessageType() throws IOException {
         // Check if data is available before blocking read
         while (inputStream.available() == 0) {
             try {
-                Thread.sleep(100); // Wait 100ms before checking again
+                Thread.sleep(10); // Wait only 10ms for faster interrupt response
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new IOException("Interrupted while waiting for data");
@@ -281,6 +287,8 @@ public class BluetoothReplService {
         if (msgType == -1) {
             throw new IOException("Connection closed while reading message type");
         }
+
+        Log.i(TAG, "*** RECEIVED MESSAGE TYPE: " + msgType + " ***");
         return (byte) msgType;
     }
 
