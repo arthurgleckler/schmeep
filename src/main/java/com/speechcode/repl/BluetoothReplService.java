@@ -241,9 +241,11 @@ public class BluetoothReplService {
                 Log.i(TAG, "Waiting for evaluation request...");
                 EvaluationRequest request = evaluationQueue.take();
 
+                updateConnectionStatus("Evaluating expression...");
                 Log.i(TAG, "Evaluating expression: " + request.expression.replace("\n", "\\n"));
                 String result = mainActivity.evaluateScheme(request.expression);
                 Log.i(TAG, "Evaluated result: " + result.replace("\n", "\\n"));
+                updateConnectionStatus("Client connected");
 
                 writeMessage(request.responseStream, result);
                 Log.i(TAG, "Response sent successfully");
@@ -255,11 +257,13 @@ public class BluetoothReplService {
                 break;
             } catch (IOException e) {
                 Log.e(TAG, "Error in evaluation handling: " + e.getMessage());
+                updateConnectionStatus("Client connected");
                 // Don't break - continue processing other requests
                 continue;
             } catch (Exception e) {
                 Log.e(TAG, "Unexpected error in evaluation handling: " + e.getMessage());
                 e.printStackTrace();
+                updateConnectionStatus("Client connected");
                 // Continue running instead of breaking
             }
         }
@@ -379,6 +383,8 @@ public class BluetoothReplService {
     private String getStatusType(String status) {
         if (status.contains("connected") || status.contains("Connected")) {
             return "connected";
+        } else if (status.contains("Evaluating") || status.contains("evaluating")) {
+            return "evaluating";
         } else if (status.contains("failed") || status.contains("error") || status.contains("disabled")) {
             return "error";
         } else {
