@@ -229,7 +229,7 @@ int send_expression_message(int sock, const char* message) {
         return -1;
     }
 
-    printf("Sent: %s\n", message);
+    printf("%s\n", message);
     return 0;
 }
 
@@ -267,7 +267,7 @@ char* receive_message_with_interrupt_check(int sock) {
             // Receive and display the interrupt response immediately
             char* interrupt_response = receive_message(sock);
             if (interrupt_response) {
-                printf(" => %s\n", interrupt_response);
+                printf("⇒ %s\n", interrupt_response);
                 free(interrupt_response);
             }
 
@@ -705,7 +705,7 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        printf(" => %s\n\n", result);
+        printf("⇒ %s\n\n", result);
         fflush(stdout);
         free(result);
         free(msg->message);
