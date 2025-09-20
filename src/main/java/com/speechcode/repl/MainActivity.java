@@ -84,7 +84,6 @@ public class MainActivity extends Activity {
 
         requestBluetoothPermissions();
 
-        // Only start if we already have permissions, otherwise wait for callback
         if (hasBluetoothPermissions()) {
             bluetoothReplService.start();
         }

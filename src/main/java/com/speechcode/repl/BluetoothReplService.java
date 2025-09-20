@@ -78,11 +78,9 @@ public class BluetoothReplService {
             }
 
             try {
-                // Try both UUIDs and connection types for maximum compatibility
                 IOException lastException = null;
                 boolean serviceStarted = false;
 
-                // Try custom UUID first
                 for (UUID uuid : new UUID[]{SCHEME_REPL_UUID, SPP_UUID}) {
                     for (boolean secure : new boolean[]{true, false}) {
                         try {
@@ -196,10 +194,8 @@ public class BluetoothReplService {
                     if (expression != null && !expression.trim().isEmpty()) {
                         Log.i(TAG, "Received expression: " + expression.replace("\n", "\\n"));
 
-                        // Display expression immediately upon receipt
                         displayReceivedExpression(expression.trim());
 
-                        // Queue expression for evaluation
                         try {
                             evaluationQueue.put(new EvaluationRequest(expression.trim(), outputStream));
                         } catch (InterruptedException e) {
@@ -213,8 +209,7 @@ public class BluetoothReplService {
                     Log.i(TAG, "ExecutorService state: shutdown=" + executorService.isShutdown() + " terminated=" + executorService.isTerminated());
                     Log.i(TAG, "MainActivity reference: " + (mainActivity != null ? "VALID" : "NULL"));
 
-                    // CRITICAL FIX: Don't block the receiver thread with interrupt handling
-                    // Use a separate thread since both executors are busy
+                    // Don't block the receiver thread with interrupt handling.
                     final OutputStream currentOutputStream = outputStream;
                     new Thread(() -> {
                         try {
@@ -261,13 +256,11 @@ public class BluetoothReplService {
             } catch (IOException e) {
                 Log.e(TAG, "Error in evaluation handling: " + e.getMessage());
                 updateConnectionStatus("Client connected");
-                // Don't break - continue processing other requests
                 continue;
             } catch (Exception e) {
                 Log.e(TAG, "Unexpected error in evaluation handling: " + e.getMessage());
                 e.printStackTrace();
                 updateConnectionStatus("Client connected");
-                // Continue running instead of breaking
             }
         }
         Log.i(TAG, "Evaluation thread ended");
@@ -275,7 +268,6 @@ public class BluetoothReplService {
 
 
     private byte readMessageType() throws IOException {
-        // Use blocking read to properly detect connection closure
         int msgType = inputStream.read();
         if (msgType == -1) {
             throw new IOException("Connection closed while reading message type");

@@ -538,11 +538,8 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(
   return (*env)->NewStringUTF(env, "Interrupted");
 }
 
-// Global flag to track if we're in user evaluation
 static int in_user_evaluation = 0;
 
-// Function to check if we're in user evaluation (for VM logging)
-// Export this function for the VM to use
 __attribute__((visibility("default"))) int is_in_user_evaluation() {
   return in_user_evaluation;
 }
@@ -553,7 +550,6 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
   pthread_mutex_lock(&scheme_mutex);
 
-  // Set flag to indicate we're now in user evaluation
   in_user_evaluation = 1;
 
 
@@ -588,17 +584,14 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
     int pos = snprintf(parse_error_message, sizeof(parse_error_message), "Parse Error: ");
 
     if (code_sexp && sexp_exceptionp(code_sexp)) {
-      // Note: Skip detailed logging to avoid crashes on corrupted objects
+      // Skip detailed logging to avoid crashes on corrupted objects.
       LOGE("JNI Parse: Parse error detected for expression: %s", expr_cstr);
 
-      // Safely extract error information with validation
       int extracted_info = 0;
 
-      // Try to get error message first (most reliable)
       sexp msg = NULL;
       const char* msg_data = NULL;
 
-      // Use a try-catch like approach by checking each step
       if (pos < sizeof(parse_error_message) - 50) {
         msg = sexp_exception_message(code_sexp);
         if (msg && sexp_stringp(msg)) {
@@ -610,7 +603,6 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
         }
       }
 
-      // If we couldn't get the message, just use a generic error
       if (!extracted_info && pos < sizeof(parse_error_message) - 20) {
         pos += snprintf(parse_error_message + pos, sizeof(parse_error_message) - pos, "Invalid syntax");
       }
@@ -618,7 +610,6 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
       snprintf(parse_error_message + pos, sizeof(parse_error_message) - pos, "Failed to parse expression");
     }
 
-    // Ensure null termination
     parse_error_message[sizeof(parse_error_message) - 1] = '\0';
 
     sexp_gc_release1(scheme_ctx);
@@ -636,7 +627,6 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
   LOGI("JNI: sexp_eval returned - result=%p", result);
 
   if (!result || sexp_exceptionp(result)) {
-    // Check if this is an interrupt error
     if (result && sexp_exceptionp(result)) {
       sexp interrupt_error = sexp_global(scheme_ctx, SEXP_G_INTERRUPT_ERROR);
       if (result == interrupt_error) {
@@ -653,13 +643,11 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
     int pos = snprintf(error_message, sizeof(error_message), "Error: ");
 
     if (result && sexp_exceptionp(result)) {
-      // Note: Skip detailed logging to avoid crashes on corrupted objects
+      // Skip detailed logging to avoid crashes on corrupted objects.
       LOGE("JNI Eval: Evaluation error detected for expression: %s", expr_cstr);
 
-      // Safely extract error information with validation
       int extracted_info = 0;
 
-      // Try to get error message (most reliable)
       if (pos < sizeof(error_message) - 50) {
         sexp msg = sexp_exception_message(result);
         if (msg && sexp_stringp(msg)) {
@@ -671,7 +659,6 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
         }
       }
 
-      // Try to add error kind if we have space and didn't get a message
       if (!extracted_info && pos < sizeof(error_message) - 50) {
         sexp kind = sexp_exception_kind(result);
         if (kind && sexp_symbolp(kind)) {
@@ -686,12 +673,10 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
         }
       }
 
-      // If we couldn't extract specific info, use generic message
       if (!extracted_info && pos < sizeof(error_message) - 20) {
         pos += snprintf(error_message + pos, sizeof(error_message) - pos, "Evaluation failed");
       }
 
-      // Log procedure info for debugging but don't try to extract it for user message
       sexp proc = sexp_exception_procedure(result);
       if (proc) {
         LOGE("JNI Eval: Error procedure present (proc=%p)", proc);
@@ -703,7 +688,6 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
       }
     }
 
-    // Ensure null termination
     error_message[sizeof(error_message) - 1] = '\0';
 
     sexp_gc_release1(scheme_ctx);
@@ -736,7 +720,6 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
 
   sexp_gc_release1(scheme_ctx);
-  // Reset flag when evaluation completes
   in_user_evaluation = 0;
   pthread_mutex_unlock(&scheme_mutex);
 

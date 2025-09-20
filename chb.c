@@ -40,7 +40,6 @@ static volatile sig_atomic_t interrupt_pending = 0;
 static int signal_pipe[2] = {-1, -1};
 static pthread_t input_thread_id;
 
-// Forward declarations
 char* scan_known_addresses();
 char* load_cached_address();
 void save_cached_address(const char* address);
@@ -53,7 +52,6 @@ int send_interrupt_message(int sock);
 char* receive_message(int sock);
 char* receive_message_with_signal_check(int sock);
 
-// Get the full path to the cache file
 char* get_cache_file_path() {
     const char* home = getenv("HOME");
     if (!home) {
@@ -69,7 +67,6 @@ char* get_cache_file_path() {
     return path;
 }
 
-// Load cached MAC address if available
 char* load_cached_address() {
     char* cache_path = get_cache_file_path();
     if (!cache_path) {
@@ -97,13 +94,11 @@ char* load_cached_address() {
 
     fclose(file);
 
-    // Remove newline if present
     size_t len = strlen(address);
     if (len > 0 && address[len-1] == '\n') {
         address[len-1] = '\0';
     }
 
-    // Validate format (should be XX:XX:XX:XX:XX:XX)
     if (strlen(address) != 17) {
         free(address);
         return NULL;
@@ -112,7 +107,6 @@ char* load_cached_address() {
     return address;
 }
 
-// Save MAC address to cache
 void save_cached_address(const char* address) {
     if (!address) {
         return;
@@ -123,7 +117,6 @@ void save_cached_address(const char* address) {
         return;
     }
 
-    // Create cache directory if it doesn't exist
     const char* home = getenv("HOME");
     if (home) {
         char* cache_dir = malloc(strlen(home) + strlen(CACHE_DIR) + 2);
@@ -145,7 +138,6 @@ void save_cached_address(const char* address) {
     fclose(file);
 }
 
-// Check if a specific address has CHB service
 bool check_address_for_scheme_repl(const char* address) {
     printf("Checking cached address %s...", address);
     fflush(stdout);
@@ -159,7 +151,6 @@ bool check_address_for_scheme_repl(const char* address) {
         return false;
     }
 
-    // Look for CHB service
     uuid_t rfcomm_uuid;
     sdp_uuid16_create(&rfcomm_uuid, RFCOMM_UUID);
     sdp_list_t* search_list = sdp_list_append(NULL, &rfcomm_uuid);
@@ -211,19 +202,16 @@ int send_expression_message(int sock, const char* message) {
     uint32_t network_len = htonl(len);
     uint8_t msg_type = MSG_TYPE_EXPRESSION;
 
-    // Send message type
     if (send(sock, &msg_type, 1, 0) != 1) {
         perror("Failed to send message type");
         return -1;
     }
 
-    // Send length prefix
     if (send(sock, &network_len, 4, 0) != 4) {
         perror("Failed to send length");
         return -1;
     }
 
-    // Send message
     if (send(sock, message, len, 0) != (ssize_t)len) {
         perror("Failed to send message");
         return -1;
@@ -264,7 +252,6 @@ char* receive_message_with_interrupt_check(int sock) {
             send_interrupt_message(sock);
             interrupt_pending = 0;
 
-            // Receive and display the interrupt response immediately
             char* interrupt_response = receive_message(sock);
             if (interrupt_response) {
                 printf("⇒ %s\n", interrupt_response);
@@ -273,7 +260,6 @@ char* receive_message_with_interrupt_check(int sock) {
             printf("scheme> ");
             fflush(stdout);
 
-            // Continue waiting for the actual response to the current expression
             continue;
         }
 
@@ -332,10 +318,9 @@ int find_service_channel(const char* bt_addr) {
     bdaddr_t target;
     int channel = -1;
 
-    // Convert address string to bdaddr_t
     str2ba(bt_addr, &target);
 
-    // Parse UUID string manually (611a1a1a-94ba-11f0-b0a8-5f754c08f133)
+    // Parse UUID string manually.
     uint8_t uuid_bytes[16];
     unsigned int u[16];
     if (sscanf(SCHEME_REPL_UUID, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
@@ -349,19 +334,16 @@ int find_service_channel(const char* bt_addr) {
     }
     sdp_uuid128_create(&uuid, uuid_bytes);
 
-    // Connect to SDP server
     session = sdp_connect(BDADDR_ANY, &target, SDP_RETRY_IF_BUSY);
     if (!session) {
         perror("Failed to connect to SDP server");
         return -1;
     }
 
-    // Set up search criteria
     search_list = sdp_list_append(NULL, &uuid);
     uint32_t range = 0x0000ffff;
     attr_list = sdp_list_append(NULL, &range);
 
-    // Perform SDP search
     int result = sdp_service_search_attr_req(session, search_list,
                                            SDP_ATTR_REQ_RANGE, attr_list, &rsp_list);
 
@@ -440,7 +422,6 @@ char* scan_paired_devices() {
     ci = cl->conn_info;
 
     if (ioctl(sock, HCIGETCONNLIST, (void *) cl) < 0) {
-        // No active connections, try a different approach
         free(cl);
         close(sock);
         return scan_known_addresses();
@@ -455,14 +436,12 @@ char* scan_paired_devices() {
         printf("Checking %s...", addr_str);
         fflush(stdout);
 
-        // Try to find CHB service on this device
         sdp_session_t* session = sdp_connect(BDADDR_ANY, &ci[i].bdaddr, SDP_RETRY_IF_BUSY);
         if (!session) {
             printf(" (SDP connection failed)\n");
             continue;
         }
 
-        // Look for CHB service by name
         uuid_t rfcomm_uuid;
         sdp_uuid16_create(&rfcomm_uuid, RFCOMM_UUID);
         sdp_list_t* search_list = sdp_list_append(NULL, &rfcomm_uuid);
@@ -510,10 +489,8 @@ char* scan_paired_devices() {
 }
 
 char* scan_known_addresses() {
-    // Try some common patterns and recently used addresses
     printf("Trying known address patterns...\n");
 
-    // You can add your device address here for faster discovery
     const char* known_addresses[] = {
         "B0:D5:FB:99:14:B0",  // Your device
         NULL
@@ -532,8 +509,7 @@ char* scan_known_addresses() {
             continue;
         }
 
-        // Look for CHB service
-        uuid_t rfcomm_uuid;
+            uuid_t rfcomm_uuid;
         sdp_uuid16_create(&rfcomm_uuid, RFCOMM_UUID);
         sdp_list_t* search_list = sdp_list_append(NULL, &rfcomm_uuid);
         uint32_t range = 0x0000ffff;
@@ -579,7 +555,6 @@ int main(int argc, char* argv[]) {
     const char* bt_addr = NULL;
 
     if (argc == 1) {
-        // Auto-discovery mode - try cached address first
         char* cached_addr = load_cached_address();
         char* discovered_addr = NULL;
 
@@ -603,15 +578,12 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             printf("Using discovered device: %s\n", discovered_addr);
-            // Save new address to cache
             save_cached_address(discovered_addr);
         }
 
         bt_addr = discovered_addr;
     } else if (argc == 2) {
-        // Manual address mode
         bt_addr = argv[1];
-        // Save manually specified address to cache for future use
         save_cached_address(bt_addr);
     } else {
         fprintf(stderr, "Usage: %s [bluetooth_address]\n", argv[0]);
@@ -620,7 +592,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Find service channel using UUID
     printf("Searching for service with UUID %s...\n", SCHEME_REPL_UUID);
     int port = find_service_channel(bt_addr);
     if (port < 0) {
@@ -628,22 +599,19 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Create RFCOMM socket
     int sock = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
     if (sock < 0) {
         perror("Failed to create socket");
         return 1;
     }
 
-    // No socket timeout - let user control evaluation time with Ctrl-C
+    // No socket timeout.
 
-    // Set up connection address
     struct sockaddr_rc addr = {0};
     addr.rc_family = AF_BLUETOOTH;
     addr.rc_channel = port;
     str2ba(bt_addr, &addr.rc_bdaddr);
 
-    // Connect to device
     printf("Connecting to %s on channel %d...\n", bt_addr, port);
     if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         perror("Failed to connect");
@@ -654,14 +622,12 @@ int main(int argc, char* argv[]) {
     printf("Connected! Starting REPL session...\n");
     printf("Type Scheme expressions (or 'quit' to exit). Press Ctrl-C to interrupt long-running evaluations.\n\n");
 
-    // Set up signal communication pipe
     if (pipe(signal_pipe) < 0) {
         perror("Failed to create signal pipe");
         close(sock);
         return 1;
     }
 
-    // Set up signal handler
     struct sigaction sa;
     sa.sa_handler = sigint_handler;
     sigemptyset(&sa.sa_mask);
@@ -672,14 +638,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Create input thread
     if (pthread_create(&input_thread_id, NULL, input_thread, &sock) != 0) {
         perror("Failed to create input thread");
         close(sock);
         return 1;
     }
 
-    // Main thread handles queue and socket communication
     while (1) {
         pthread_mutex_lock(&queue_mutex);
         while (!pending_message) {
@@ -725,7 +689,6 @@ int main(int argc, char* argv[]) {
     close(signal_pipe[1]);
     printf("Connection closed.\n");
 
-    // Clean up discovered address if allocated
     if (argc == 1 && bt_addr) {
         free((char*)bt_addr);
     }
