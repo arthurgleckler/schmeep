@@ -287,7 +287,11 @@ calls. This includes:
 - **Result Display**: Use unified `displayResult()` function for both
   local and remote results with proper type indicators
 
-## Client Threading Architecture (chb.c)
+## Client Threading Architecture (chb.c) - Redesigned
+
+### Clean Architecture Overview
+
+The threading system has been redesigned to eliminate race conditions and simplify synchronization using a message-queue approach with proper interrupt handling.
 
 ### Thread Structure Diagram
 
@@ -297,190 +301,109 @@ calls. This includes:
 │                                                             │
 │  ┌─────────────────┐              ┌─────────────────────┐   │
 │  │   INPUT THREAD  │              │   MAIN THREAD       │   │
-│  │                 │              │   (Response)        │   │
-│  │ • Read stdin    │◄────sync────►│ • Receive messages  │   │
-│  │ • Send messages │              │ • Handle signals    │   │
-│  │ • Handle EINTR  │              │ • Coordinate state  │   │
+│  │                 │              │   (Socket Handler)  │   │
+│  │ • Read stdin    │─────msg─────►│ • Process queue     │   │
+│  │ • Create msgs   │              │ • Send to socket    │   │
+│  │ • Wait response │◄────sync─────│ • Complete response │   │
 │  └─────────────────┘              └─────────────────────┘   │
-│           │                                   │             │
-│           │                                   │             │
+│                                             │               │
 │  ┌────────────────────────────────────────────────────────┐ │
 │  │              SIGNAL HANDLER                            │ │
-│  │         (sigint_handler - async)                       │ │
+│  │         (sigint_handler - async-safe)                  │ │
+│  │      • Sets interrupt_pending = 1                      │ │
 │  │      • Writes to signal_pipe[1]                        │ │
-│  │      • Sets interrupt_requested = 1                    │ │
 │  └────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### State Variables & Synchronization
+### Shared State (Minimal)
 
-**Global State Variables:**
+**Message Structure:**
 ```c
-static volatile sig_atomic_t interrupt_requested = 0;
-static volatile sig_atomic_t input_complete = 0;
-static volatile sig_atomic_t message_sent = 0;
-static volatile sig_atomic_t response_received = 0;
+typedef struct {
+    char* message;
+    enum { MSG_EXPRESSION, MSG_INTERRUPT, MSG_QUIT } type;
+} message_t;
 ```
 
 **Synchronization Primitives:**
 ```c
-static pthread_mutex_t message_mutex;
-static pthread_cond_t message_cond;
-static pthread_cond_t response_cond;
-static int signal_pipe[2];  // Self-pipe trick for signal handling
+static message_t* pending_message = NULL;
+static pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t response_cond = PTHREAD_COND_INITIALIZER;
+static volatile sig_atomic_t interrupt_pending = 0;
+static int signal_pipe[2];
 ```
 
-### Thread State Machines
+### Communication Flow
 
-#### INPUT THREAD States:
-
-```
-┌─────────────┐
-│   READING   │ ◄────┐
-│   INPUT     │      │
-└─────────────┘      │
-      │ getline()    │
-      │              │
-      ▼              │
-┌─────────────┐      │
-│  PROCESSING │      │
-│   INPUT     │      │
-└─────────────┘      │
-      │              │
-      ▼              │
-┌─────────────┐      │
-│  SENDING    │      │
-│  MESSAGE    │      │
-└─────────────┘      │
-      │              │
-      ▼              │
-┌─────────────┐      │
-│   SIGNAL    │      │
-│  MAIN THREAD│      │
-└─────────────┘      │
-      │              │
-      └──────────────┘
-
-Special Case: SIGINT during getline()
-      │ EINTR
-      ▼
-┌─────────────┐
-│   WAITING   │
-│ FOR INTERRUPT│
-│  RESPONSE   │
-└─────────────┘
-      │ response_received
-      │
-      └─────────► READING INPUT
-```
-
-#### MAIN THREAD States:
-
-```
-┌─────────────┐
-│   WAITING   │ ◄────────────┐
-│ FOR MESSAGE │              │
-└─────────────┘              │
-      │ message_sent         │
-      │                      │
-      ▼                      │
-┌─────────────┐              │
-│   CHECK     │              │
-│  SIGNALS    │              │
-└─────────────┘              │
-      │                      │
-      ├─ signal ──┐          │
-      │           ▼          │
-      │    ┌─────────────┐   │
-      │    │  INTERRUPT  │   │
-      │    │  PROCESSING │   │
-      │    └─────────────┘   │
-      │           │          │
-      ▼           │          │
-┌─────────────┐   │          │
-│  RECEIVE    │   │          │
-│  RESPONSE   │ ◄─┘          │
-└─────────────┘              │
-      │                      │
-      ▼                      │
-┌─────────────┐              │
-│   SIGNAL    │              │
-│ INPUT THREAD│              │
-└─────────────┘              │
-      │                      │
-      ▼                      │
-┌─────────────┐              │
-│   RESET     │              │
-│   FLAGS     │              │
-└─────────────┘              │
-      │                      │
-      └──────────────────────┘
-```
-
-### Critical Synchronization Points
-
-#### Normal Message Flow:
+#### Normal Operation:
 ```
 INPUT THREAD                    MAIN THREAD
      │                              │
-1.   │ getline() → message          │
-2.   │ send_expression_message()    │
-3.   │ message_sent = 1             │
-4.   │ signal(message_cond) ────────┼─► wakes up
-5.   │                              │ receive_message()
-6.   │                              │ response_received = 1
-7.   │                              │ signal(response_cond)
-8.   │ ◄────────────────────────────┼── back to loop
+1.   │ getline() → create message   │
+2.   │ set pending_message          │
+3.   │ signal(queue_cond) ──────────┼─► wake up
+4.   │ wait(response_cond) ─┐       │ process message
+5.   │                      │       │ send to socket
+6.   │                      │       │ complete receive
+7.   │                      │       │ signal(response_cond)
+8.   │ ◄────────────────────┘       │
+9.   │ show next prompt             │ wait for next message
 ```
 
-#### Interrupt Handling Flow:
+#### Interrupt Handling (Complete-Response-First):
 ```
 INPUT THREAD                    SIGNAL HANDLER               MAIN THREAD
      │                              │                           │
-1.   │ getline() (blocking)         │                           │
-2.   │           ◄──── SIGINT ──────┼─ write(signal_pipe[1])    │
-3.   │ EINTR                        │ interrupt_requested = 1   │
-4.   │ wait(response_cond) ─┐       │                           │
-5.   │                      │       │                           │ check signal_pipe[0]
-6.   │                      │       │                           │ send_interrupt_message()
-7.   │                      │       │                           │ receive_message()
-8.   │                      │       │                           │ response_received = 1
-9.   │                      └───────┼───────────────────────────┼─ signal(response_cond)
-10.  │ wakes up                     │                           │
-11.  │ continue (next iteration)    │                           │ reset flags + drain signals
+1.   │ getline() → message sent     │                           │ recv() in progress
+2.   │ wait(response_cond)          │                           │
+3.   │           ◄──── SIGINT ──────┼─ interrupt_pending = 1    │
+4.   │                              │ write(signal_pipe[1])     │
+5.   │                              │                           │ select() detects signal
+6.   │                              │                           │ continue recv() to completion
+7.   │                              │                           │ check interrupt_pending
+8.   │                              │                           │ send_interrupt_message()
+9.   │                              │                           │ recv() interrupt response
+10.  │                              │                           │ signal(response_cond)
+11.  │ ◄────────────────────────────┼───────────────────────────┼─ wake up
+12.  │ show next prompt             │                           │ reset interrupt_pending
 ```
 
-### Race Condition Analysis
+### Key Design Principles
 
-**The Core Problem** is in the interrupt handling synchronization between steps 8-11:
+**1. Protocol Integrity:** Always complete current response before sending interrupt to prevent socket desynchronization.
 
-```
-MAIN THREAD                           INPUT THREAD
-│                                     │
-│ response_received = 1               │ wait(response_cond)
-│ if (was_interrupt) {                │     while (!response_received &&
-│     interrupt_requested = 0   ◄─────┼─────── !input_complete &&
-│     response_received = 0           │           interrupt_requested)
-│ }                                   │
-│ signal(response_cond) ──────────────┼─► SHOULD wake up
-│                                     │
-│ [drain signals]                     │ BUT: condition may evaluate
-│                                     │      incorrectly due to
-│                                     │      flag reset timing
-```
+**2. Single Message Queue:** Only one pending message at a time eliminates complex state coordination.
 
-**The Issue:** The input thread's wait condition includes
-`interrupt_requested`, but the main thread resets this flag to 0
-during interrupt processing. This creates a race where:
+**3. Clear Ownership:**
+- Input thread owns stdin and message creation
+- Main thread owns socket communication
+- Signal handler only sets flags
 
-1. Input thread starts waiting with `interrupt_requested = 1`
-2. Main thread processes interrupt, sets `interrupt_requested = 0`
-3. Input thread's condition becomes false BEFORE `response_received = 1`
-4. Input thread may exit the wait prematurely or never properly synchronize
+**4. Minimal Shared State:** Only essential data crosses thread boundaries.
 
-**The Solution:** The interrupt handling needs to ensure proper
-sequencing. The input thread should wait until it receives the proper
-signal indicating the interrupt response is fully processed, rather
-than relying on the `interrupt_requested` flag which gets reset during
-processing.
+### Critical Interrupt Handling
+
+When Ctrl-C occurs during `recv()`, the system:
+
+1. **Signal Handler:** Sets `interrupt_pending = 1` and writes to signal pipe
+2. **Main Thread:** Detects signal via `select()` but continues current `recv()` to completion
+3. **Complete Response:** Ensures protocol stays synchronized
+4. **Send Interrupt:** Only after current response is complete
+5. **Process Interrupt Response:** Receive and display interrupt result
+6. **Continue:** Return to normal operation
+
+This approach prevents protocol corruption while still providing responsive interrupt handling.
+
+### Eliminated Complexity
+
+The new design removes:
+- Multiple volatile flags with unclear timing
+- Complex condition variable coordination
+- pthread_kill usage
+- Race conditions in interrupt handling
+- Self-pipe tricks mixed with threading primitives
+
+**Result:** Simpler, more reliable, and easier to maintain threading architecture.
