@@ -237,7 +237,7 @@ function runSchemeExpression(expression) {
   if (result.startsWith("Parse Error:") || result.startsWith("Error:")) {
     displayResult("📱 " + expression + " → " + result, "error");
   } else {
-    displayResult("📱 Received: " + result, "local");
+    displayResult("📱 " + expression + " ⇒ " + result, "local");
   }
 }
 

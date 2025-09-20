@@ -161,7 +161,7 @@ public class InternetReplService {
                 String javascript = String.format(
                     "console.log(\"Displaying remote result: %s = %s\"); " +
                     "if (typeof displayResult === \"function\") { " +
-                    "  displayResult(\"🌐 %s = %s\", \"remote\"); " +
+                    "  displayResult(\"🌐 %s ⇒ %s\", \"remote\"); " +
                     "} else { " +
                     "  console.error(\"displayResult function not found\"); " +
                     "}",

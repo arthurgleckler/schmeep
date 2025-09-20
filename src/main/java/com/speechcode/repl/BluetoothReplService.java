@@ -338,11 +338,11 @@ public class BluetoothReplService {
                 String javascript = String.format(
                     "console.log(\"Displaying Bluetooth result: %s = %s\"); " +
                     "if (typeof displayResult === \"function\") { " +
-                    "  displayResult(\"🔗 Received: %s\", \"remote\"); " +
+                    "  displayResult(\"🔗 %s ⇒ %s\", \"remote\"); " +
                     "} else { " +
                     "  console.error(\"displayResult function not found\"); " +
                     "}",
-                    escapedExpression, escapedResult, escapedResult
+                    escapedExpression, escapedResult, escapedExpression, escapedResult
                 );
 
                 Log.d(TAG, "Executing JavaScript for Bluetooth result: " + expression + " = " + result);
