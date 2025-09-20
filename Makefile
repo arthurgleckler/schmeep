@@ -16,6 +16,8 @@ CHIBI_SCHEME_LIB_NAME := libchibi-scheme.so
 CHIBI_SCHEME_LIB := $(CHIBI_SCHEME_DIR)/$(CHIBI_SCHEME_LIB_NAME)
 LDFLAGS ?= -Wl,--gc-sections -Wl,-Map=output.map -lm -lGLESv3 -lEGL -landroid -llog -lOpenSLES -shared
 PACKAGE_NAME ?= com.speechcode.$(APPNAME)
+BUILD_TIMESTAMP := $(shell date +%s)
+BUILD_VERSION := 1.0.$(BUILD_TIMESTAMP)
 
 UNAME := $(shell uname)
 OS_NAME := $(if $(filter Linux,$(UNAME)),linux-x86_64,\
@@ -75,7 +77,9 @@ AndroidManifest.xml:
 		ANDROID_TARGET=$(ANDROID_TARGET) \
 		ANDROID_VERSION=$(ANDROID_VERSION) \
 		APPNAME=$(APPNAME) \
-		envsubst '$$ANDROID_TARGET $$ANDROID_VERSION $$APPNAME $$PACKAGE_NAME' \
+		BUILD_TIMESTAMP=$(BUILD_TIMESTAMP) \
+		BUILD_VERSION=$(BUILD_VERSION) \
+		envsubst '$$ANDROID_TARGET $$ANDROID_VERSION $$APPNAME $$PACKAGE_NAME $$BUILD_TIMESTAMP $$BUILD_VERSION' \
 		< AndroidManifest.xml.template > AndroidManifest.xml
 
 chb: chb.c

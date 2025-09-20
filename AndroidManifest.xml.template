@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
-<manifest xmlns:tools="http://schemas.android.com/tools" xmlns:android="http://schemas.android.com/apk/res/android" package="${PACKAGE_NAME}">
+<manifest xmlns:tools="http://schemas.android.com/tools" xmlns:android="http://schemas.android.com/apk/res/android" package="${PACKAGE_NAME}" android:versionCode="${BUILD_TIMESTAMP}" android:versionName="${BUILD_VERSION}">
 	<uses-sdk android:minSdkVersion="${ANDROID_VERSION}"
           android:targetSdkVersion="${ANDROID_TARGET}" />
     <uses-permission android:name="android.permission.SET_RELEASE_APP"/>

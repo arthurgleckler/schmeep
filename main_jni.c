@@ -447,6 +447,24 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
   }
 }
 
+JNIEXPORT jboolean JNICALL Java_com_speechcode_repl_MainActivity_shouldExtractAssetsJni(JNIEnv *env, jobject thiz)
+{
+  LOGI("JNI: shouldExtractAssetsJni called.");
+
+  jclass activityClass = (*env)->GetObjectClass(env, thiz);
+  jmethodID shouldExtractMethod = (*env)->GetMethodID(env, activityClass, "shouldExtractAssets", "()Z");
+
+  if (shouldExtractMethod == NULL) {
+    LOGE("JNI: Could not find shouldExtractAssets method");
+    return JNI_TRUE;
+  }
+
+  jboolean result = (*env)->CallBooleanMethod(env, thiz, shouldExtractMethod);
+  LOGI("JNI: shouldExtractAssets returned: %s", result ? "true" : "false");
+
+  return result;
+}
+
 JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(JNIEnv *env, jobject thiz)
 {
   LOGI("JNI: initializeScheme called.");
@@ -473,11 +491,28 @@ JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(JN
 
   if (scheme_ctx == NULL) {
     LOGI("JNI: Initializing Chibi Scheme.");
-    if (extract_chibi_assets_jni(env, thiz) == 0) {
-      LOGI("JNI: Asset extraction successful.");
+
+    jboolean shouldExtract = Java_com_speechcode_repl_MainActivity_shouldExtractAssetsJni(env, thiz);
+    if (shouldExtract) {
+      LOGI("JNI: Extracting assets based on version check.");
+      if (extract_chibi_assets_jni(env, thiz) == 0) {
+        LOGI("JNI: Asset extraction successful.");
+
+        jclass activityClass = (*env)->GetObjectClass(env, thiz);
+        jmethodID markExtractedMethod = (*env)->GetMethodID(env, activityClass, "markAssetsExtracted", "()V");
+        if (markExtractedMethod != NULL) {
+          (*env)->CallVoidMethod(env, thiz, markExtractedMethod);
+          LOGI("JNI: Marked assets as extracted.");
+        } else {
+          LOGE("JNI: Could not find markAssetsExtracted method.");
+        }
+      } else {
+        LOGE("JNI: Asset extraction failed. Continuing with basic environment.");
+      }
     } else {
-      LOGE("JNI: Asset extraction failed. Continuing with basic environment.");
+      LOGI("JNI: Skipping asset extraction - version unchanged.");
     }
+
     if (init_scheme() == 0) {
       LOGI("JNI: Chibi Scheme initialized successfully.");
     } else {

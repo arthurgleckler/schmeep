@@ -3,10 +3,15 @@ package com.speechcode.repl;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -146,6 +151,66 @@ public class MainActivity extends Activity {
             }
         }
     }
+
+    private boolean shouldExtractAssets() {
+        try {
+            PackageInfo packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            long currentVersionCode = packageInfo.versionCode;
+
+            File markerFile = new File("/data/data/com.speechcode.repl/lib/.assets_timestamp");
+            if (!markerFile.exists()) {
+                Log.i(TAG, "Marker file doesn't exist, need to extract assets");
+                return true;
+            }
+
+            try (FileInputStream fis = new FileInputStream(markerFile)) {
+                byte[] buffer = new byte[20];
+                int bytesRead = fis.read(buffer);
+                if (bytesRead <= 0) {
+                    Log.i(TAG, "Marker file is empty, need to extract assets");
+                    return true;
+                }
+
+                String storedVersionString = new String(buffer, 0, bytesRead).trim();
+                long storedVersionCode = Long.parseLong(storedVersionString);
+
+                if (currentVersionCode != storedVersionCode) {
+                    Log.i(TAG, "Version changed from " + storedVersionCode + " to " + currentVersionCode + ", need to extract assets");
+                    return true;
+                } else {
+                    Log.i(TAG, "Version unchanged (" + currentVersionCode + "), skipping asset extraction");
+                    return false;
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error checking asset extraction status: " + e.getMessage());
+            return true;
+        }
+    }
+
+    private void markAssetsExtracted() {
+        try {
+            PackageInfo packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            long currentVersionCode = packageInfo.versionCode;
+
+            File libDir = new File("/data/data/com.speechcode.repl/lib");
+            if (!libDir.exists()) {
+                libDir.mkdirs();
+            }
+
+            File markerFile = new File(libDir, ".assets_timestamp");
+            try (FileOutputStream fos = new FileOutputStream(markerFile)) {
+                fos.write(String.valueOf(currentVersionCode).getBytes());
+                fos.flush();
+            }
+
+            Log.i(TAG, "Asset extraction completed for version " + currentVersionCode);
+        } catch (Exception e) {
+            Log.e(TAG, "Error marking assets extracted: " + e.getMessage());
+        }
+    }
+
+    public native boolean shouldExtractAssetsJni();
 
     public native void initializeScheme();
 
