@@ -39,7 +39,6 @@ TARGETS += makecapk/lib/arm64-v8a/lib$(APPNAME).so
 
 $(CHIBI_TARGET_ARM64):
 	mkdir -p makecapk/lib/arm64-v8a
-	# Build Android chibi-scheme with dynamic loading support
 	$(MAKE) -C $(CHIBI_SCHEME_DIR) libchibi-scheme.so \
 		CC='$(CC_ARM64)' \
 		CFLAGS='$(CHIBI_CFLAGS) $(CFLAGS_ARM64)' \
@@ -47,7 +46,6 @@ $(CHIBI_TARGET_ARM64):
 		LIBCHIBI_FLAGS='-Wl,-soname,libchibi-scheme.so' \
 		PLATFORM=android ARCH=aarch64
 	cp $(CHIBI_SCHEME_LIB) $@
-	# Build SRFI 27 shared library for Android
 	$(CC_ARM64) -fPIC -shared $(CHIBI_CFLAGS) $(CFLAGS_ARM64) \
 		-Ichibi-scheme/include \
 		-o makecapk/lib/arm64-v8a/srfi-27-rand.so \
@@ -60,14 +58,11 @@ makecapk/lib/arm64-v8a/lib$(APPNAME).so: $(ANDROID_SRCS) $(CHIBI_TARGET_ARM64)
 	$(LDFLAGS) -lchibi-scheme
 
 $(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64)
-	@echo "Copying Chibi Scheme .scm, .sld, and .so files to Sources/assets/."
 	mkdir -p $@
 	cd $(CHIBI_SCHEME_DIR)/lib && find . \( -name "*.scm" -o -name "*.sld" \) \
 		-exec cp --parents {} ../../$@/ \;
-	# Copy the Android SRFI 27 shared library to the right location
 	mkdir -p $@/srfi/27
 	cp makecapk/lib/arm64-v8a/srfi-27-rand.so $@/srfi/27/rand.so
-	@echo "Chibi Scheme assets and shared libraries copied"
 
 all: chb makecapk.apk
 
@@ -83,9 +78,8 @@ AndroidManifest.xml:
 		< AndroidManifest.xml.template > AndroidManifest.xml
 
 chb: chb.c
-	@echo "Compiling Bluetooth client"
 	gcc -o chb chb.c -lbluetooth -lpthread
-	@echo "Bluetooth client compiled successfully"
+
 
 classes.dex: \
 	src/main/java/com/speechcode/repl/BluetoothReplService.java \
@@ -93,17 +87,14 @@ classes.dex: \
 	src/main/java/com/speechcode/repl/EvaluationRequest.java \
 	src/main/java/com/speechcode/repl/MainActivity.java \
 	src/main/java/com/speechcode/repl/SchemeInterface.java
-	@echo "Compiling Java sources."
 	mkdir -p build/classes
 	javac -cp $(ANDROID_JAR) -d build/classes src/main/java/com/speechcode/repl/*.java
-	@echo "Creating classes.dex."
 	$(BUILD_TOOLS)/d8 --classpath $(ANDROID_JAR) --output . \
 		build/classes/com/speechcode/repl/BluetoothReplService.class \
 		build/classes/com/speechcode/repl/DebugWebChromeClient.class \
 		build/classes/com/speechcode/repl/EvaluationRequest.class \
 		build/classes/com/speechcode/repl/MainActivity.class \
 		build/classes/com/speechcode/repl/SchemeInterface.class
-	@echo "Java compilation completed"
 
 clean:
 	rm -rf AndroidManifest.xml $(APKFILE) chb classes.dex build/ makecapk.apk makecapk temp.apk
@@ -125,7 +116,6 @@ makecapk.apk: $(TARGETS) $(CHIBI_ASSETS_DIR) AndroidManifest.xml classes.dex
 	@ls -l $(APKFILE)
 
 push: makecapk.apk
-	@echo "Installing" $(PACKAGE_NAME)
 	$(ADB) install -r $(APKFILE)
 
 run: push
