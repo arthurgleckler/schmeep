@@ -291,7 +291,9 @@ calls. This includes:
 
 ### Clean Architecture Overview
 
-The threading system has been redesigned to eliminate race conditions and simplify synchronization using a message-queue approach with proper interrupt handling.
+The threading system has been redesigned to eliminate race conditions
+and simplify synchronization using a message-queue approach with
+proper interrupt handling.
 
 ### Thread Structure Diagram
 
@@ -353,29 +355,32 @@ INPUT THREAD                    MAIN THREAD
 9.   │ show next prompt             │ wait for next message
 ```
 
-#### Interrupt Handling (Complete-Response-First):
+#### Interrupt Handling (Immediate Interrupt with Separate Response):
 ```
 INPUT THREAD                    SIGNAL HANDLER               MAIN THREAD
      │                              │                           │
-1.   │ getline() → message sent     │                           │ recv() in progress
+1.   │ getline() → message sent     │                           │ recv() blocked on socket
 2.   │ wait(response_cond)          │                           │
 3.   │           ◄──── SIGINT ──────┼─ interrupt_pending = 1    │
 4.   │                              │ write(signal_pipe[1])     │
 5.   │                              │                           │ select() detects signal
-6.   │                              │                           │ continue recv() to completion
-7.   │                              │                           │ check interrupt_pending
-8.   │                              │                           │ send_interrupt_message()
-9.   │                              │                           │ recv() interrupt response
-10.  │                              │                           │ signal(response_cond)
-11.  │ ◄────────────────────────────┼───────────────────────────┼─ wake up
-12.  │ show next prompt             │                           │ reset interrupt_pending
+6.   │                              │                           │ send_interrupt_message()
+7.   │                              │                           │ recv() interrupt response
+8.   │                              │                           │ printf(" => Interrupted\n")
+9.   │                              │                           │ continue (wait for expression)
+10.  │                              │                           │ recv() expression response
+11.  │                              │                           │ signal(response_cond)
+12.  │ ◄────────────────────────────┼───────────────────────────┼─ wake up
+13.  │ show next prompt             │                           │ reset interrupt_pending
 ```
 
 ### Key Design Principles
 
-**1. Protocol Integrity:** Always complete current response before sending interrupt to prevent socket desynchronization.
+**1. Protocol Integrity:** Always complete current response before
+sending interrupt to prevent socket desynchronization.
 
-**2. Single Message Queue:** Only one pending message at a time eliminates complex state coordination.
+**2. Single Message Queue:** Only one pending message at a time
+eliminates complex state coordination.
 
 **3. Clear Ownership:**
 - Input thread owns stdin and message creation
@@ -388,14 +393,39 @@ INPUT THREAD                    SIGNAL HANDLER               MAIN THREAD
 
 When Ctrl-C occurs during `recv()`, the system:
 
-1. **Signal Handler:** Sets `interrupt_pending = 1` and writes to signal pipe
-2. **Main Thread:** Detects signal via `select()` but continues current `recv()` to completion
-3. **Complete Response:** Ensures protocol stays synchronized
-4. **Send Interrupt:** Only after current response is complete
-5. **Process Interrupt Response:** Receive and display interrupt result
-6. **Continue:** Return to normal operation
+1. **Signal Handler:** Sets `interrupt_pending = 1` and writes to
+   signal pipe
+2. **Main Thread:** Detects signal via `select()` immediately
+3. **Send Interrupt:** Immediately sends interrupt message to server
+4. **Receive Interrupt Response:** Gets "Interrupted" response and
+   displays it immediately
+5. **Continue Waiting:** Loops back to wait for the actual expression
+   response
+6. **Proper Synchronization:** Each expression gets its correct
+   response
 
-This approach prevents protocol corruption while still providing responsive interrupt handling.
+**Key Implementation in `receive_message_with_interrupt_check()`:**
+```c
+if (FD_ISSET(signal_pipe[0], &readfds)) {
+    char byte;
+    read(signal_pipe[0], &byte, 1);
+    send_interrupt_message(sock);
+    interrupt_pending = 0;
+
+    // Receive and display the interrupt response immediately
+    char* interrupt_response = receive_message(sock);
+    if (interrupt_response) {
+        printf(" => %s\n", interrupt_response);
+        free(interrupt_response);
+    }
+
+    // Continue waiting for the actual response to the current expression
+    continue;
+}
+```
+
+This approach ensures proper response synchronization while providing
+immediate interrupt feedback.
 
 ### Eliminated Complexity
 
@@ -406,4 +436,5 @@ The new design removes:
 - Race conditions in interrupt handling
 - Self-pipe tricks mixed with threading primitives
 
-**Result:** Simpler, more reliable, and easier to maintain threading architecture.
+**Result:** Simpler, more reliable, and easier to maintain threading
+architecture.
