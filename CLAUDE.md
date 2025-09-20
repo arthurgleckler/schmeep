@@ -286,3 +286,201 @@ calls. This includes:
   issues
 - **Result Display**: Use unified `displayResult()` function for both
   local and remote results with proper type indicators
+
+## Client Threading Architecture (chb.c)
+
+### Thread Structure Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        MAIN PROCESS                         │
+│                                                             │
+│  ┌─────────────────┐              ┌─────────────────────┐   │
+│  │   INPUT THREAD  │              │   MAIN THREAD       │   │
+│  │                 │              │   (Response)        │   │
+│  │ • Read stdin    │◄────sync────►│ • Receive messages  │   │
+│  │ • Send messages │              │ • Handle signals    │   │
+│  │ • Handle EINTR  │              │ • Coordinate state  │   │
+│  └─────────────────┘              └─────────────────────┘   │
+│           │                                   │             │
+│           │                                   │             │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │              SIGNAL HANDLER                            │ │
+│  │         (sigint_handler - async)                       │ │
+│  │      • Writes to signal_pipe[1]                        │ │
+│  │      • Sets interrupt_requested = 1                    │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### State Variables & Synchronization
+
+**Global State Variables:**
+```c
+static volatile sig_atomic_t interrupt_requested = 0;
+static volatile sig_atomic_t input_complete = 0;
+static volatile sig_atomic_t message_sent = 0;
+static volatile sig_atomic_t response_received = 0;
+```
+
+**Synchronization Primitives:**
+```c
+static pthread_mutex_t message_mutex;
+static pthread_cond_t message_cond;
+static pthread_cond_t response_cond;
+static int signal_pipe[2];  // Self-pipe trick for signal handling
+```
+
+### Thread State Machines
+
+#### INPUT THREAD States:
+
+```
+┌─────────────┐
+│   READING   │ ◄────┐
+│   INPUT     │      │
+└─────────────┘      │
+      │ getline()    │
+      │              │
+      ▼              │
+┌─────────────┐      │
+│  PROCESSING │      │
+│   INPUT     │      │
+└─────────────┘      │
+      │              │
+      ▼              │
+┌─────────────┐      │
+│  SENDING    │      │
+│  MESSAGE    │      │
+└─────────────┘      │
+      │              │
+      ▼              │
+┌─────────────┐      │
+│   SIGNAL    │      │
+│  MAIN THREAD│      │
+└─────────────┘      │
+      │              │
+      └──────────────┘
+
+Special Case: SIGINT during getline()
+      │ EINTR
+      ▼
+┌─────────────┐
+│   WAITING   │
+│ FOR INTERRUPT│
+│  RESPONSE   │
+└─────────────┘
+      │ response_received
+      │
+      └─────────► READING INPUT
+```
+
+#### MAIN THREAD States:
+
+```
+┌─────────────┐
+│   WAITING   │ ◄────────────┐
+│ FOR MESSAGE │              │
+└─────────────┘              │
+      │ message_sent         │
+      │                      │
+      ▼                      │
+┌─────────────┐              │
+│   CHECK     │              │
+│  SIGNALS    │              │
+└─────────────┘              │
+      │                      │
+      ├─ signal ──┐          │
+      │           ▼          │
+      │    ┌─────────────┐   │
+      │    │  INTERRUPT  │   │
+      │    │  PROCESSING │   │
+      │    └─────────────┘   │
+      │           │          │
+      ▼           │          │
+┌─────────────┐   │          │
+│  RECEIVE    │   │          │
+│  RESPONSE   │ ◄─┘          │
+└─────────────┘              │
+      │                      │
+      ▼                      │
+┌─────────────┐              │
+│   SIGNAL    │              │
+│ INPUT THREAD│              │
+└─────────────┘              │
+      │                      │
+      ▼                      │
+┌─────────────┐              │
+│   RESET     │              │
+│   FLAGS     │              │
+└─────────────┘              │
+      │                      │
+      └──────────────────────┘
+```
+
+### Critical Synchronization Points
+
+#### Normal Message Flow:
+```
+INPUT THREAD                    MAIN THREAD
+     │                              │
+1.   │ getline() → message          │
+2.   │ send_expression_message()    │
+3.   │ message_sent = 1             │
+4.   │ signal(message_cond) ────────┼─► wakes up
+5.   │                              │ receive_message()
+6.   │                              │ response_received = 1
+7.   │                              │ signal(response_cond)
+8.   │ ◄────────────────────────────┼── back to loop
+```
+
+#### Interrupt Handling Flow:
+```
+INPUT THREAD                    SIGNAL HANDLER               MAIN THREAD
+     │                              │                           │
+1.   │ getline() (blocking)         │                           │
+2.   │           ◄──── SIGINT ──────┼─ write(signal_pipe[1])    │
+3.   │ EINTR                        │ interrupt_requested = 1   │
+4.   │ wait(response_cond) ─┐       │                           │
+5.   │                      │       │                           │ check signal_pipe[0]
+6.   │                      │       │                           │ send_interrupt_message()
+7.   │                      │       │                           │ receive_message()
+8.   │                      │       │                           │ response_received = 1
+9.   │                      └───────┼───────────────────────────┼─ signal(response_cond)
+10.  │ wakes up                     │                           │
+11.  │ continue (next iteration)    │                           │ reset flags + drain signals
+```
+
+### Race Condition Analysis
+
+**The Core Problem** is in the interrupt handling synchronization between steps 8-11:
+
+```
+MAIN THREAD                           INPUT THREAD
+│                                     │
+│ response_received = 1               │ wait(response_cond)
+│ if (was_interrupt) {                │     while (!response_received &&
+│     interrupt_requested = 0   ◄─────┼─────── !input_complete &&
+│     response_received = 0           │           interrupt_requested)
+│ }                                   │
+│ signal(response_cond) ──────────────┼─► SHOULD wake up
+│                                     │
+│ [drain signals]                     │ BUT: condition may evaluate
+│                                     │      incorrectly due to
+│                                     │      flag reset timing
+```
+
+**The Issue:** The input thread's wait condition includes
+`interrupt_requested`, but the main thread resets this flag to 0
+during interrupt processing. This creates a race where:
+
+1. Input thread starts waiting with `interrupt_requested = 1`
+2. Main thread processes interrupt, sets `interrupt_requested = 0`
+3. Input thread's condition becomes false BEFORE `response_received = 1`
+4. Input thread may exit the wait prematurely or never properly synchronize
+
+**The Solution:** The interrupt handling needs to ensure proper
+sequencing. The input thread should wait until it receives the proper
+signal indicating the interrupt response is fully processed, rather
+than relying on the `interrupt_requested` flag which gets reset during
+processing.
