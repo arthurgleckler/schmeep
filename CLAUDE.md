@@ -187,6 +187,8 @@ echo -e "(define x 42)\nx\n(* x 2)" | ./chb AA:BB:CC:DD:EE:FF
 
 ### Never use run-on sentences in comments or messages.
 
+### Never add comments that are obvious in context.
+
 ### Scheme Integration
 - **Dynamic Library Loading**: SRFI 27 and other extensions loaded as
   shared libraries using `include-shared` directive
