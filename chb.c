@@ -40,17 +40,17 @@ static volatile sig_atomic_t interrupt_pending = 0;
 static int signal_pipe[2] = {-1, -1};
 static pthread_t input_thread_id;
 
-char* scan_known_addresses();
-char* load_cached_address();
-void save_cached_address(const char* address);
-char* get_cache_file_path();
 bool check_address_for_scheme_repl(const char* address);
-void sigint_handler(int sig);
+char* get_cache_file_path();
 void* input_thread(void* arg);
-int send_expression_message(int sock, const char* message);
-int send_interrupt_message(int sock);
+char* load_cached_address();
 char* receive_message(int sock);
 char* receive_message_with_signal_check(int sock);
+void save_cached_address(const char* address);
+char* scan_known_addresses();
+int send_expression_message(int sock, const char* message);
+int send_interrupt_message(int sock);
+void sigint_handler(int sig);
 
 char* get_cache_file_path() {
     const char* home = getenv("HOME");
