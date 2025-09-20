@@ -270,6 +270,8 @@ char* receive_message_with_interrupt_check(int sock) {
                 printf("⇒ %s\n", interrupt_response);
                 free(interrupt_response);
             }
+            printf("scheme> ");
+            fflush(stdout);
 
             // Continue waiting for the actual response to the current expression
             continue;
