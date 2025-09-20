@@ -299,6 +299,7 @@ public class BluetoothReplService {
 
         byte[] messageBytes = new byte[messageLength];
         bytesRead = 0;
+
         while (bytesRead < messageLength) {
             int result = inputStream.read(messageBytes, bytesRead, messageLength - bytesRead);
             if (result == -1) {

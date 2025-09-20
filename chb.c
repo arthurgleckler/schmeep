@@ -54,11 +54,13 @@ void sigint_handler(int sig);
 
 char* get_cache_file_path() {
     const char* home = getenv("HOME");
+
     if (!home) {
         return NULL;
     }
 
     char* path = malloc(strlen(home) + strlen(CACHE_DIR) + strlen(CACHE_FILE) + 3);
+
     if (!path) {
         return NULL;
     }
@@ -69,11 +71,13 @@ char* get_cache_file_path() {
 
 char* load_cached_address() {
     char* cache_path = get_cache_file_path();
+
     if (!cache_path) {
         return NULL;
     }
 
     FILE* file = fopen(cache_path, "r");
+
     free(cache_path);
 
     if (!file) {
@@ -81,6 +85,7 @@ char* load_cached_address() {
     }
 
     char* address = malloc(19); // AA:BB:CC:DD:EE:FF + null terminator
+
     if (!address) {
         fclose(file);
         return NULL;
@@ -95,6 +100,7 @@ char* load_cached_address() {
     fclose(file);
 
     size_t len = strlen(address);
+
     if (len > 0 && address[len-1] == '\n') {
         address[len-1] = '\0';
     }
@@ -113,16 +119,19 @@ void save_cached_address(const char* address) {
     }
 
     char* cache_path = get_cache_file_path();
+
     if (!cache_path) {
         return;
     }
 
     const char* home = getenv("HOME");
+
     if (home) {
         char* cache_dir = malloc(strlen(home) + strlen(CACHE_DIR) + 2);
+
         if (cache_dir) {
             sprintf(cache_dir, "%s/%s", home, CACHE_DIR);
-            mkdir(cache_dir, 0755); // Create directory, ignore if exists
+            mkdir(cache_dir, 0755);
             free(cache_dir);
         }
     }
@@ -629,6 +638,7 @@ int main(int argc, char* argv[]) {
     }
 
     struct sigaction sa;
+
     sa.sa_handler = sigint_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
@@ -637,13 +647,11 @@ int main(int argc, char* argv[]) {
         close(sock);
         return 1;
     }
-
     if (pthread_create(&input_thread_id, NULL, input_thread, &sock) != 0) {
         perror("Failed to create input thread");
         close(sock);
         return 1;
     }
-
     while (1) {
         pthread_mutex_lock(&queue_mutex);
         while (!pending_message) {
@@ -651,48 +659,43 @@ int main(int argc, char* argv[]) {
         }
 
         message_t* msg = pending_message;
+
         pending_message = NULL;
         pthread_mutex_unlock(&queue_mutex);
-
         if (msg->type == MSG_QUIT) {
             free(msg->message);
             free(msg);
             break;
         }
-
         if (msg->type == MSG_EXPRESSION) {
             send_expression_message(sock, msg->message);
         }
 
         char* result = receive_message_with_interrupt_check(sock);
+
         if (!result) {
             free(msg->message);
             free(msg);
             break;
         }
-
         printf("⇒ %s\n\n", result);
         fflush(stdout);
         free(result);
         free(msg->message);
         free(msg);
-
         pthread_mutex_lock(&queue_mutex);
         pthread_cond_signal(&response_cond);
         pthread_mutex_unlock(&queue_mutex);
     }
 
     pthread_join(input_thread_id, NULL);
-
     close(sock);
     close(signal_pipe[0]);
     close(signal_pipe[1]);
     printf("Connection closed.\n");
-
     if (argc == 1 && bt_addr) {
         free((char*)bt_addr);
     }
-
     return 0;
 }
 
@@ -715,47 +718,43 @@ void* input_thread(void* arg) {
             if (line) free(line);
             break;
         }
-
         strncpy(input, line, sizeof(input) - 1);
         input[sizeof(input) - 1] = '\0';
         free(line);
 
         size_t input_len = strlen(input);
+
         if (input_len > 0 && input[input_len-1] == '\n') {
             input[input_len-1] = '\0';
         }
-
         if (strcmp(input, "quit") == 0 || strcmp(input, "exit") == 0 || strcmp(input, ":q") == 0) {
             break;
         }
-
         if (strlen(input) == 0) {
             continue;
         }
 
         message_t* msg = malloc(sizeof(message_t));
+
         msg->message = strdup(input);
         msg->type = MSG_EXPRESSION;
-
         pthread_mutex_lock(&queue_mutex);
         pending_message = msg;
         pthread_cond_signal(&queue_cond);
         pthread_cond_wait(&response_cond, &queue_mutex);
         pthread_mutex_unlock(&queue_mutex);
-
         if (!stdin_is_terminal) {
             break;
         }
     }
 
     message_t* quit_msg = malloc(sizeof(message_t));
+
     quit_msg->message = NULL;
     quit_msg->type = MSG_QUIT;
-
     pthread_mutex_lock(&queue_mutex);
     pending_message = quit_msg;
     pthread_cond_signal(&queue_cond);
     pthread_mutex_unlock(&queue_mutex);
-
     return NULL;
 }

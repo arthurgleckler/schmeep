@@ -158,6 +158,7 @@ public class MainActivity extends Activity {
             long currentVersionCode = packageInfo.versionCode;
 
             File markerFile = new File("/data/data/com.speechcode.repl/lib/.assets_timestamp");
+
             if (!markerFile.exists()) {
                 Log.i(TAG, "Marker file doesn't exist, need to extract assets");
                 return true;
@@ -166,6 +167,7 @@ public class MainActivity extends Activity {
             try (FileInputStream fis = new FileInputStream(markerFile)) {
                 byte[] buffer = new byte[20];
                 int bytesRead = fis.read(buffer);
+
                 if (bytesRead <= 0) {
                     Log.i(TAG, "Marker file is empty, need to extract assets");
                     return true;
