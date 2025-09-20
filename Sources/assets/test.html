@@ -200,7 +200,7 @@ function generateSchemeButtons() {
     // Local evaluation button
     const localButton = document.createElement("button");
     localButton.className = "scheme-button";
-    localButton.textContent = "📱 " + expression;
+    localButton.textContent = expression;
     localButton.onclick = () => runSchemeExpression(expression);
     localButton.title = "Run locally";
     buttonGrid.appendChild(localButton);
@@ -315,8 +315,4 @@ window.addEventListener("load", initializePage);
 	<div class="section-title">Scheme REPL</div>
 	<div id="scheme-content" class="scheme-output"></div>
       </div>
-
-      <div class="section">
-	<div class="section-title">Interactive Scheme Demo</div>
-	<div class="button-grid"></div>
-      </div></body></html>
+      <div class="button-grid"></div></body></html>
