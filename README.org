@@ -1,0 +1,22 @@
+#+TITLE: CHB
+#+SUBTITLE: Chibi Scheme Bluetooth REPL for Android
+
+* Features
+
+CHB is an Android app that combines:
+
+- *R7RS Scheme*: embedded [[https://synthcode.com/scheme/chibi/][Chibi Scheme]] interpreter
+- *Bluetooth SPP REPL*: Remote Scheme REPL (Read-Eval-Print Loop) via
+  Bluetooth Serial Port Profile.  Uses a command-line program for I/O.
+- *WebView-Only UI*: full-screen WebView for user interface
+- *JavaScript-to-Native Bridge*: JavaScript-to-JNI communication for
+  Scheme evaluation
+
+* Credit
+
+Thanks to Nawal Husnoo, author of [[https://github.com/husnoo/chibi-droid/][chibi-droid]], and cnlohr, author of
+[[https://github.com/cnlohr/rawdrawandroid][rawdrawandroid]], for inspiration.
+
+* Testing
+
+<>
