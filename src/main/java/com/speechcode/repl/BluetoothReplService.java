@@ -268,21 +268,7 @@ public class BluetoothReplService {
 
 
     private byte readMessageType() throws IOException {
-        // Check if data is available before blocking read
-        while (inputStream.available() == 0) {
-            try {
-                Thread.sleep(10); // Wait only 10ms for faster interrupt response
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Interrupted while waiting for data");
-            }
-
-            // Check if service is still running
-            if (!isRunning.get()) {
-                throw new IOException("Service stopped while waiting for data");
-            }
-        }
-
+        // Use blocking read to properly detect connection closure
         int msgType = inputStream.read();
         if (msgType == -1) {
             throw new IOException("Connection closed while reading message type");
@@ -411,6 +397,7 @@ public class BluetoothReplService {
             inputStream = null;
             outputStream = null;
             clientSocket = null;
+            evaluationQueue.clear();
             if (isRunning.get()) {
                 updateConnectionStatus("Client disconnected - waiting for new connection");
             }
