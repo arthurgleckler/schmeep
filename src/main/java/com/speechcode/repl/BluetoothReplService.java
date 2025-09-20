@@ -339,10 +339,10 @@ public class BluetoothReplService {
                 String escapedExpression = expression.replace("\"", "\\\"");
                 String javascript = String.format(
                     "console.log(\"Displaying received Bluetooth expression: %s\"); " +
-                    "if (typeof displayResult === \"function\") { " +
-                    "  displayResult(\"🔗 %s ⇒ ...\", \"evaluating\"); " +
+                    "if (typeof startEvaluation === \"function\") { " +
+                    "  window.currentEvalId = startEvaluation(\"%s\", \"🔗\"); " +
                     "} else { " +
-                    "  console.error(\"displayResult function not found\"); " +
+                    "  console.error(\"startEvaluation function not found\"); " +
                     "}",
                     escapedExpression, escapedExpression
                 );
@@ -366,10 +366,11 @@ public class BluetoothReplService {
                 String escapedResult = result.replace("\"", "\\\"");
                 String javascript = String.format(
                     "console.log(\"Displaying Bluetooth result: %s = %s\"); " +
-                    "if (typeof displayResult === \"function\") { " +
-                    "  displayResult(\"🔗 %s ⇒ %s\", \"remote\"); " +
+                    "if (typeof completeEvaluation === \"function\" && window.currentEvalId) { " +
+                    "  completeEvaluation(window.currentEvalId, \"%s\", \"%s\", \"remote\", \"🔗\"); " +
+                    "  window.currentEvalId = null; " +
                     "} else { " +
-                    "  console.error(\"displayResult function not found\"); " +
+                    "  console.error(\"completeEvaluation function not found or no currentEvalId\"); " +
                     "}",
                     escapedExpression, escapedResult, escapedExpression, escapedResult
                 );

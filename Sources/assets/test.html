@@ -236,8 +236,12 @@ function runSchemeExpression(expression) {
   }
 }
 
-// Display result with type indicator
-function displayResult(text, type) {
+// Track evaluation lines for replacement
+let evaluationLines = new Map();
+let evaluationCounter = 0;
+
+// Display result with type indicator and optional replacement
+function displayResult(text, type, evaluationId) {
   const schemeContent = document.getElementById("scheme-content");
 
   let className = "";
@@ -251,6 +255,9 @@ function displayResult(text, type) {
     case "queued":
       className = "queued-result";
       break;
+    case "evaluating":
+      className = "queued-result";
+      break;
     case "error":
       className = "error-result";
       break;
@@ -259,17 +266,42 @@ function displayResult(text, type) {
       break;
   }
 
-  // Create elements safely to avoid HTML parsing issues with < and > characters
-  const br = document.createElement("br");
-  const span = document.createElement("span");
-  span.className = className;
-  span.textContent = text;
+  // If this is a replacement (evaluationId exists and we have a tracked line)
+  if (evaluationId && evaluationLines.has(evaluationId)) {
+    const existingSpan = evaluationLines.get(evaluationId);
+    existingSpan.textContent = text;
+    existingSpan.className = className;
+    evaluationLines.delete(evaluationId);
+  } else {
+    // Create new elements
+    const br = document.createElement("br");
+    const span = document.createElement("span");
+    span.className = className;
+    span.textContent = text;
 
-  schemeContent.appendChild(br);
-  schemeContent.appendChild(span);
+    schemeContent.appendChild(br);
+    schemeContent.appendChild(span);
+
+    // If this is an evaluation message, track it for replacement
+    if (type === "evaluating" && evaluationId) {
+      evaluationLines.set(evaluationId, span);
+    }
+  }
 
   // Auto-scroll to bottom.
   schemeContent.scrollTop = schemeContent.scrollHeight;
+}
+
+// Helper function to start an evaluation and return an ID for later replacement
+function startEvaluation(expression, icon) {
+  const evalId = ++evaluationCounter;
+  displayResult(icon + " " + expression + " ⇒ ...", "evaluating", evalId);
+  return evalId;
+}
+
+// Helper function to complete an evaluation by replacing the line
+function completeEvaluation(evalId, expression, result, type, icon) {
+  displayResult(icon + " " + expression + " ⇒ " + result, type, evalId);
 }
 
 function initializePage() {
