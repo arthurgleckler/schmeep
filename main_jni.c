@@ -529,29 +529,10 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(
 {
   LOGI("JNI: interruptScheme called.");
 
-  // Don't acquire mutex - this would cause deadlock since evaluation thread holds it
-  // Just check if context exists and set interrupt flag directly
-  if (scheme_ctx == NULL) {
-    LOGE("JNI: Scheme not initialized for interrupt - ctx=%p", scheme_ctx);
-    return (*env)->NewStringUTF(env, "Interrupted (Scheme not initialized)");
-  }
-
-  LOGI("JNI: INTERRUPT using context pointer: %p", scheme_ctx);
-
-  // Set interrupt flag on main context
-  LOGI("JNI: Setting interrupt flag on main context - ctx=%p", scheme_ctx);
-  LOGI("JNI: Main context interrupt flag before: %d", sexp_context_interruptp(scheme_ctx));
-  sexp_context_interruptp(scheme_ctx) = 1;
-  LOGI("JNI: Main context interrupt flag after: %d", sexp_context_interruptp(scheme_ctx));
-
-  // Set interrupt flag on child context (where eval actually runs)
   sexp thread = scheme_ctx;
 
   for ( ; thread && sexp_contextp(thread); thread=sexp_context_child(thread)) {
-    LOGI("JNI: Setting interrupt flag on child context - ctx=%p", thread);
-    LOGI("JNI: Child context interrupt flag before: %d", sexp_context_interruptp(thread));
     sexp_context_interruptp(thread) = 1;
-    LOGI("JNI: Child context interrupt flag after: %d", sexp_context_interruptp(thread));
   }
 
   return (*env)->NewStringUTF(env, "Interrupted");
@@ -583,9 +564,6 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
     return (*env)->NewStringUTF(env, "Error: Scheme not initialized");
   }
 
-  LOGI("JNI: Context validation passed - ctx=%p env=%p", scheme_ctx, scheme_env);
-  LOGI("JNI: EVAL using context pointer: %p", scheme_ctx);
-
   const char *expr_cstr = (*env)->GetStringUTFChars(env, expression, NULL);
 
   if (!expr_cstr) {
@@ -594,11 +572,8 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
     return (*env)->NewStringUTF(env, "Error: Invalid expression string");
   }
 
-  LOGI("JNI: Evaluating Scheme expression: %s", expr_cstr);
-
   sexp_gc_var1(code_sexp);
   sexp_gc_preserve1(scheme_ctx, code_sexp);
-
 
   code_sexp = sexp_read_from_string(scheme_ctx, expr_cstr, -1);
 
@@ -655,13 +630,10 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
   (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
 
   LOGI("JNI: About to call sexp_eval - ctx=%p code_sexp=%p env=%p", scheme_ctx, code_sexp, scheme_env);
-  LOGI("JNI: Interrupt flag before sexp_eval: %d", sexp_context_interruptp(scheme_ctx));
 
   sexp result = sexp_eval(scheme_ctx, code_sexp, scheme_env);
 
   LOGI("JNI: sexp_eval returned - result=%p", result);
-  LOGI("JNI: Interrupt flag after sexp_eval: %d", sexp_context_interruptp(scheme_ctx));
-
 
   if (!result || sexp_exceptionp(result)) {
     // Check if this is an interrupt error
@@ -739,12 +711,7 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
     return (*env)->NewStringUTF(env, error_message);
   }
 
-  LOGI("JNI: About to call sexp_write_to_string - ctx=%p result=%p", scheme_ctx, result);
-
   sexp result_str = sexp_write_to_string(scheme_ctx, result);
-
-
-  LOGI("JNI: sexp_write_to_string returned - result_str=%p", result_str);
 
   if (!result_str || sexp_exceptionp(result_str)) {
     LOGE("JNI: Failed to convert result to string - result_str=%p exception=%d",
@@ -754,12 +721,7 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
     return (*env)->NewStringUTF(env, "Error: Result conversion error");
   }
 
-  LOGI("JNI: About to call sexp_string_data - result_str=%p", result_str);
-
   const char *result_cstr = sexp_string_data(result_str);
-
-
-  LOGI("JNI: sexp_string_data returned - result_cstr=%p", result_cstr);
 
   if (!result_cstr) {
     LOGE("JNI: sexp_string_data returned NULL for valid result_str.");
