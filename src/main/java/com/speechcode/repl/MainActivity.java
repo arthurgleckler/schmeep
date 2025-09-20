@@ -34,6 +34,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setTitle("CHB: Chibi Scheme REPL");
         Log.i(TAG, "MainActivity onCreate started.");
 
         try {
