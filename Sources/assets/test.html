@@ -67,14 +67,6 @@ body {
   margin-bottom: 8px;
 }
 
-.status-bar {
-  align-items: center;
-  border-radius: 4px;
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding: 8px 12px;
-}
 
 #scheme-content {
   min-height: 40px;
@@ -89,28 +81,29 @@ body {
   min-height: 20px;
 }
 
-.connection-status-bar {
+.status-bar {
   background: #f5f5f5;
   border-bottom: 1px solid #ddd;
   padding: 8px 16px;
+  font-weight: bold;
   font-size: 12px;
   color: #666;
   text-align: center;
 }
 
-.connection-status-bar.connected {
+.status-bar.connected {
   background: #e8f5e8;
   color: #2E7D32;
   border-bottom-color: #4CAF50;
 }
 
-.connection-status-bar.error {
+.status-bar.error {
   background: #ffebee;
   color: #D32F2F;
   border-bottom-color: #f44336;
 }
 
-.connection-status-bar.warning {
+.status-bar.warning {
   background: #fff3e0;
   color: #F57C00;
   border-bottom-color: #ff9800;
@@ -173,7 +166,7 @@ const schemeExpressions = [
 
 // Update connection status display (called from Java)
 function updateConnectionStatusDisplay(status, statusType) {
-  const statusBar = document.getElementById("connection-status-bar");
+  const statusBar = document.getElementById("status-bar");
   const statusText = document.getElementById("connection-status-text");
 
   if (statusText) {
@@ -313,11 +306,7 @@ window.addEventListener("load", initializePage);
 </script>
 </head>
   <body>
-    <div class="status-bar">
-      <div>WebView + Bluetooth REPL</div>
-    </div>
-
-    <div id="connection-status-bar" class="connection-status-bar">
+    <div id="status-bar" class="status-bar">
       <div id="connection-status-text">Starting.</div>
     </div>
 
