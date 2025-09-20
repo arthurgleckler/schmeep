@@ -21,7 +21,8 @@ sexp scheme_ctx = NULL;
 sexp scheme_env = NULL;
 static pthread_mutex_t scheme_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void cleanup_scheme() {
+void cleanup_scheme()
+{
   if (scheme_ctx) {
     LOGI("cleanup_scheme: Destroying Scheme context.");
     sexp_destroy_context(scheme_ctx);
@@ -30,7 +31,8 @@ void cleanup_scheme() {
   }
 }
 
-void crash_handler(int sig, siginfo_t *info, void *context) {
+void crash_handler(int sig, siginfo_t * info, void *context)
+{
   LOGE("JNI: CRASH DETECTED - Signal %d at address %p", sig, info->si_addr);
   LOGE("JNI: Crash occurred in PID %d, TID %d", getpid(), gettid());
 
@@ -38,11 +40,13 @@ void crash_handler(int sig, siginfo_t *info, void *context) {
     LOGE("JNI: Scheme context available at crash: %p", scheme_ctx);
 
     sexp stack = sexp_global(scheme_ctx, SEXP_STACK);
+
     if (stack) {
       LOGE("JNI: Scheme stack at crash: %p", stack);
       if (sexp_vectorp(stack)) {
-        int stack_depth = sexp_vector_length(stack);
-        LOGE("JNI: Scheme stack depth at crash: %d", stack_depth);
+	int stack_depth = sexp_vector_length(stack);
+
+	LOGE("JNI: Scheme stack depth at crash: %d", stack_depth);
       }
     }
   } else {
@@ -69,7 +73,8 @@ void crash_handler(int sig, siginfo_t *info, void *context) {
   raise(sig);
 }
 
-void extract_chibi_scheme_assets() {
+void extract_chibi_scheme_assets()
+{
   LOGI("extract_chibi_scheme_assets: Starting asset extraction for JNI mode.");
 
   char target_base[] = "/data/data/com.speechcode.repl/lib";
@@ -80,11 +85,13 @@ void extract_chibi_scheme_assets() {
   LOGI("extract_chibi_scheme_assets: Completed (JNI mode - assets should be extracted by build system).");
 }
 
-int init_scheme() {
+int init_scheme()
+{
   LOGI("init_scheme: Starting Scheme initialization.");
   extract_chibi_scheme_assets();
   sexp_scheme_init();
-  scheme_ctx = sexp_make_eval_context(NULL, NULL, NULL, 1024*1024, 8*1024*1024);
+  scheme_ctx =
+      sexp_make_eval_context(NULL, NULL, NULL, 1024 * 1024, 8 * 1024 * 1024);
   if (!scheme_ctx) {
     LOGE("init_scheme: Failed to create Scheme context.");
     return -1;
@@ -98,9 +105,11 @@ int init_scheme() {
   }
   LOGI("init_scheme: Setting up Android-specific module paths.");
 
-  sexp module_path_string = sexp_c_string(scheme_ctx, "/data/data/com.speechcode.repl/lib", -1);
+  sexp module_path_string =
+      sexp_c_string(scheme_ctx, "/data/data/com.speechcode.repl/lib", -1);
 
-  sexp_global(scheme_ctx, SEXP_G_MODULE_PATH) = sexp_list1(scheme_ctx, module_path_string);
+  sexp_global(scheme_ctx, SEXP_G_MODULE_PATH) =
+      sexp_list1(scheme_ctx, module_path_string);
   LOGI("init_scheme: Set module directory to: /data/data/com.speechcode.repl/lib.");
   sexp_load_standard_ports(scheme_ctx, scheme_env, stdin, stdout, stderr, 1);
   LOGI("init_scheme: Attempting to load R7RS standard environment.");
@@ -142,11 +151,13 @@ int init_scheme() {
     scheme_env = std_env;
   }
 
-  const char* set_path_expr = "(current-module-path (cons \"/data/data/com.speechcode.repl/lib\" (current-module-path)))";
+  const char *set_path_expr =
+      "(current-module-path (cons \"/data/data/com.speechcode.repl/lib\" (current-module-path)))";
   sexp path_sexp = sexp_read_from_string(scheme_ctx, set_path_expr, -1);
 
   if (path_sexp && !sexp_exceptionp(path_sexp)) {
     sexp path_result = sexp_eval(scheme_ctx, path_sexp, scheme_env);
+
     if (path_result && !sexp_exceptionp(path_result)) {
       LOGI("init_scheme: Library search path configured.");
     } else {
@@ -157,7 +168,10 @@ int init_scheme() {
   return 0;
 }
 
-void log_scheme_exception_details(sexp exception_obj, sexp ctx, const char* prefix, const char* original_expression) {
+void log_scheme_exception_details(sexp exception_obj, sexp ctx,
+				  const char *prefix,
+				  const char *original_expression)
+{
   if (!exception_obj || !sexp_exceptionp(exception_obj)) {
     LOGE("%s: Not a valid exception object", prefix);
     return;
@@ -178,6 +192,7 @@ void log_scheme_exception_details(sexp exception_obj, sexp ctx, const char* pref
 
   if (kind && sexp_symbolp(kind)) {
     sexp kind_str = sexp_symbol_to_string(ctx, kind);
+
     if (kind_str && sexp_stringp(kind_str)) {
       LOGE("%s: Error kind: %s", prefix, sexp_string_data(kind_str));
     }
@@ -189,41 +204,46 @@ void log_scheme_exception_details(sexp exception_obj, sexp ctx, const char* pref
     LOGE("%s: Error irritants present (irritants=%p)", prefix, irritants);
     if (sexp_pairp(irritants)) {
       sexp first_irritant = sexp_car(irritants);
+
       if (first_irritant && sexp_stringp(first_irritant)) {
-        LOGE("%s: First irritant string: %s", prefix, sexp_string_data(first_irritant));
+	LOGE("%s: First irritant string: %s", prefix,
+	     sexp_string_data(first_irritant));
       } else {
-        LOGE("%s: First irritant: %p type=%d", prefix, first_irritant,
-             first_irritant ? sexp_type_tag(first_irritant) : -1);
+	LOGE("%s: First irritant: %p type=%d", prefix, first_irritant,
+	     first_irritant ? sexp_type_tag(first_irritant) : -1);
       }
     }
   }
 
   if (source) {
-    LOGE("%s: Error source present (source=%p) type=%d", prefix, source, sexp_type_tag(source));
+    LOGE("%s: Error source present (source=%p) type=%d", prefix, source,
+	 sexp_type_tag(source));
   }
 
   if (msg && sexp_stringp(msg)) {
-    const char* error_msg = sexp_string_data(msg);
+    const char *error_msg = sexp_string_data(msg);
 
     if (strstr(error_msg, "dotted list")) {
       LOGE("%s: MEMORY CORRUPTION DETECTED - Dotted list error indicates corrupted input", prefix);
       if (original_expression) {
-        LOGE("%s: Original expression was: %s", prefix, original_expression);
+	LOGE("%s: Original expression was: %s", prefix, original_expression);
 
-        LOGE("%s: Expression string pointer: %p", prefix, original_expression);
-        int len = strlen(original_expression);
+	LOGE("%s: Expression string pointer: %p", prefix, original_expression);
+	int len = strlen(original_expression);
 
-        LOGE("%s: Expression length: %d", prefix, len);
-        for (int i = 0; i < len && i < 32; i++) {
-          LOGE("%s: expr[%d] = 0x%02x ('%c')", prefix, i, (unsigned char)original_expression[i],
-               isprint(original_expression[i]) ? original_expression[i] : '?');
-        }
+	LOGE("%s: Expression length: %d", prefix, len);
+	for (int i = 0; i < len && i < 32; i++) {
+	  LOGE("%s: expr[%d] = 0x%02x ('%c')", prefix, i,
+	       (unsigned char)original_expression[i],
+	       isprint(original_expression[i]) ? original_expression[i] : '?');
+	}
       }
     }
   }
 }
 
-void log_scheme_stack_context_info(sexp ctx, sexp env, const char* prefix) {
+void log_scheme_stack_context_info(sexp ctx, sexp env, const char *prefix)
+{
   sexp trace = sexp_global(ctx, SEXP_G_ERR_HANDLER);
 
   if (trace) {
@@ -236,42 +256,52 @@ void log_scheme_stack_context_info(sexp ctx, sexp env, const char* prefix) {
     LOGE("%s: Stack object present (stack=%p)", prefix, stack);
     if (sexp_vectorp(stack)) {
       int stack_depth = sexp_vector_length(stack);
+
       LOGE("%s: Stack depth: %d", prefix, stack_depth);
 
       for (int i = 0; i < stack_depth && i < 10; i++) {
-        sexp frame = sexp_vector_ref(stack, sexp_make_fixnum(i));
-        if (frame) {
-          LOGE("%s: Stack frame %d: %p", prefix, i, frame);
+	sexp frame = sexp_vector_ref(stack, sexp_make_fixnum(i));
 
-          if (sexp_vectorp(frame)) {
-            int frame_size = sexp_vector_length(frame);
+	if (frame) {
+	  LOGE("%s: Stack frame %d: %p", prefix, i, frame);
 
-            LOGE("%s: Frame %d size: %d", prefix, i, frame_size);
+	  if (sexp_vectorp(frame)) {
+	    int frame_size = sexp_vector_length(frame);
 
-            for (int j = 0; j < frame_size && j < 5; j++) {
-              sexp element = sexp_vector_ref(frame, sexp_make_fixnum(j));
-              if (element) {
-                LOGE("%s: Frame %d[%d]: %p type=%d", prefix, i, j, element, sexp_type_tag(element));
+	    LOGE("%s: Frame %d size: %d", prefix, i, frame_size);
 
-                if (sexp_procedurep(element)) {
-                  LOGE("%s: Frame %d[%d] is a procedure", prefix, i, j);
-                } else if (sexp_symbolp(element)) {
-                  sexp name_str = sexp_symbol_to_string(ctx, element);
-                  if (name_str && sexp_stringp(name_str)) {
-                    LOGE("%s: Frame %d[%d] symbol: %s", prefix, i, j, sexp_string_data(name_str));
-                  }
-                }
-              }
-            }
-          } else if (sexp_pairp(frame)) {
-            LOGE("%s: Frame %d is a pair", prefix, i);
-            sexp car = sexp_car(frame);
-            sexp cdr = sexp_cdr(frame);
+	    for (int j = 0; j < frame_size && j < 5; j++) {
+	      sexp element = sexp_vector_ref(frame, sexp_make_fixnum(j));
 
-            if (car) LOGE("%s: Frame %d car: %p type=%d", prefix, i, car, sexp_type_tag(car));
-            if (cdr) LOGE("%s: Frame %d cdr: %p type=%d", prefix, i, cdr, sexp_type_tag(cdr));
-          }
-        }
+	      if (element) {
+		LOGE("%s: Frame %d[%d]: %p type=%d", prefix, i, j, element,
+		     sexp_type_tag(element));
+
+		if (sexp_procedurep(element)) {
+		  LOGE("%s: Frame %d[%d] is a procedure", prefix, i, j);
+		} else if (sexp_symbolp(element)) {
+		  sexp name_str = sexp_symbol_to_string(ctx, element);
+
+		  if (name_str && sexp_stringp(name_str)) {
+		    LOGE("%s: Frame %d[%d] symbol: %s", prefix, i, j,
+			 sexp_string_data(name_str));
+		  }
+		}
+	      }
+	    }
+	  } else if (sexp_pairp(frame)) {
+	    LOGE("%s: Frame %d is a pair", prefix, i);
+	    sexp car = sexp_car(frame);
+	    sexp cdr = sexp_cdr(frame);
+
+	    if (car)
+	      LOGE("%s: Frame %d car: %p type=%d", prefix, i, car,
+		   sexp_type_tag(car));
+	    if (cdr)
+	      LOGE("%s: Frame %d cdr: %p type=%d", prefix, i, cdr,
+		   sexp_type_tag(cdr));
+	  }
+	}
       }
     } else {
       LOGE("%s: Stack is not a vector, type=%d", prefix, sexp_type_tag(stack));
@@ -282,8 +312,9 @@ void log_scheme_stack_context_info(sexp ctx, sexp env, const char* prefix) {
     if (ctx_stack) {
       LOGE("%s: Context stack present (ctx_stack=%p)", prefix, ctx_stack);
       if (sexp_vectorp(ctx_stack)) {
-        int ctx_depth = sexp_vector_length(ctx_stack);
-        LOGE("%s: Context stack depth: %d", prefix, ctx_depth);
+	int ctx_depth = sexp_vector_length(ctx_stack);
+
+	LOGE("%s: Context stack depth: %d", prefix, ctx_depth);
       }
     }
 
@@ -291,23 +322,30 @@ void log_scheme_stack_context_info(sexp ctx, sexp env, const char* prefix) {
     int env_depth = 0;
 
     while (current_env && env_depth < 10) {
-      LOGE("%s: Environment level %d: %p type=%d", prefix, env_depth, current_env, sexp_type_tag(current_env));
+      LOGE("%s: Environment level %d: %p type=%d", prefix, env_depth,
+	   current_env, sexp_type_tag(current_env));
       if (sexp_envp(current_env)) {
-        sexp parent = sexp_env_parent(current_env);
-        if (parent == current_env) break; // Avoid infinite loop
-        current_env = parent;
+	sexp parent = sexp_env_parent(current_env);
+
+	if (parent == current_env)
+	  break;		// Avoid infinite loop
+	current_env = parent;
       } else {
-        break;
+	break;
       }
       env_depth++;
     }
   }
 }
 
-int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
+int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
+{
   jclass activityClass = (*env)->GetObjectClass(env, activity);
-  jmethodID getAssetsMethod = (*env)->GetMethodID(env, activityClass, "getAssets", "()Landroid/content/res/AssetManager;");
-  jobject assetManager = (*env)->CallObjectMethod(env, activity, getAssetsMethod);
+  jmethodID getAssetsMethod =
+      (*env)->GetMethodID(env, activityClass, "getAssets",
+			  "()Landroid/content/res/AssetManager;");
+  jobject assetManager =
+      (*env)->CallObjectMethod(env, activity, getAssetsMethod);
 
   if (!assetManager) {
     LOGE("Failed to get AssetManager.");
@@ -317,12 +355,11 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
   char target_base[] = "/data/data/com.speechcode.repl/lib";
   char mkdir_cmd[256];
 
-
   snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", target_base);
   system(mkdir_cmd);
   LOGI("Starting essential Scheme library extraction.");
 
-  const char* essential_files[] = {
+  const char *essential_files[] = {
     "lib/chibi/ast.sld",
     "lib/chibi/equiv.sld",
     "lib/chibi/io.sld",
@@ -365,44 +402,56 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
   };
 
   jclass assetManagerClass = (*env)->GetObjectClass(env, assetManager);
-  jmethodID openMethod = (*env)->GetMethodID(env, assetManagerClass, "open", "(Ljava/lang/String;)Ljava/io/InputStream;");
+  jmethodID openMethod = (*env)->GetMethodID(env, assetManagerClass, "open",
+					     "(Ljava/lang/String;)Ljava/io/InputStream;");
 
   int count = 0;
+
   for (int i = 0; essential_files[i] != NULL; i++) {
-    const char* asset_path = essential_files[i];
-    const char* extract_path = asset_path + 4; // Skip "lib/" prefix
+    const char *asset_path = essential_files[i];
+    const char *extract_path = asset_path + 4;	// Skip "lib/" prefix
 
     jstring assetPath = (*env)->NewStringUTF(env, asset_path);
-    jobject inputStream = (*env)->CallObjectMethod(env, assetManager, openMethod, assetPath);
+    jobject inputStream =
+	(*env)->CallObjectMethod(env, assetManager, openMethod, assetPath);
 
     if (inputStream) {
       jclass inputStreamClass = (*env)->GetObjectClass(env, inputStream);
-      jmethodID availableMethod = (*env)->GetMethodID(env, inputStreamClass, "available", "()I");
-      jmethodID readMethod = (*env)->GetMethodID(env, inputStreamClass, "read", "([B)I");
-      jmethodID closeMethod = (*env)->GetMethodID(env, inputStreamClass, "close", "()V");
+      jmethodID availableMethod =
+	  (*env)->GetMethodID(env, inputStreamClass, "available", "()I");
+      jmethodID readMethod =
+	  (*env)->GetMethodID(env, inputStreamClass, "read", "([B)I");
+      jmethodID closeMethod =
+	  (*env)->GetMethodID(env, inputStreamClass, "close", "()V");
 
       jint available = (*env)->CallIntMethod(env, inputStream, availableMethod);
+
       if (available > 0) {
 	jbyteArray buffer = (*env)->NewByteArray(env, available);
-	jint bytesRead = (*env)->CallIntMethod(env, inputStream, readMethod, buffer);
+	jint bytesRead =
+	    (*env)->CallIntMethod(env, inputStream, readMethod, buffer);
 
 	if (bytesRead > 0) {
-	  jbyte* bufferPtr = (*env)->GetByteArrayElements(env, buffer, NULL);
+	  jbyte *bufferPtr = (*env)->GetByteArrayElements(env, buffer, NULL);
 	  char target_path[512];
 
-	  snprintf(target_path, sizeof(target_path), "%s/%s", target_base, extract_path);
+	  snprintf(target_path, sizeof(target_path), "%s/%s", target_base,
+		   extract_path);
 
 	  char parent_dir[512];
+
 	  strncpy(parent_dir, target_path, sizeof(parent_dir));
-	  char* last_slash = strrchr(parent_dir, '/');
+	  char *last_slash = strrchr(parent_dir, '/');
+
 	  if (last_slash) {
 	    *last_slash = '\0';
 	    char mkdir_cmd[768];
+
 	    snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", parent_dir);
 	    system(mkdir_cmd);
 	  }
 
-	  FILE* fp = fopen(target_path, "wb");
+	  FILE *fp = fopen(target_path, "wb");
 
 	  if (fp) {
 	    fwrite(bufferPtr, 1, bytesRead, fp);
@@ -410,9 +459,11 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 
 	    if (strstr(target_path, ".so") != NULL) {
 	      chmod(target_path, 0755);
-	      LOGI("Extracted shared library: %s (%d bytes)", extract_path, bytesRead);
+	      LOGI("Extracted shared library: %s (%d bytes)", extract_path,
+		   bytesRead);
 	    } else {
-	      LOGI("Extracted essential file: %s (%d bytes)", extract_path, bytesRead);
+	      LOGI("Extracted essential file: %s (%d bytes)", extract_path,
+		   bytesRead);
 	    }
 	    count++;
 	  } else {
@@ -447,12 +498,15 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
   }
 }
 
-JNIEXPORT jboolean JNICALL Java_com_speechcode_repl_MainActivity_shouldExtractAssetsJni(JNIEnv *env, jobject thiz)
+JNIEXPORT jboolean JNICALL
+Java_com_speechcode_repl_MainActivity_shouldExtractAssetsJni(JNIEnv * env,
+							     jobject thiz)
 {
   LOGI("JNI: shouldExtractAssetsJni called.");
 
   jclass activityClass = (*env)->GetObjectClass(env, thiz);
-  jmethodID shouldExtractMethod = (*env)->GetMethodID(env, activityClass, "shouldExtractAssets", "()Z");
+  jmethodID shouldExtractMethod =
+      (*env)->GetMethodID(env, activityClass, "shouldExtractAssets", "()Z");
 
   if (shouldExtractMethod == NULL) {
     LOGE("JNI: Could not find shouldExtractAssets method");
@@ -460,20 +514,23 @@ JNIEXPORT jboolean JNICALL Java_com_speechcode_repl_MainActivity_shouldExtractAs
   }
 
   jboolean result = (*env)->CallBooleanMethod(env, thiz, shouldExtractMethod);
+
   LOGI("JNI: shouldExtractAssets returned: %s", result ? "true" : "false");
 
   return result;
 }
 
-JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(JNIEnv *env, jobject thiz)
+JNIEXPORT void JNICALL
+Java_com_speechcode_repl_MainActivity_initializeScheme(JNIEnv * env,
+						       jobject thiz)
 {
   LOGI("JNI: initializeScheme called.");
 
   struct sigaction sa;
+
   sa.sa_sigaction = crash_handler;
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = SA_SIGINFO;
-
 
   if (sigaction(SIGSEGV, &sa, NULL) == 0) {
     LOGI("JNI: SIGSEGV signal handler installed successfully");
@@ -492,22 +549,26 @@ JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(JN
   if (scheme_ctx == NULL) {
     LOGI("JNI: Initializing Chibi Scheme.");
 
-    jboolean shouldExtract = Java_com_speechcode_repl_MainActivity_shouldExtractAssetsJni(env, thiz);
+    jboolean shouldExtract =
+	Java_com_speechcode_repl_MainActivity_shouldExtractAssetsJni(env, thiz);
     if (shouldExtract) {
       LOGI("JNI: Extracting assets based on version check.");
       if (extract_chibi_assets_jni(env, thiz) == 0) {
-        LOGI("JNI: Asset extraction successful.");
+	LOGI("JNI: Asset extraction successful.");
 
-        jclass activityClass = (*env)->GetObjectClass(env, thiz);
-        jmethodID markExtractedMethod = (*env)->GetMethodID(env, activityClass, "markAssetsExtracted", "()V");
-        if (markExtractedMethod != NULL) {
-          (*env)->CallVoidMethod(env, thiz, markExtractedMethod);
-          LOGI("JNI: Marked assets as extracted.");
-        } else {
-          LOGE("JNI: Could not find markAssetsExtracted method.");
-        }
+	jclass activityClass = (*env)->GetObjectClass(env, thiz);
+	jmethodID markExtractedMethod =
+	    (*env)->GetMethodID(env, activityClass, "markAssetsExtracted",
+				"()V");
+
+	if (markExtractedMethod != NULL) {
+	  (*env)->CallVoidMethod(env, thiz, markExtractedMethod);
+	  LOGI("JNI: Marked assets as extracted.");
+	} else {
+	  LOGE("JNI: Could not find markAssetsExtracted method.");
+	}
       } else {
-        LOGE("JNI: Asset extraction failed. Continuing with basic environment.");
+	LOGE("JNI: Asset extraction failed. Continuing with basic environment.");
       }
     } else {
       LOGI("JNI: Skipping asset extraction - version unchanged.");
@@ -525,13 +586,15 @@ JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(JN
   pthread_mutex_unlock(&scheme_mutex);
 }
 
-JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(JNIEnv *env, jobject thiz)
+JNIEXPORT jstring JNICALL
+Java_com_speechcode_repl_MainActivity_interruptScheme(JNIEnv * env,
+						      jobject thiz)
 {
   LOGI("JNI: interruptScheme called.");
 
   sexp thread = scheme_ctx;
 
-  for ( ; thread && sexp_contextp(thread); thread=sexp_context_child(thread)) {
+  for (; thread && sexp_contextp(thread); thread = sexp_context_child(thread)) {
     sexp_context_interruptp(thread) = 1;
   }
 
@@ -540,18 +603,21 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(
 
 static int in_user_evaluation = 0;
 
-__attribute__((visibility("default"))) int is_in_user_evaluation() {
+__attribute__((visibility("default")))
+int is_in_user_evaluation()
+{
   return in_user_evaluation;
 }
 
-JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(JNIEnv *env, jobject thiz, jstring expression)
+JNIEXPORT jstring JNICALL
+Java_com_speechcode_repl_MainActivity_evaluateScheme(JNIEnv * env, jobject thiz,
+						     jstring expression)
 {
   LOGI("JNI: evaluateScheme called.");
 
   pthread_mutex_lock(&scheme_mutex);
 
   in_user_evaluation = 1;
-
 
   if (scheme_ctx == NULL || scheme_env == NULL) {
     LOGE("JNI: Scheme not initialized - ctx=%p env=%p", scheme_ctx, scheme_env);
@@ -577,11 +643,12 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
   if (!code_sexp || sexp_exceptionp(code_sexp)) {
     LOGE("JNI: Failed to parse Scheme expression - code_sexp=%p exception=%d",
-         code_sexp, code_sexp ? sexp_exceptionp(code_sexp) : -1);
+	 code_sexp, code_sexp ? sexp_exceptionp(code_sexp) : -1);
     LOGE("JNI: INPUT EXPRESSION WAS: '%s'", expr_cstr);
 
     char parse_error_message[1024];
-    int pos = snprintf(parse_error_message, sizeof(parse_error_message), "Parse Error: ");
+    int pos = snprintf(parse_error_message, sizeof(parse_error_message),
+		       "Parse Error: ");
 
     if (code_sexp && sexp_exceptionp(code_sexp)) {
       // Skip detailed logging to avoid crashes on corrupted objects.
@@ -590,24 +657,29 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
       int extracted_info = 0;
 
       sexp msg = NULL;
-      const char* msg_data = NULL;
+      const char *msg_data = NULL;
 
       if (pos < sizeof(parse_error_message) - 50) {
-        msg = sexp_exception_message(code_sexp);
-        if (msg && sexp_stringp(msg)) {
-          msg_data = sexp_string_data(msg);
-          if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
-            pos += snprintf(parse_error_message + pos, sizeof(parse_error_message) - pos, "%s", msg_data);
-            extracted_info = 1;
-          }
-        }
+	msg = sexp_exception_message(code_sexp);
+	if (msg && sexp_stringp(msg)) {
+	  msg_data = sexp_string_data(msg);
+	  if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
+	    pos +=
+		snprintf(parse_error_message + pos,
+			 sizeof(parse_error_message) - pos, "%s", msg_data);
+	    extracted_info = 1;
+	  }
+	}
       }
 
       if (!extracted_info && pos < sizeof(parse_error_message) - 20) {
-        pos += snprintf(parse_error_message + pos, sizeof(parse_error_message) - pos, "Invalid syntax");
+	pos +=
+	    snprintf(parse_error_message + pos,
+		     sizeof(parse_error_message) - pos, "Invalid syntax");
       }
     } else if (pos < sizeof(parse_error_message) - 30) {
-      snprintf(parse_error_message + pos, sizeof(parse_error_message) - pos, "Failed to parse expression");
+      snprintf(parse_error_message + pos, sizeof(parse_error_message) - pos,
+	       "Failed to parse expression");
     }
 
     parse_error_message[sizeof(parse_error_message) - 1] = '\0';
@@ -620,7 +692,8 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
   (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
 
-  LOGI("JNI: About to call sexp_eval - ctx=%p code_sexp=%p env=%p", scheme_ctx, code_sexp, scheme_env);
+  LOGI("JNI: About to call sexp_eval - ctx=%p code_sexp=%p env=%p", scheme_ctx,
+       code_sexp, scheme_env);
 
   sexp result = sexp_eval(scheme_ctx, code_sexp, scheme_env);
 
@@ -629,10 +702,11 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
   if (!result || sexp_exceptionp(result)) {
     if (result && sexp_exceptionp(result)) {
       sexp interrupt_error = sexp_global(scheme_ctx, SEXP_G_INTERRUPT_ERROR);
+
       if (result == interrupt_error) {
-        LOGI("JNI: Interrupt error detected - evaluation was interrupted successfully");
-        pthread_mutex_unlock(&scheme_mutex);
-        return (*env)->NewStringUTF(env, "Interrupted");
+	LOGI("JNI: Interrupt error detected - evaluation was interrupted successfully");
+	pthread_mutex_unlock(&scheme_mutex);
+	return (*env)->NewStringUTF(env, "Interrupted");
       }
     }
 
@@ -649,42 +723,55 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
       int extracted_info = 0;
 
       if (pos < sizeof(error_message) - 50) {
-        sexp msg = sexp_exception_message(result);
-        if (msg && sexp_stringp(msg)) {
-          const char* msg_data = sexp_string_data(msg);
-          if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
-            pos += snprintf(error_message + pos, sizeof(error_message) - pos, "%s", msg_data);
-            extracted_info = 1;
-          }
-        }
+	sexp msg = sexp_exception_message(result);
+
+	if (msg && sexp_stringp(msg)) {
+	  const char *msg_data = sexp_string_data(msg);
+
+	  if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
+	    pos +=
+		snprintf(error_message + pos, sizeof(error_message) - pos, "%s",
+			 msg_data);
+	    extracted_info = 1;
+	  }
+	}
       }
 
       if (!extracted_info && pos < sizeof(error_message) - 50) {
-        sexp kind = sexp_exception_kind(result);
-        if (kind && sexp_symbolp(kind)) {
-          sexp kind_str = sexp_symbol_to_string(scheme_ctx, kind);
-          if (kind_str && sexp_stringp(kind_str)) {
-            const char* kind_data = sexp_string_data(kind_str);
-            if (kind_data && strlen(kind_data) > 0 && strlen(kind_data) < 50) {
-              pos += snprintf(error_message + pos, sizeof(error_message) - pos, "%s error", kind_data);
-              extracted_info = 1;
-            }
-          }
-        }
+	sexp kind = sexp_exception_kind(result);
+
+	if (kind && sexp_symbolp(kind)) {
+	  sexp kind_str = sexp_symbol_to_string(scheme_ctx, kind);
+
+	  if (kind_str && sexp_stringp(kind_str)) {
+	    const char *kind_data = sexp_string_data(kind_str);
+
+	    if (kind_data && strlen(kind_data) > 0 && strlen(kind_data) < 50) {
+	      pos +=
+		  snprintf(error_message + pos, sizeof(error_message) - pos,
+			   "%s error", kind_data);
+	      extracted_info = 1;
+	    }
+	  }
+	}
       }
 
       if (!extracted_info && pos < sizeof(error_message) - 20) {
-        pos += snprintf(error_message + pos, sizeof(error_message) - pos, "Evaluation failed");
+	pos +=
+	    snprintf(error_message + pos, sizeof(error_message) - pos,
+		     "Evaluation failed");
       }
 
       sexp proc = sexp_exception_procedure(result);
+
       if (proc) {
-        LOGE("JNI Eval: Error procedure present (proc=%p)", proc);
+	LOGE("JNI Eval: Error procedure present (proc=%p)", proc);
       }
     } else {
       LOGE("JNI: Result is NULL or not an exception (result=%p)", result);
       if (pos < sizeof(error_message) - 30) {
-        snprintf(error_message + pos, sizeof(error_message) - pos, "Unknown evaluation error");
+	snprintf(error_message + pos, sizeof(error_message) - pos,
+		 "Unknown evaluation error");
       }
     }
 
@@ -699,7 +786,7 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
 
   if (!result_str || sexp_exceptionp(result_str)) {
     LOGE("JNI: Failed to convert result to string - result_str=%p exception=%d",
-         result_str, result_str ? sexp_exceptionp(result_str) : -1);
+	 result_str, result_str ? sexp_exceptionp(result_str) : -1);
     sexp_gc_release1(scheme_ctx);
     pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Result conversion error");
@@ -717,7 +804,6 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(J
   LOGI("JNI: Scheme result: %s", result_cstr);
 
   jstring java_result = (*env)->NewStringUTF(env, result_cstr);
-
 
   sexp_gc_release1(scheme_ctx);
   in_user_evaluation = 0;

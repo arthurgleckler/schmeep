@@ -99,6 +99,16 @@ classes.dex: \
 clean:
 	rm -rf AndroidManifest.xml $(APKFILE) chb classes.dex build/ makecapk.apk makecapk temp.apk
 
+indent: chb.c main_jni.c
+	indent \
+	  --blank-lines-after-declarations \
+	  --indent-level 2 \
+	  --line-length 80 \
+	  --linux-style \
+	  --swallow-optional-blank-lines \
+	  chb.c \
+	  main_jni.c
+
 makecapk.apk: $(TARGETS) $(CHIBI_ASSETS_DIR) AndroidManifest.xml classes.dex
 	rm -f $(APKFILE)
 	mkdir -p makecapk/assets
