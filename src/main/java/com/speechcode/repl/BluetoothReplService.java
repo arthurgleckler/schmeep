@@ -196,6 +196,9 @@ public class BluetoothReplService {
                     if (expression != null && !expression.trim().isEmpty()) {
                         Log.i(TAG, "Received expression: " + expression.replace("\n", "\\n"));
 
+                        // Display expression immediately upon receipt
+                        displayReceivedExpression(expression.trim());
+
                         // Queue expression for evaluation
                         try {
                             evaluationQueue.put(new EvaluationRequest(expression.trim(), outputStream));
@@ -328,6 +331,32 @@ public class BluetoothReplService {
         stream.write(lengthBytes);
         stream.write(messageBytes);
         stream.flush();
+    }
+
+    private void displayReceivedExpression(String expression) {
+        webView.post(() -> {
+            try {
+                String escapedExpression = expression.replace("\"", "\\\"");
+                String javascript = String.format(
+                    "console.log(\"Displaying received Bluetooth expression: %s\"); " +
+                    "if (typeof displayResult === \"function\") { " +
+                    "  displayResult(\"🔗 %s ⇒ ...\", \"evaluating\"); " +
+                    "} else { " +
+                    "  console.error(\"displayResult function not found\"); " +
+                    "}",
+                    escapedExpression, escapedExpression
+                );
+
+                Log.d(TAG, "Executing JavaScript for received Bluetooth expression: " + expression);
+                webView.evaluateJavascript(javascript, jsResult -> {
+                    if (jsResult != null) {
+                        Log.d(TAG, "JavaScript execution result: " + jsResult);
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error in displayReceivedExpression: " + e.getMessage());
+            }
+        });
     }
 
     private void displayRemoteResult(String expression, String result) {
