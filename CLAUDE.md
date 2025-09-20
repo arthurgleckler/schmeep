@@ -122,11 +122,11 @@ echo "(+ 2 3)" | ./chb AA:BB:CC:DD:EE:FF
 ```bash
 # Clean build, install, and run
 adb logcat --buffer=all --clear
-make clean && make run
+make clean chb run
 
 # Quick rebuild, install, and run
 adb logcat --buffer=all --clear
-make run
+make chb run
 
 # Build specific targets
 make makecapk/lib/arm64-v8a/librepl.so  # ARM64 only
