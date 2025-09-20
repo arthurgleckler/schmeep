@@ -1,0 +1,50 @@
+#!/usr/bin/expect -f
+
+set timeout 5
+
+proc expect_or_fail {pattern} {
+    expect {
+        timeout {
+            puts "FAIL: timeout waiting for: $pattern"
+            exit 1
+        }
+        eof {
+            puts "FAIL: unexpected EOF waiting for: $pattern"
+            exit 1
+        }
+        $pattern
+    }
+}
+
+spawn ./chb
+expect_or_fail "scheme> "
+
+send "(+ 100 20 3)\r"
+expect_or_fail "123"
+expect_or_fail "scheme> "
+
+send "(let loop () (loop))\r"
+sleep 5
+
+send "\003"
+expect_or_fail "Interrupted"
+expect_or_fail "scheme> "
+
+send "(+ 200 30 4)\r"
+expect_or_fail "234"
+expect_or_fail "scheme> "
+
+send "quit\r"
+expect eof
+
+spawn ./chb
+expect_or_fail "scheme> "
+
+send "(+ 300 40 5)\r"
+expect_or_fail "345"
+expect_or_fail "scheme> "
+
+send "quit\r"
+expect eof
+
+puts "ALL PASSED."

@@ -1,4 +1,4 @@
-.PHONY: push run
+.PHONY: push run test
 
 ADB ?= adb
 ANDROID_VERSION ?= 33
@@ -122,6 +122,9 @@ run: push
 	$(eval ACTIVITYNAME:=$(shell $(AAPT) dump badging $(APKFILE) | \
 		grep "launchable-activity" | cut -f 2 -d"'"))
 	$(ADB) shell am start -n $(PACKAGE_NAME)/$(ACTIVITYNAME)
+
+test: chb
+	./tests/chb.expect
 
 uninstall:
 	($(ADB) uninstall $(PACKAGE_NAME))||true
