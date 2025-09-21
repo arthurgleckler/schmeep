@@ -102,11 +102,7 @@ char *load_cached_address()
 
   fclose(file);
 
-  size_t len = strlen(address);
-
-  if (len > 0 && address[len - 1] == '\n') {
-    address[len - 1] = '\0';
-  }
+  address[17] = '\0';
 
   if (strlen(address) != 17) {
     free(address);
