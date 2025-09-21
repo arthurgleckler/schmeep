@@ -154,7 +154,7 @@ void save_cached_address(const char *address)
 
 bool check_address_for_scheme_repl(const char *address)
 {
-  printf("Checking cached address %s...", address);
+  printf("Checking cached address %s.", address);
   fflush(stdout);
 
   bdaddr_t target;
@@ -453,7 +453,7 @@ int find_service_channel(const char *bt_addr)
 
 char *scan_paired_devices()
 {
-  printf("Scanning paired Bluetooth devices for CHB service...\n");
+  printf("Scanning paired Bluetooth devices for CHB service.\n");
 
   int dev_id = hci_get_route(NULL);
 
@@ -489,14 +489,14 @@ char *scan_paired_devices()
     return scan_known_addresses();
   }
 
-  printf("Found %d active connections, checking for CHB...\n", cl->conn_num);
+  printf("Found %d active connections, checking for CHB.\n", cl->conn_num);
 
   for (int i = 0; i < cl->conn_num; i++) {
     char addr_str[19];
 
     ba2str(&ci[i].bdaddr, addr_str);
 
-    printf("Checking %s...", addr_str);
+    printf("Checking %s.", addr_str);
     fflush(stdout);
 
     sdp_session_t *session =
@@ -563,7 +563,7 @@ char *scan_paired_devices()
 
 char *scan_known_addresses()
 {
-  printf("Trying known address patterns...\n");
+  printf("Trying known address patterns.\n");
 
   const char *known_addresses[] = {
     "B0:D5:FB:99:14:B0",	// Your device
@@ -571,7 +571,7 @@ char *scan_known_addresses()
   };
 
   for (int i = 0; known_addresses[i] != NULL; i++) {
-    printf("Checking %s...", known_addresses[i]);
+    printf("Checking %s.", known_addresses[i]);
     fflush(stdout);
 
     bdaddr_t target;
@@ -656,7 +656,7 @@ int main(int argc, char *argv[])
 
     if (!discovered_addr) {
       printf
-	  ("No cached address or cached address failed, scanning devices...\n");
+	  ("No cached address or cached address failed, scanning devices.\n");
       discovered_addr = scan_paired_devices();
       if (!discovered_addr) {
 	fprintf(stderr, "No CHB service found\n");
@@ -679,7 +679,7 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  printf("Searching for service with UUID %s...\n", SCHEME_REPL_UUID);
+  printf("Searching for service with UUID %s.\n", SCHEME_REPL_UUID);
   int port = find_service_channel(bt_addr);
 
   if (port < 0) {
@@ -700,14 +700,14 @@ int main(int argc, char *argv[])
   addr.rc_channel = port;
   str2ba(bt_addr, &addr.rc_bdaddr);
 
-  printf("Connecting to %s on channel %d...\n", bt_addr, port);
+  printf("Connecting to %s on channel %d.\n", bt_addr, port);
   if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
     perror("Failed to connect");
     close(sock);
     return 1;
   }
 
-  printf("Connected! Starting REPL session...\n");
+  printf("Connected! Starting REPL session.\n");
   printf
       ("Type Scheme expressions (or 'quit' to exit). Press Ctrl-C to interrupt long-running evaluations.\n\n");
 

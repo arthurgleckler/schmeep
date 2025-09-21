@@ -181,7 +181,7 @@ public class BluetoothReplService {
 	while (isRunning.get()) {
 	    try {
 		updateConnectionStatus("Waiting for client connection");
-		Log.i(TAG, "Waiting for Bluetooth client connection...");
+		Log.i(TAG, "Waiting for Bluetooth client connection.");
 
 		clientSocket = serverSocket.accept();
 		Log.i(TAG, "Client connected: " +
@@ -283,10 +283,10 @@ public class BluetoothReplService {
 	Log.i(TAG, "Evaluation thread started");
 	while (isRunning.get()) {
 	    try {
-		Log.i(TAG, "Waiting for evaluation request...");
+		Log.i(TAG, "Waiting for evaluation request.");
 		EvaluationRequest request = evaluationQueue.take();
 
-		updateConnectionStatus("Evaluating expression...");
+		updateConnectionStatus("Evaluating expression.");
 		Log.i(TAG, "Evaluating expression: " +
 			       request.expression.replace("\n", "\\n"));
 		String result = mainActivity.evaluateScheme(request.expression);
