@@ -24,8 +24,8 @@
 #define CACHE_DIR ".cache/chb"
 #define CACHE_FILE "mac-address.txt"
 
-#define MSG_TYPE_EXPRESSION 0x00
-#define MSG_TYPE_INTERRUPT 0x01
+#define MSG_TYPE_EXPRESSION 0
+#define MSG_TYPE_INTERRUPT 1
 
 #define SERVICE_NAME "CHB"
 
@@ -43,7 +43,7 @@ static volatile sig_atomic_t interrupt_pending = 0;
 static int signal_pipe[2] = { -1, -1 };
 
 bool check_address_for_scheme_repl(const char *address);
-bool check_device_for_chb_service(const bdaddr_t *bdaddr);
+bool check_device_for_chb_service(const bdaddr_t * bdaddr);
 char *get_cache_file_path();
 void *input_thread(void *arg);
 char *load_cached_address();
@@ -154,7 +154,7 @@ void save_cached_address(const char *address)
   fclose(file);
 }
 
-bool check_device_for_chb_service(const bdaddr_t *bdaddr)
+bool check_device_for_chb_service(const bdaddr_t * bdaddr)
 {
   sdp_session_t *session = sdp_connect(BDADDR_ANY, bdaddr, SDP_RETRY_IF_BUSY);
 
@@ -345,6 +345,7 @@ char *receive_message(int sock)
   while (bytes_received < (ssize_t) len) {
     ssize_t result =
 	recv(sock, buffer + bytes_received, len - bytes_received, 0);
+
     if (result <= 0) {
       if (result < 0)
 	perror("Failed to receive message.");
@@ -501,12 +502,12 @@ char *scan_active_paired_devices()
     char addr_str[19];
 
     ba2str(&ci[i].bdaddr, addr_str);
-
     printf("Checking %s.\n", addr_str);
     fflush(stdout);
 
     if (check_device_for_chb_service(&ci[i].bdaddr)) {
       printf("CHB service found.\n");
+
       char *result_addr = malloc(19);
 
       strcpy(result_addr, addr_str);
@@ -523,7 +524,8 @@ char *scan_active_paired_devices()
   return NULL;
 }
 
-void usage(char *command) {
+void usage(char *command)
+{
   fprintf(stderr, "Usage: %s [bluetooth_address]\n", command);
   fprintf(stderr, "Example: %s AA:BB:CC:DD:EE:FF\n\n", command);
   fprintf(stderr, "If no address is provided, will auto-discover.\n");
