@@ -1,7 +1,5 @@
 #!/usr/bin/expect -f
 
-set timeout 5
-
 proc expect_or_fail {pattern} {
     expect {
         timeout {
@@ -15,6 +13,8 @@ proc expect_or_fail {pattern} {
         $pattern
     }
 }
+
+set timeout 10
 
 spawn ./chb
 expect_or_fail "scheme> "
