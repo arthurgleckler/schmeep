@@ -288,8 +288,8 @@ char *receive_message_with_interrupt_check(int sock)
 
       read(signal_pipe[0], &byte, 1);
       if (send_interrupt_message(sock) < 0) {
-        fprintf(stderr, "Failed to send interrupt message.\n");
-        return NULL;
+	fprintf(stderr, "Failed to send interrupt message.\n");
+	return NULL;
       }
       interrupt_pending = 0;
 
@@ -642,10 +642,10 @@ int main(int argc, char *argv[])
     }
     if (msg->type == MSG_EXPRESSION) {
       if (send_expression_message(sock, msg->message) < 0) {
-        fprintf(stderr, "Failed to send expression.  Exiting.\n");
-        free(msg->message);
-        free(msg);
-        break;
+	fprintf(stderr, "Failed to send expression.  Exiting.\n");
+	free(msg->message);
+	free(msg);
+	break;
       }
     }
 
