@@ -36,6 +36,18 @@ public class MainActivity extends Activity {
 	Log.i(TAG, "MainActivity onCreate started.");
 
 	try {
+	    if (shouldExtractAssets()) {
+		Log.i(TAG, "Extracting assets based on version check.");
+		if (AssetExtractor.extractAssets(this)) {
+		    markAssetsExtracted();
+		    Log.i(TAG, "Asset extraction successful.");
+		} else {
+		    Log.e(TAG, "Asset extraction failed. Continuing with basic environment.");
+		}
+	    } else {
+		Log.i(TAG, "Skipping asset extraction - version unchanged.");
+	    }
+
 	    initializeScheme();
 	    Log.i(TAG, "Chibi Scheme initialized successfully.");
 	} catch (Exception e) {
