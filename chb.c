@@ -43,6 +43,7 @@ static volatile sig_atomic_t interrupt_pending = 0;
 static int signal_pipe[2] = { -1, -1 };
 
 bool check_address_for_scheme_repl(const char *address);
+bool check_device_for_chb_service(const bdaddr_t *bdaddr);
 char *get_cache_file_path();
 void *input_thread(void *arg);
 char *load_cached_address();
@@ -153,19 +154,11 @@ void save_cached_address(const char *address)
   fclose(file);
 }
 
-bool check_address_for_scheme_repl(const char *address)
+bool check_device_for_chb_service(const bdaddr_t *bdaddr)
 {
-  printf("Checking cached address %s.\n", address);
-  fflush(stdout);
-
-  bdaddr_t target;
-
-  str2ba(address, &target);
-
-  sdp_session_t *session = sdp_connect(BDADDR_ANY, &target, SDP_RETRY_IF_BUSY);
+  sdp_session_t *session = sdp_connect(BDADDR_ANY, bdaddr, SDP_RETRY_IF_BUSY);
 
   if (!session) {
-    printf("Connection failed.\n");
     return false;
   }
 
@@ -182,18 +175,18 @@ bool check_address_for_scheme_repl(const char *address)
 					   SDP_ATTR_REQ_RANGE, attr_list,
 					   &rsp_list);
 
-  bool found_scheme_repl = false;
+  bool found_chb = false;
 
   if (result == 0) {
     sdp_list_t *r = rsp_list;
 
-    for (; r && !found_scheme_repl; r = r->next) {
+    for (; r && !found_chb; r = r->next) {
       sdp_record_t *rec = (sdp_record_t *) r->data;
       sdp_data_t *service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
 
       if (service_name && service_name->dtd == SDP_TEXT_STR8) {
 	if (strstr(service_name->val.str, SERVICE_NAME)) {
-	  found_scheme_repl = true;
+	  found_chb = true;
 	}
       }
     }
@@ -207,13 +200,22 @@ bool check_address_for_scheme_repl(const char *address)
     sdp_list_free(rsp_list, 0);
   sdp_close(session);
 
-  if (found_scheme_repl) {
-    printf("CHB service found.\n");
-    return true;
-  } else {
-    printf("No CHB service found\n");
-    return false;
-  }
+  return found_chb;
+}
+
+bool check_address_for_scheme_repl(const char *address)
+{
+  printf("Checking cached address %s.\n", address);
+  fflush(stdout);
+
+  bdaddr_t target;
+
+  str2ba(address, &target);
+
+  bool found = check_device_for_chb_service(&target);
+
+  printf(found ? "CHB service found.\n" : "No CHB service found\n");
+  return found;
 }
 
 void sigint_handler(int sig)
@@ -453,9 +455,10 @@ int find_service_channel(const char *bt_addr)
   return channel;
 }
 
-char *scan_paired_devices()
+char *scan_active_paired_devices()
 {
-  printf("Scanning all paired and connected Bluetooth devices for CHB service.\n");
+  printf
+      ("Scanning all paired and connected Bluetooth devices for CHB service.\n");
 
   int dev_id = hci_get_route(NULL);
 
@@ -486,7 +489,7 @@ char *scan_paired_devices()
   ci = cl->conn_info;
 
   if (ioctl(sock, HCIGETCONNLIST, (void *)cl) < 0) {
-    printf("Could not get active connections.  Scanning paired devices only.\n");
+    printf("Could not get active connections.\n");
     free(cl);
     close(sock);
     return NULL;
@@ -502,51 +505,7 @@ char *scan_paired_devices()
     printf("Checking %s.\n", addr_str);
     fflush(stdout);
 
-    sdp_session_t *session =
-	sdp_connect(BDADDR_ANY, &ci[i].bdaddr, SDP_RETRY_IF_BUSY);
-    if (!session) {
-      printf("SDP connection failed.\n");
-      continue;
-    }
-
-    uuid_t rfcomm_uuid;
-
-    sdp_uuid16_create(&rfcomm_uuid, RFCOMM_UUID);
-    sdp_list_t *search_list = sdp_list_append(NULL, &rfcomm_uuid);
-    uint32_t range = 0x0000ffff;
-    sdp_list_t *attr_list = sdp_list_append(NULL, &range);
-    sdp_list_t *rsp_list = NULL;
-
-    int result = sdp_service_search_attr_req(session, search_list,
-					     SDP_ATTR_REQ_RANGE, attr_list,
-					     &rsp_list);
-
-    bool found_scheme_repl = false;
-
-    if (result == 0) {
-      sdp_list_t *r = rsp_list;
-
-      for (; r && !found_scheme_repl; r = r->next) {
-	sdp_record_t *rec = (sdp_record_t *) r->data;
-	sdp_data_t *service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
-
-	if (service_name && service_name->dtd == SDP_TEXT_STR8) {
-	  if (strstr(service_name->val.str, SERVICE_NAME)) {
-	    found_scheme_repl = true;
-	  }
-	}
-      }
-    }
-
-    if (search_list)
-      sdp_list_free(search_list, 0);
-    if (attr_list)
-      sdp_list_free(attr_list, 0);
-    if (rsp_list)
-      sdp_list_free(rsp_list, 0);
-    sdp_close(session);
-
-    if (found_scheme_repl) {
+    if (check_device_for_chb_service(&ci[i].bdaddr)) {
       printf("CHB service found.\n");
       char *result_addr = malloc(19);
 
@@ -564,6 +523,11 @@ char *scan_paired_devices()
   return NULL;
 }
 
+void usage(char *command) {
+  fprintf(stderr, "Usage: %s [bluetooth_address]\n", command);
+  fprintf(stderr, "Example: %s AA:BB:CC:DD:EE:FF\n\n", command);
+  fprintf(stderr, "If no address is provided, will auto-discover.\n");
+}
 
 int main(int argc, char *argv[])
 {
@@ -584,26 +548,22 @@ int main(int argc, char *argv[])
     }
 
     if (!discovered_addr) {
-      printf("No cached address or cached address failed.  Scanning devices.\n");
-      discovered_addr = scan_paired_devices();
+      printf("Scanning devices.\n");
+      discovered_addr = scan_active_paired_devices();
       if (!discovered_addr) {
-	fprintf(stderr, "No CHB service found\n");
-	fprintf(stderr, "Usage: %s [bluetooth_address]\n", argv[0]);
-	fprintf(stderr, "Example: %s AA:BB:CC:DD:EE:FF\n", argv[0]);
+	fprintf(stderr, "No CHB service found.\n");
+	usage(argv[0]);
 	return 1;
       }
-      printf("Using discovered device: %s\n", discovered_addr);
+      printf("Using discovered device: %s.\n", discovered_addr);
       save_cached_address(discovered_addr);
     }
-
     bt_addr = discovered_addr;
   } else if (argc == 2) {
     bt_addr = argv[1];
     save_cached_address(bt_addr);
   } else {
-    fprintf(stderr, "Usage: %s [bluetooth_address]\n", argv[0]);
-    fprintf(stderr, "Example: %s AA:BB:CC:DD:EE:FF\n", argv[0]);
-    fprintf(stderr, "If no address provided, will auto-discover\n");
+    usage(argv[0]);
     return 1;
   }
 
@@ -636,7 +596,7 @@ int main(int argc, char *argv[])
   }
 
   printf("Connected! Starting REPL session.\n");
-  printf ("Type Scheme expressions (or 'quit' to exit).");
+  printf("Type Scheme expressions (or 'quit' to exit).");
   printf("  Press Ctrl-C to interrupt long-running evaluations.\n\n");
 
   if (pipe(signal_pipe) < 0) {
