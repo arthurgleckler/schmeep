@@ -99,7 +99,9 @@ classes.dex: \
 clean:
 	rm -rf AndroidManifest.xml $(APKFILE) chb classes.dex build/ makecapk.apk makecapk temp.apk
 
-indent: chb.c main_jni.c
+indent: indent-c indent-java
+
+indent-c: chb.c main_jni.c
 	indent \
 	  --blank-lines-after-declarations \
 	  --indent-level 2 \
@@ -108,6 +110,13 @@ indent: chb.c main_jni.c
 	  --swallow-optional-blank-lines \
 	  chb.c \
 	  main_jni.c
+
+indent-java: src/main/java/com/speechcode/repl/*.java
+	for file in src/main/java/com/speechcode/repl/*.java; do \
+	  clang-format --style='{ColumnLimit: 80, IndentWidth: 4}' "$$file" | \
+	  unexpand -t 8 --first-only > "$$file.tmp" && \
+	  mv "$$file.tmp" "$$file"; \
+	done
 
 makecapk.apk: $(TARGETS) $(CHIBI_ASSETS_DIR) AndroidManifest.xml classes.dex
 	rm -f $(APKFILE)

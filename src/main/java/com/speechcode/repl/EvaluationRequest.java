@@ -7,7 +7,7 @@ public class EvaluationRequest {
     final OutputStream responseStream;
 
     EvaluationRequest(String expression, OutputStream responseStream) {
-        this.expression = expression;
-        this.responseStream = responseStream;
+	this.expression = expression;
+	this.responseStream = responseStream;
     }
 }

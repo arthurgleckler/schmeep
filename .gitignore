@@ -2,6 +2,7 @@
 .aider*
 *.apk
 *.keystore
+*.orig
 AndroidManifest.xml
 build/
 chb

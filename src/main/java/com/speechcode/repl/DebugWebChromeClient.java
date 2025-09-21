@@ -9,8 +9,9 @@ public class DebugWebChromeClient extends WebChromeClient {
 
     @Override
     public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
-        Log.d(TAG, "WebView Console [" + consoleMessage.messageLevel() + "]: " +
-              consoleMessage.message() + " (line " + consoleMessage.lineNumber() + ")");
-        return true;
+	Log.d(TAG, "WebView Console [" + consoleMessage.messageLevel() +
+		       "]: " + consoleMessage.message() + " (line " +
+		       consoleMessage.lineNumber() + ")");
+	return true;
     }
 }
