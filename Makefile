@@ -102,14 +102,14 @@ clean:
 indent: indent-c indent-java
 
 indent-c: chb.c main_jni.c
-	for file in chb.c main_jni.c; do \
+	for file in $^; do \
 	  clang-format --style='{ColumnLimit: 80, IndentWidth: 2}' "$$file" | \
 	  unexpand -t 8 --first-only > "$$file.tmp" && \
 	  mv "$$file.tmp" "$$file"; \
 	done
 
 indent-java: src/main/java/com/speechcode/repl/*.java
-	for file in src/main/java/com/speechcode/repl/*.java; do \
+	for file in $^; do \
 	  clang-format --style='{ColumnLimit: 80, IndentWidth: 4}' "$$file" | \
 	  unexpand -t 8 --first-only > "$$file.tmp" && \
 	  mv "$$file.tmp" "$$file"; \
