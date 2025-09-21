@@ -1,23 +1,23 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdbool.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
+#include <arpa/inet.h>
 #include <bluetooth/bluetooth.h>
+#include <bluetooth/hci.h>
+#include <bluetooth/hci_lib.h>
 #include <bluetooth/rfcomm.h>
 #include <bluetooth/sdp.h>
 #include <bluetooth/sdp_lib.h>
-#include <bluetooth/hci.h>
-#include <bluetooth/hci_lib.h>
-#include <arpa/inet.h>
-#include <sys/stat.h>
 #include <errno.h>
-#include <signal.h>
 #include <pthread.h>
-#include <termios.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
 #include <sys/select.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <termios.h>
+#include <unistd.h>
 
 #define MAX_MESSAGE_LENGTH 1048576
 #define SCHEME_REPL_UUID "611a1a1a-94ba-11f0-b0a8-5f754c08f133"
@@ -40,10 +40,10 @@ static pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t response_cond = PTHREAD_COND_INITIALIZER;
 static volatile sig_atomic_t interrupt_pending = 0;
-static int signal_pipe[2] = { -1, -1 };
+static int signal_pipe[2] = {-1, -1};
 
 bool check_address_for_scheme_repl(const char *address);
-bool check_device_for_chb_service(const bdaddr_t * bdaddr);
+bool check_device_for_chb_service(const bdaddr_t *bdaddr);
 char *get_cache_file_path();
 void *input_thread(void *arg);
 char *load_cached_address();
@@ -54,8 +54,7 @@ int send_expression_message(int sock, const char *message);
 int send_interrupt_message(int sock);
 void sigint_handler(int sig);
 
-char *get_cache_file_path()
-{
+char *get_cache_file_path() {
   const char *home = getenv("HOME");
 
   if (!home) {
@@ -73,8 +72,7 @@ char *get_cache_file_path()
   return path;
 }
 
-char *load_cached_address()
-{
+char *load_cached_address() {
   char *cache_path = get_cache_file_path();
 
   if (!cache_path) {
@@ -89,7 +87,7 @@ char *load_cached_address()
     return NULL;
   }
 
-  char *address = malloc(19);	// AA:BB:CC:DD:EE:FF + null terminator
+  char *address = malloc(19); // AA:BB:CC:DD:EE:FF + null terminator
 
   if (!address) {
     fclose(file);
@@ -114,8 +112,7 @@ char *load_cached_address()
   return address;
 }
 
-void save_cached_address(const char *address)
-{
+void save_cached_address(const char *address) {
   if (!address) {
     return;
   }
@@ -154,8 +151,7 @@ void save_cached_address(const char *address)
   fclose(file);
 }
 
-bool check_device_for_chb_service(const bdaddr_t * bdaddr)
-{
+bool check_device_for_chb_service(const bdaddr_t *bdaddr) {
   sdp_session_t *session = sdp_connect(BDADDR_ANY, bdaddr, SDP_RETRY_IF_BUSY);
 
   if (!session) {
@@ -171,9 +167,8 @@ bool check_device_for_chb_service(const bdaddr_t * bdaddr)
   sdp_list_t *attr_list = sdp_list_append(NULL, &range);
   sdp_list_t *rsp_list = NULL;
 
-  int result = sdp_service_search_attr_req(session, search_list,
-					   SDP_ATTR_REQ_RANGE, attr_list,
-					   &rsp_list);
+  int result = sdp_service_search_attr_req(
+      session, search_list, SDP_ATTR_REQ_RANGE, attr_list, &rsp_list);
 
   bool found_chb = false;
 
@@ -181,7 +176,7 @@ bool check_device_for_chb_service(const bdaddr_t * bdaddr)
     sdp_list_t *r = rsp_list;
 
     for (; r && !found_chb; r = r->next) {
-      sdp_record_t *rec = (sdp_record_t *) r->data;
+      sdp_record_t *rec = (sdp_record_t *)r->data;
       sdp_data_t *service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
 
       if (service_name && service_name->dtd == SDP_TEXT_STR8) {
@@ -203,8 +198,7 @@ bool check_device_for_chb_service(const bdaddr_t * bdaddr)
   return found_chb;
 }
 
-bool check_address_for_scheme_repl(const char *address)
-{
+bool check_address_for_scheme_repl(const char *address) {
   printf("Checking cached address %s.\n", address);
   fflush(stdout);
 
@@ -218,8 +212,7 @@ bool check_address_for_scheme_repl(const char *address)
   return found;
 }
 
-void sigint_handler(int sig)
-{
+void sigint_handler(int sig) {
   if (sig == SIGINT) {
     char byte = 1;
 
@@ -228,8 +221,7 @@ void sigint_handler(int sig)
   }
 }
 
-int send_expression_message(int sock, const char *message)
-{
+int send_expression_message(int sock, const char *message) {
   size_t len = strlen(message);
   uint32_t network_len = htonl(len);
   uint8_t msg_type = MSG_TYPE_EXPRESSION;
@@ -244,7 +236,7 @@ int send_expression_message(int sock, const char *message)
     return -1;
   }
 
-  if (send(sock, message, len, 0) != (ssize_t) len) {
+  if (send(sock, message, len, 0) != (ssize_t)len) {
     perror("Failed to send message.");
     return -1;
   }
@@ -253,8 +245,7 @@ int send_expression_message(int sock, const char *message)
   return 0;
 }
 
-int send_interrupt_message(int sock)
-{
+int send_interrupt_message(int sock) {
   uint8_t msg_type = MSG_TYPE_INTERRUPT;
 
   if (send(sock, &msg_type, 1, 0) != 1) {
@@ -264,8 +255,7 @@ int send_interrupt_message(int sock)
   return 0;
 }
 
-char *receive_message_with_interrupt_check(int sock)
-{
+char *receive_message_with_interrupt_check(int sock) {
   while (1) {
     fd_set readfds;
 
@@ -311,16 +301,14 @@ char *receive_message_with_interrupt_check(int sock)
   }
 }
 
-char *receive_message(int sock)
-{
+char *receive_message(int sock) {
   uint32_t network_len;
 
   ssize_t bytes_received = 0;
 
   while (bytes_received < 4) {
-    ssize_t result =
-	recv(sock, ((char *)&network_len) + bytes_received, 4 - bytes_received,
-	     0);
+    ssize_t result = recv(sock, ((char *)&network_len) + bytes_received,
+			  4 - bytes_received, 0);
 
     if (result <= 0) {
       if (result < 0)
@@ -345,7 +333,7 @@ char *receive_message(int sock)
   }
 
   bytes_received = 0;
-  while (bytes_received < (ssize_t) len) {
+  while (bytes_received < (ssize_t)len) {
     ssize_t result =
 	recv(sock, buffer + bytes_received, len - bytes_received, 0);
 
@@ -362,8 +350,7 @@ char *receive_message(int sock)
   return buffer;
 }
 
-int find_service_channel(const char *bt_addr)
-{
+int find_service_channel(const char *bt_addr) {
   uuid_t uuid;
   sdp_session_t *session;
   sdp_list_t *search_list;
@@ -378,16 +365,16 @@ int find_service_channel(const char *bt_addr)
   uint8_t uuid_bytes[16];
   unsigned int u[16];
 
-  if (sscanf
-      (SCHEME_REPL_UUID,
-       "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-       &u[0], &u[1], &u[2], &u[3], &u[4], &u[5], &u[6], &u[7], &u[8], &u[9],
-       &u[10], &u[11], &u[12], &u[13], &u[14], &u[15]) != 16) {
+  if (sscanf(SCHEME_REPL_UUID,
+	     "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%"
+	     "02x",
+	     &u[0], &u[1], &u[2], &u[3], &u[4], &u[5], &u[6], &u[7], &u[8],
+	     &u[9], &u[10], &u[11], &u[12], &u[13], &u[14], &u[15]) != 16) {
     fprintf(stderr, "Invalid UUID format.\n");
     return -1;
   }
   for (int i = 0; i < 16; i++) {
-    uuid_bytes[i] = (uint8_t) u[i];
+    uuid_bytes[i] = (uint8_t)u[i];
   }
   sdp_uuid128_create(&uuid, uuid_bytes);
 
@@ -402,25 +389,24 @@ int find_service_channel(const char *bt_addr)
 
   attr_list = sdp_list_append(NULL, &range);
 
-  int result = sdp_service_search_attr_req(session, search_list,
-					   SDP_ATTR_REQ_RANGE, attr_list,
-					   &rsp_list);
+  int result = sdp_service_search_attr_req(
+      session, search_list, SDP_ATTR_REQ_RANGE, attr_list, &rsp_list);
 
   if (result == 0) {
     sdp_list_t *r = rsp_list;
 
     for (; r; r = r->next) {
-      sdp_record_t *rec = (sdp_record_t *) r->data;
+      sdp_record_t *rec = (sdp_record_t *)r->data;
       sdp_list_t *proto_list;
 
       if (sdp_get_access_protos(rec, &proto_list) == 0) {
 	sdp_list_t *p = proto_list;
 
 	for (; p; p = p->next) {
-	  sdp_list_t *pds = (sdp_list_t *) p->data;
+	  sdp_list_t *pds = (sdp_list_t *)p->data;
 
 	  for (; pds; pds = pds->next) {
-	    sdp_data_t *d = (sdp_data_t *) pds->data;
+	    sdp_data_t *d = (sdp_data_t *)pds->data;
 	    int proto = 0;
 
 	    for (; d; d = d->next) {
@@ -447,7 +433,7 @@ int find_service_channel(const char *bt_addr)
     }
   }
 
- cleanup:
+cleanup:
   if (search_list)
     sdp_list_free(search_list, 0);
   if (attr_list)
@@ -459,10 +445,9 @@ int find_service_channel(const char *bt_addr)
   return channel;
 }
 
-char *scan_active_paired_devices()
-{
-  printf
-      ("Scanning all paired and connected Bluetooth devices for CHB service.\n");
+char *scan_active_paired_devices() {
+  printf(
+      "Scanning all paired and connected Bluetooth devices for CHB service.\n");
 
   int dev_id = hci_get_route(NULL);
 
@@ -527,15 +512,13 @@ char *scan_active_paired_devices()
   return NULL;
 }
 
-void usage(char *command)
-{
+void usage(char *command) {
   fprintf(stderr, "Usage: %s [bluetooth_address]\n", command);
   fprintf(stderr, "Example: %s AA:BB:CC:DD:EE:FF\n\n", command);
   fprintf(stderr, "If no address is provided, will auto-discover.\n");
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   const char *bt_addr = NULL;
 
   if (argc == 1) {
@@ -588,7 +571,7 @@ int main(int argc, char *argv[])
   }
   // No socket timeout.
 
-  struct sockaddr_rc addr = { 0 };
+  struct sockaddr_rc addr = {0};
   addr.rc_family = AF_BLUETOOTH;
   addr.rc_channel = port;
   str2ba(bt_addr, &addr.rc_bdaddr);
@@ -677,8 +660,7 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-void *input_thread(void *arg)
-{
+void *input_thread(void *arg) {
   int sock = *(int *)arg;
   bool stdin_is_terminal = isatty(STDIN_FILENO);
 
@@ -701,8 +683,8 @@ void *input_thread(void *arg)
     if (nread > 0 && line[nread - 1] == '\n') {
       line[nread - 1] = '\0';
     }
-    if (strcmp(line, "quit") == 0 || strcmp(line, "exit") == 0
-	|| strcmp(line, ":q") == 0) {
+    if (strcmp(line, "quit") == 0 || strcmp(line, "exit") == 0 ||
+	strcmp(line, ":q") == 0) {
       free(line);
       break;
     }

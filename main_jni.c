@@ -1,16 +1,16 @@
+#include <android/log.h>
+#include <ctype.h>
+#include <execinfo.h>
+#include <jni.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
-#include <android/log.h>
-#include <jni.h>
 #include <sys/stat.h>
-#include <pthread.h>
-#include <signal.h>
 #include <unistd.h>
-#include <execinfo.h>
-#include <ctype.h>
-#include <stdarg.h>
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "repl", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "repl", __VA_ARGS__)
@@ -22,8 +22,7 @@ sexp scheme_ctx = NULL;
 sexp scheme_env = NULL;
 static pthread_mutex_t scheme_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-char *safe_sprintf_alloc(const char *format, ...)
-{
+char *safe_sprintf_alloc(const char *format, ...) {
   va_list args1, args2;
 
   va_start(args1, format);
@@ -46,11 +45,10 @@ char *safe_sprintf_alloc(const char *format, ...)
   return buffer;
 }
 
-char *log_scheme_exception(sexp exception_obj, sexp ctx,
-			   const char *prefix, const char *original_expression);
+char *log_scheme_exception(sexp exception_obj, sexp ctx, const char *prefix,
+			   const char *original_expression);
 
-void cleanup_scheme()
-{
+void cleanup_scheme() {
   if (scheme_ctx) {
     LOGI("cleanup_scheme: Destroying Scheme context.");
     sexp_destroy_context(scheme_ctx);
@@ -59,8 +57,7 @@ void cleanup_scheme()
   }
 }
 
-void crash_handler(int sig, siginfo_t * info, void *context)
-{
+void crash_handler(int sig, siginfo_t *info, void *context) {
   LOGE("JNI: CRASH DETECTED - Signal %d at address %p", sig, info->si_addr);
   LOGE("JNI: Crash occurred in PID %d, TID %d", getpid(), gettid());
 
@@ -101,8 +98,7 @@ void crash_handler(int sig, siginfo_t * info, void *context)
   raise(sig);
 }
 
-int init_scheme()
-{
+int init_scheme() {
   LOGI("init_scheme: Starting Scheme initialization.");
   sexp_scheme_init();
   scheme_ctx =
@@ -142,7 +138,8 @@ int init_scheme()
   }
 
   const char *set_path_expr =
-      "(current-module-path (cons \"/data/data/com.speechcode.repl/lib\" (current-module-path)))";
+      "(current-module-path (cons \"/data/data/com.speechcode.repl/lib\" "
+      "(current-module-path)))";
   sexp path_sexp = sexp_read_from_string(scheme_ctx, set_path_expr, -1);
 
   if (path_sexp && !sexp_exceptionp(path_sexp)) {
@@ -158,9 +155,8 @@ int init_scheme()
   return 0;
 }
 
-char *log_scheme_exception(sexp exception_obj, sexp ctx,
-			   const char *prefix, const char *original_expression)
-{
+char *log_scheme_exception(sexp exception_obj, sexp ctx, const char *prefix,
+			   const char *original_expression) {
   static _Thread_local char error_message[2048];
   int pos = 0;
 
@@ -184,19 +180,16 @@ char *log_scheme_exception(sexp exception_obj, sexp ctx,
     const char *msg_data = sexp_string_data(msg);
 
     if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
-      pos +=
-	  snprintf(error_message + pos, sizeof(error_message) - pos, "%s",
-		   msg_data);
+      pos += snprintf(error_message + pos, sizeof(error_message) - pos, "%s",
+		      msg_data);
     } else {
-      pos +=
-	  snprintf(error_message + pos, sizeof(error_message) - pos,
-		   "Invalid error message");
+      pos += snprintf(error_message + pos, sizeof(error_message) - pos,
+		      "Invalid error message");
     }
     LOGE("%s: Error message: %s", prefix, sexp_string_data(msg));
   } else {
-    pos +=
-	snprintf(error_message + pos, sizeof(error_message) - pos,
-		 "Unknown error");
+    pos += snprintf(error_message + pos, sizeof(error_message) - pos,
+		    "Unknown error");
     LOGE("%s: Error message is NULL or not a string (msg=%p)", prefix, msg);
   }
 
@@ -234,7 +227,9 @@ char *log_scheme_exception(sexp exception_obj, sexp ctx,
     const char *error_msg = sexp_string_data(msg);
 
     if (strstr(error_msg, "dotted list")) {
-      LOGE("%s: MEMORY CORRUPTION DETECTED - Dotted list error indicates corrupted input", prefix);
+      LOGE("%s: MEMORY CORRUPTION DETECTED - Dotted list error indicates "
+	   "corrupted input",
+	   prefix);
       if (original_expression) {
 	LOGE("%s: Original expression was: %s", prefix, original_expression);
 
@@ -255,12 +250,10 @@ char *log_scheme_exception(sexp exception_obj, sexp ctx,
   return error_message;
 }
 
-int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
-{
+int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
   jclass activityClass = (*env)->GetObjectClass(env, activity);
-  jmethodID getAssetsMethod =
-      (*env)->GetMethodID(env, activityClass, "getAssets",
-			  "()Landroid/content/res/AssetManager;");
+  jmethodID getAssetsMethod = (*env)->GetMethodID(
+      env, activityClass, "getAssets", "()Landroid/content/res/AssetManager;");
   jobject assetManager =
       (*env)->CallObjectMethod(env, activity, getAssetsMethod);
 
@@ -280,62 +273,63 @@ int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
   int mkdir_result = system(mkdir_cmd);
 
   if (mkdir_result != 0) {
-    LOGE("extract_chibi_assets_jni: Failed to create directory %s (exit code: %d).", target_base, mkdir_result);
+    LOGE("extract_chibi_assets_jni: Failed to create directory %s (exit code: "
+	 "%d).",
+	 target_base, mkdir_result);
   }
   free(mkdir_cmd);
   LOGI("Starting essential Scheme library extraction.");
 
-  const char *essential_files[] = {
-    "lib/chibi/ast.sld",
-    "lib/chibi/equiv.sld",
-    "lib/chibi/io.sld",
-    "lib/chibi/string.sld",
-    "lib/init-7.scm",
-    "lib/meta-7.scm",
-    "lib/scheme/base.sld",
-    "lib/scheme/case-lambda.sld",
-    "lib/scheme/char.sld",
-    "lib/scheme/complex.sld",
-    "lib/scheme/cxr.sld",
-    "lib/scheme/eval.sld",
-    "lib/scheme/file.sld",
-    "lib/scheme/inexact.sld",
-    "lib/scheme/lazy.sld",
-    "lib/scheme/load.sld",
-    "lib/scheme/process-context.sld",
-    "lib/scheme/r5rs.sld",
-    "lib/scheme/read.sld",
-    "lib/scheme/repl.sld",
-    "lib/scheme/time.sld",
-    "lib/scheme/write.sld",
-    "lib/srfi/1.sld",
-    "lib/srfi/1/alists.scm",
-    "lib/srfi/1/constructors.scm",
-    "lib/srfi/1/deletion.scm",
-    "lib/srfi/1/fold.scm",
-    "lib/srfi/1/lset.scm",
-    "lib/srfi/1/misc.scm",
-    "lib/srfi/1/predicates.scm",
-    "lib/srfi/1/search.scm",
-    "lib/srfi/1/selectors.scm",
-    "lib/srfi/11.sld",
-    "lib/srfi/27.sld",
-    "lib/srfi/27/constructors.scm",
-    "lib/srfi/27/rand.so",
-    "lib/srfi/39.sld",
-    "lib/srfi/9.sld",
-    NULL
-  };
+  const char *essential_files[] = {"lib/chibi/ast.sld",
+				   "lib/chibi/equiv.sld",
+				   "lib/chibi/io.sld",
+				   "lib/chibi/string.sld",
+				   "lib/init-7.scm",
+				   "lib/meta-7.scm",
+				   "lib/scheme/base.sld",
+				   "lib/scheme/case-lambda.sld",
+				   "lib/scheme/char.sld",
+				   "lib/scheme/complex.sld",
+				   "lib/scheme/cxr.sld",
+				   "lib/scheme/eval.sld",
+				   "lib/scheme/file.sld",
+				   "lib/scheme/inexact.sld",
+				   "lib/scheme/lazy.sld",
+				   "lib/scheme/load.sld",
+				   "lib/scheme/process-context.sld",
+				   "lib/scheme/r5rs.sld",
+				   "lib/scheme/read.sld",
+				   "lib/scheme/repl.sld",
+				   "lib/scheme/time.sld",
+				   "lib/scheme/write.sld",
+				   "lib/srfi/1.sld",
+				   "lib/srfi/1/alists.scm",
+				   "lib/srfi/1/constructors.scm",
+				   "lib/srfi/1/deletion.scm",
+				   "lib/srfi/1/fold.scm",
+				   "lib/srfi/1/lset.scm",
+				   "lib/srfi/1/misc.scm",
+				   "lib/srfi/1/predicates.scm",
+				   "lib/srfi/1/search.scm",
+				   "lib/srfi/1/selectors.scm",
+				   "lib/srfi/11.sld",
+				   "lib/srfi/27.sld",
+				   "lib/srfi/27/constructors.scm",
+				   "lib/srfi/27/rand.so",
+				   "lib/srfi/39.sld",
+				   "lib/srfi/9.sld",
+				   NULL};
 
   jclass assetManagerClass = (*env)->GetObjectClass(env, assetManager);
-  jmethodID openMethod = (*env)->GetMethodID(env, assetManagerClass, "open",
-					     "(Ljava/lang/String;)Ljava/io/InputStream;");
+  jmethodID openMethod =
+      (*env)->GetMethodID(env, assetManagerClass, "open",
+			  "(Ljava/lang/String;)Ljava/io/InputStream;");
 
   int count = 0;
 
   for (int i = 0; essential_files[i] != NULL; i++) {
     const char *asset_path = essential_files[i];
-    const char *extract_path = asset_path + 4;	// Skip "lib/" prefix
+    const char *extract_path = asset_path + 4; // Skip "lib/" prefix
 
     jstring assetPath = (*env)->NewStringUTF(env, asset_path);
     jobject inputStream =
@@ -388,7 +382,9 @@ int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
 	    int mkdir_result = system(mkdir_cmd);
 
 	    if (mkdir_result != 0) {
-	      LOGE("extract_asset_file: Failed to create directory %s (exit code: %d).", parent_dir, mkdir_result);
+	      LOGE("extract_asset_file: Failed to create directory %s (exit "
+		   "code: %d).",
+		   parent_dir, mkdir_result);
 	    }
 	    free(mkdir_cmd);
 	  }
@@ -412,7 +408,7 @@ int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
 	    LOGE("Failed to write file: %s", target_path);
 	  }
 
- cleanup:
+	cleanup:
 	  if (target_path)
 	    free(target_path);
 	  if (parent_dir)
@@ -445,9 +441,8 @@ int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_speechcode_repl_MainActivity_shouldExtractAssetsJni(JNIEnv * env,
-							     jobject thiz)
-{
+Java_com_speechcode_repl_MainActivity_shouldExtractAssetsJni(JNIEnv *env,
+							     jobject thiz) {
   LOGI("JNI: shouldExtractAssetsJni called.");
 
   jclass activityClass = (*env)->GetObjectClass(env, thiz);
@@ -466,10 +461,8 @@ Java_com_speechcode_repl_MainActivity_shouldExtractAssetsJni(JNIEnv * env,
   return result;
 }
 
-JNIEXPORT void JNICALL
-Java_com_speechcode_repl_MainActivity_initializeScheme(JNIEnv * env,
-						       jobject thiz)
-{
+JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(
+    JNIEnv *env, jobject thiz) {
   LOGI("JNI: initializeScheme called.");
 
   struct sigaction sa;
@@ -503,9 +496,8 @@ Java_com_speechcode_repl_MainActivity_initializeScheme(JNIEnv * env,
 	LOGI("JNI: Asset extraction successful.");
 
 	jclass activityClass = (*env)->GetObjectClass(env, thiz);
-	jmethodID markExtractedMethod =
-	    (*env)->GetMethodID(env, activityClass, "markAssetsExtracted",
-				"()V");
+	jmethodID markExtractedMethod = (*env)->GetMethodID(
+	    env, activityClass, "markAssetsExtracted", "()V");
 
 	if (markExtractedMethod != NULL) {
 	  (*env)->CallVoidMethod(env, thiz, markExtractedMethod);
@@ -514,7 +506,8 @@ Java_com_speechcode_repl_MainActivity_initializeScheme(JNIEnv * env,
 	  LOGE("JNI: Could not find markAssetsExtracted method.");
 	}
       } else {
-	LOGE("JNI: Asset extraction failed. Continuing with basic environment.");
+	LOGE(
+	    "JNI: Asset extraction failed. Continuing with basic environment.");
       }
     } else {
       LOGI("JNI: Skipping asset extraction - version unchanged.");
@@ -532,10 +525,8 @@ Java_com_speechcode_repl_MainActivity_initializeScheme(JNIEnv * env,
   pthread_mutex_unlock(&scheme_mutex);
 }
 
-JNIEXPORT jstring JNICALL
-Java_com_speechcode_repl_MainActivity_interruptScheme(JNIEnv * env,
-						      jobject thiz)
-{
+JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(
+    JNIEnv *env, jobject thiz) {
   LOGI("JNI: interruptScheme called.");
 
   sexp thread = scheme_ctx;
@@ -549,16 +540,12 @@ Java_com_speechcode_repl_MainActivity_interruptScheme(JNIEnv * env,
 
 static int in_user_evaluation = 0;
 
-__attribute__((visibility("default")))
-int is_in_user_evaluation()
-{
+__attribute__((visibility("default"))) int is_in_user_evaluation() {
   return in_user_evaluation;
 }
 
-JNIEXPORT jstring JNICALL
-Java_com_speechcode_repl_MainActivity_evaluateScheme(JNIEnv * env, jobject thiz,
-						     jstring expression)
-{
+JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
+    JNIEnv *env, jobject thiz, jstring expression) {
   LOGI("JNI: evaluateScheme called.");
 
   pthread_mutex_lock(&scheme_mutex);
@@ -621,7 +608,8 @@ Java_com_speechcode_repl_MainActivity_evaluateScheme(JNIEnv * env, jobject thiz,
       sexp interrupt_error = sexp_global(scheme_ctx, SEXP_G_INTERRUPT_ERROR);
 
       if (result == interrupt_error) {
-	LOGI("JNI: Interrupt error detected - evaluation was interrupted successfully");
+	LOGI("JNI: Interrupt error detected - evaluation was interrupted "
+	     "successfully");
 	pthread_mutex_unlock(&scheme_mutex);
 	return (*env)->NewStringUTF(env, "Interrupted");
       }
