@@ -73,27 +73,9 @@ void crash_handler(int sig, siginfo_t * info, void *context)
   raise(sig);
 }
 
-void extract_chibi_scheme_assets()
-{
-  LOGI("extract_chibi_scheme_assets: Starting asset extraction for JNI mode.");
-
-  char target_base[] = "/data/data/com.speechcode.repl/lib";
-  char mkdir_cmd[256];
-
-  snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", target_base);
-
-  int mkdir_result = system(mkdir_cmd);
-
-  if (mkdir_result != 0) {
-    LOGE("extract_chibi_scheme_assets: Failed to create directory %s (exit code: %d).", target_base, mkdir_result);
-  }
-  LOGI("extract_chibi_scheme_assets: Completed (JNI mode - assets should be extracted by build system).");
-}
-
 int init_scheme()
 {
   LOGI("init_scheme: Starting Scheme initialization.");
-  extract_chibi_scheme_assets();
   sexp_scheme_init();
   scheme_ctx =
       sexp_make_eval_context(NULL, NULL, NULL, 1024 * 1024, 8 * 1024 * 1024);
