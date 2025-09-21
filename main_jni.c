@@ -21,6 +21,9 @@ sexp scheme_ctx = NULL;
 sexp scheme_env = NULL;
 static pthread_mutex_t scheme_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+char *log_scheme_exception(sexp exception_obj, sexp ctx,
+			   const char *prefix, const char *original_expression);
+
 void cleanup_scheme()
 {
   if (scheme_ctx) {
@@ -102,12 +105,7 @@ int init_scheme()
 
   if (sexp_exceptionp(std_env)) {
     LOGE("init_scheme: Failed to load R7RS standard environment.");
-
-    sexp msg = sexp_exception_message(std_env);
-
-    if (msg && sexp_stringp(msg)) {
-      LOGE("init_scheme: R7RS Error: %s", sexp_string_data(msg));
-    }
+    log_scheme_exception(std_env, scheme_ctx, "init_scheme", NULL);
 
     sexp_destroy_context(scheme_ctx);
     scheme_ctx = NULL;
@@ -135,13 +133,17 @@ int init_scheme()
   return 0;
 }
 
-void log_scheme_exception_details(sexp exception_obj, sexp ctx,
-				  const char *prefix,
-				  const char *original_expression)
+char *log_scheme_exception(sexp exception_obj, sexp ctx,
+			   const char *prefix, const char *original_expression)
 {
+  static char error_message[1024];
+  int pos = 0;
+
   if (!exception_obj || !sexp_exceptionp(exception_obj)) {
     LOGE("%s: Not a valid exception object", prefix);
-    return;
+    snprintf(error_message, sizeof(error_message),
+	     "Error: Invalid exception object");
+    return error_message;
   }
 
   LOGE("%s: Exception object type: %d", prefix, sexp_type_tag(exception_obj));
@@ -151,9 +153,25 @@ void log_scheme_exception_details(sexp exception_obj, sexp ctx,
   sexp irritants = sexp_exception_irritants(exception_obj);
   sexp source = sexp_exception_source(exception_obj);
 
+  pos = snprintf(error_message, sizeof(error_message), "Error: ");
+
   if (msg && sexp_stringp(msg)) {
+    const char *msg_data = sexp_string_data(msg);
+
+    if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
+      pos +=
+	  snprintf(error_message + pos, sizeof(error_message) - pos, "%s",
+		   msg_data);
+    } else {
+      pos +=
+	  snprintf(error_message + pos, sizeof(error_message) - pos,
+		   "Invalid error message");
+    }
     LOGE("%s: Error message: %s", prefix, sexp_string_data(msg));
   } else {
+    pos +=
+	snprintf(error_message + pos, sizeof(error_message) - pos,
+		 "Unknown error");
     LOGE("%s: Error message is NULL or not a string (msg=%p)", prefix, msg);
   }
 
@@ -207,6 +225,9 @@ void log_scheme_exception_details(sexp exception_obj, sexp ctx,
       }
     }
   }
+
+  error_message[sizeof(error_message) - 1] = '\0';
+  return error_message;
 }
 
 void log_scheme_stack_context_info(sexp ctx, sexp env, const char *prefix)
@@ -623,48 +644,19 @@ Java_com_speechcode_repl_MainActivity_evaluateScheme(JNIEnv * env, jobject thiz,
 	 code_sexp, code_sexp ? sexp_exceptionp(code_sexp) : -1);
     LOGE("JNI: INPUT EXPRESSION WAS: '%s'", expr_cstr);
 
-    char parse_error_message[1024];
-    int pos = snprintf(parse_error_message, sizeof(parse_error_message),
-		       "Parse Error: ");
+    char *error_msg;
 
     if (code_sexp && sexp_exceptionp(code_sexp)) {
-      // Skip detailed logging to avoid crashes on corrupted objects.
-      LOGE("JNI Parse: Parse error detected for expression: %s", expr_cstr);
-
-      int extracted_info = 0;
-
-      sexp msg = NULL;
-      const char *msg_data = NULL;
-
-      if (pos < sizeof(parse_error_message) - 50) {
-	msg = sexp_exception_message(code_sexp);
-	if (msg && sexp_stringp(msg)) {
-	  msg_data = sexp_string_data(msg);
-	  if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
-	    pos +=
-		snprintf(parse_error_message + pos,
-			 sizeof(parse_error_message) - pos, "%s", msg_data);
-	    extracted_info = 1;
-	  }
-	}
-      }
-
-      if (!extracted_info && pos < sizeof(parse_error_message) - 20) {
-	pos +=
-	    snprintf(parse_error_message + pos,
-		     sizeof(parse_error_message) - pos, "Invalid syntax");
-      }
-    } else if (pos < sizeof(parse_error_message) - 30) {
-      snprintf(parse_error_message + pos, sizeof(parse_error_message) - pos,
-	       "Failed to parse expression");
+      error_msg =
+	  log_scheme_exception(code_sexp, scheme_ctx, "JNI Parse", expr_cstr);
+    } else {
+      error_msg = "Parse Error: Failed to parse expression";
     }
-
-    parse_error_message[sizeof(parse_error_message) - 1] = '\0';
 
     sexp_gc_release1(scheme_ctx);
     pthread_mutex_unlock(&scheme_mutex);
     (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
-    return (*env)->NewStringUTF(env, parse_error_message);
+    return (*env)->NewStringUTF(env, error_msg);
   }
 
   (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
@@ -690,73 +682,18 @@ Java_com_speechcode_repl_MainActivity_evaluateScheme(JNIEnv * env, jobject thiz,
     LOGE("JNI: Failed to evaluate Scheme expression.");
     LOGE("JNI: INPUT EXPRESSION WAS: '%s'", expr_cstr);
 
-    char error_message[1024];
-    int pos = snprintf(error_message, sizeof(error_message), "Error: ");
+    char *error_msg;
 
     if (result && sexp_exceptionp(result)) {
-      // Skip detailed logging to avoid crashes on corrupted objects.
-      LOGE("JNI Eval: Evaluation error detected for expression: %s", expr_cstr);
-
-      int extracted_info = 0;
-
-      if (pos < sizeof(error_message) - 50) {
-	sexp msg = sexp_exception_message(result);
-
-	if (msg && sexp_stringp(msg)) {
-	  const char *msg_data = sexp_string_data(msg);
-
-	  if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
-	    pos +=
-		snprintf(error_message + pos, sizeof(error_message) - pos, "%s",
-			 msg_data);
-	    extracted_info = 1;
-	  }
-	}
-      }
-
-      if (!extracted_info && pos < sizeof(error_message) - 50) {
-	sexp kind = sexp_exception_kind(result);
-
-	if (kind && sexp_symbolp(kind)) {
-	  sexp kind_str = sexp_symbol_to_string(scheme_ctx, kind);
-
-	  if (kind_str && sexp_stringp(kind_str)) {
-	    const char *kind_data = sexp_string_data(kind_str);
-
-	    if (kind_data && strlen(kind_data) > 0 && strlen(kind_data) < 50) {
-	      pos +=
-		  snprintf(error_message + pos, sizeof(error_message) - pos,
-			   "%s error", kind_data);
-	      extracted_info = 1;
-	    }
-	  }
-	}
-      }
-
-      if (!extracted_info && pos < sizeof(error_message) - 20) {
-	pos +=
-	    snprintf(error_message + pos, sizeof(error_message) - pos,
-		     "Evaluation failed");
-      }
-
-      sexp proc = sexp_exception_procedure(result);
-
-      if (proc) {
-	LOGE("JNI Eval: Error procedure present (proc=%p)", proc);
-      }
+      error_msg =
+	  log_scheme_exception(result, scheme_ctx, "JNI Eval", expr_cstr);
     } else {
-      LOGE("JNI: Result is NULL or not an exception (result=%p)", result);
-      if (pos < sizeof(error_message) - 30) {
-	snprintf(error_message + pos, sizeof(error_message) - pos,
-		 "Unknown evaluation error");
-      }
+      error_msg = "Error: Unknown evaluation error";
     }
-
-    error_message[sizeof(error_message) - 1] = '\0';
 
     sexp_gc_release1(scheme_ctx);
     pthread_mutex_unlock(&scheme_mutex);
-    return (*env)->NewStringUTF(env, error_message);
+    return (*env)->NewStringUTF(env, error_msg);
   }
 
   sexp result_str = sexp_write_to_string(scheme_ctx, result);
