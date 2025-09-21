@@ -49,7 +49,6 @@ char *load_cached_address();
 char *receive_message(int sock);
 char *receive_message_with_signal_check(int sock);
 void save_cached_address(const char *address);
-char *scan_known_addresses();
 int send_expression_message(int sock, const char *message);
 int send_interrupt_message(int sock);
 void sigint_handler(int sig);
@@ -565,80 +564,6 @@ char *scan_paired_devices()
   return NULL;
 }
 
-char *scan_known_addresses()
-{
-  printf("Trying known address patterns.\n");
-
-  const char *known_addresses[] = {
-    "B0:D5:FB:99:14:B0",	// Your device
-    NULL
-  };
-
-  for (int i = 0; known_addresses[i] != NULL; i++) {
-    printf("Checking %s.\n", known_addresses[i]);
-    fflush(stdout);
-
-    bdaddr_t target;
-
-    str2ba(known_addresses[i], &target);
-
-    sdp_session_t *session =
-	sdp_connect(BDADDR_ANY, &target, SDP_RETRY_IF_BUSY);
-    if (!session) {
-      printf("Connection failed.\n");
-      continue;
-    }
-
-    uuid_t rfcomm_uuid;
-
-    sdp_uuid16_create(&rfcomm_uuid, RFCOMM_UUID);
-    sdp_list_t *search_list = sdp_list_append(NULL, &rfcomm_uuid);
-    uint32_t range = 0x0000ffff;
-    sdp_list_t *attr_list = sdp_list_append(NULL, &range);
-    sdp_list_t *rsp_list = NULL;
-
-    int result = sdp_service_search_attr_req(session, search_list,
-					     SDP_ATTR_REQ_RANGE, attr_list,
-					     &rsp_list);
-
-    bool found_scheme_repl = false;
-
-    if (result == 0) {
-      sdp_list_t *r = rsp_list;
-
-      for (; r && !found_scheme_repl; r = r->next) {
-	sdp_record_t *rec = (sdp_record_t *) r->data;
-	sdp_data_t *service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
-
-	if (service_name && service_name->dtd == SDP_TEXT_STR8) {
-	  if (strstr(service_name->val.str, SERVICE_NAME)) {
-	    found_scheme_repl = true;
-	  }
-	}
-      }
-    }
-
-    if (search_list)
-      sdp_list_free(search_list, 0);
-    if (attr_list)
-      sdp_list_free(attr_list, 0);
-    if (rsp_list)
-      sdp_list_free(rsp_list, 0);
-    sdp_close(session);
-
-    if (found_scheme_repl) {
-      printf("CHB service found.\n");
-      char *result_addr = malloc(19);
-
-      strcpy(result_addr, known_addresses[i]);
-      return result_addr;
-    } else {
-      printf("No CHB service found.\n");
-    }
-  }
-
-  return NULL;
-}
 
 int main(int argc, char *argv[])
 {
