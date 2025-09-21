@@ -104,7 +104,7 @@ int init_scheme()
   sexp std_env = sexp_load_standard_env(scheme_ctx, scheme_env, SEXP_SEVEN);
 
   if (sexp_exceptionp(std_env)) {
-    LOGE("init_scheme: Warning: Failed to load R7RS standard environment. Trying R5RS.");
+    LOGE("init_scheme: Failed to load R7RS standard environment.");
 
     sexp msg = sexp_exception_message(std_env);
 
@@ -112,27 +112,10 @@ int init_scheme()
       LOGE("init_scheme: R7RS Error: %s", sexp_string_data(msg));
     }
 
-    std_env = sexp_load_standard_env(scheme_ctx, scheme_env, SEXP_FIVE);
-    if (sexp_exceptionp(std_env)) {
-      LOGE("init_scheme: Warning: Failed to load R5RS. Trying basic environment.");
-
-      sexp msg = sexp_exception_message(std_env);
-
-      if (msg && sexp_stringp(msg)) {
-	LOGE("init_scheme: R5RS Error: %s", sexp_string_data(msg));
-      }
-
-      std_env = sexp_load_standard_env(scheme_ctx, scheme_env, SEXP_THREE);
-      if (sexp_exceptionp(std_env)) {
-	LOGE("init_scheme: Warning: All standard environments failed. Using minimal environment.");
-      } else {
-	LOGI("init_scheme: R3RS environment loaded successfully.");
-	scheme_env = std_env;
-      }
-    } else {
-      LOGI("init_scheme: R5RS environment loaded successfully.");
-      scheme_env = std_env;
-    }
+    sexp_destroy_context(scheme_ctx);
+    scheme_ctx = NULL;
+    scheme_env = NULL;
+    return -1;
   } else {
     LOGI("init_scheme: R7RS environment loaded successfully.");
     scheme_env = std_env;
