@@ -225,8 +225,6 @@ public class MainActivity extends Activity {
 	}
     }
 
-    public native boolean shouldExtractAssetsJni();
-
     public native void initializeScheme();
 
     public native String evaluateScheme(String expression);
