@@ -163,7 +163,7 @@ char *log_scheme_exception(sexp exception_obj, sexp ctx, const char *prefix,
   if (!exception_obj || !sexp_exceptionp(exception_obj)) {
     LOGE("%s: Not a valid exception object", prefix);
     snprintf(error_message, sizeof(error_message),
-	     "Error: Invalid exception object");
+	     "Error: Invalid exception object.");
     return error_message;
   }
 
@@ -184,13 +184,13 @@ char *log_scheme_exception(sexp exception_obj, sexp ctx, const char *prefix,
 		      msg_data);
     } else {
       pos += snprintf(error_message + pos, sizeof(error_message) - pos,
-		      "Invalid error message");
+		      "Invalid error message.");
     }
     LOGE("%s: Error message: %s", prefix, sexp_string_data(msg));
   } else {
     pos += snprintf(error_message + pos, sizeof(error_message) - pos,
-		    "Unknown error");
-    LOGE("%s: Error message is NULL or not a string (msg=%p)", prefix, msg);
+		    "Unknown error.");
+    LOGE("%s: Error message is NULL or not a string (msg=%p).", prefix, msg);
   }
 
   if (kind && sexp_symbolp(kind)) {
@@ -200,26 +200,26 @@ char *log_scheme_exception(sexp exception_obj, sexp ctx, const char *prefix,
       LOGE("%s: Error kind: %s", prefix, sexp_string_data(kind_str));
     }
   } else {
-    LOGE("%s: Error kind is NULL or not a symbol (kind=%p)", prefix, kind);
+    LOGE("%s: Error kind is NULL or not a symbol (kind=%p).", prefix, kind);
   }
 
   if (irritants) {
-    LOGE("%s: Error irritants present (irritants=%p)", prefix, irritants);
+    LOGE("%s: Error irritants present (irritants=%p).", prefix, irritants);
     if (sexp_pairp(irritants)) {
       sexp first_irritant = sexp_car(irritants);
 
       if (first_irritant && sexp_stringp(first_irritant)) {
-	LOGE("%s: First irritant string: %s", prefix,
+	LOGE("%s: First irritant string: %s.", prefix,
 	     sexp_string_data(first_irritant));
       } else {
-	LOGE("%s: First irritant: %p type=%d", prefix, first_irritant,
+	LOGE("%s: First irritant: %p type=%d.", prefix, first_irritant,
 	     first_irritant ? sexp_type_tag(first_irritant) : -1);
       }
     }
   }
 
   if (source) {
-    LOGE("%s: Error source present (source=%p) type=%d", prefix, source,
+    LOGE("%s: Error source present (source=%p) type=%d.", prefix, source,
 	 sexp_type_tag(source));
   }
 
@@ -228,15 +228,17 @@ char *log_scheme_exception(sexp exception_obj, sexp ctx, const char *prefix,
 
     if (strstr(error_msg, "dotted list")) {
       LOGE("%s: MEMORY CORRUPTION DETECTED - Dotted list error indicates "
-	   "corrupted input",
+	   "corrupted input.",
 	   prefix);
       if (original_expression) {
-	LOGE("%s: Original expression was: %s", prefix, original_expression);
+	LOGE("%s: Original expression was: %s.", prefix, original_expression);
 
-	LOGE("%s: Expression string pointer: %p", prefix, original_expression);
+	LOGE("%s: Expression string pointer: %p.", prefix, original_expression);
+
 	int len = strlen(original_expression);
 
-	LOGE("%s: Expression length: %d", prefix, len);
+	LOGE("%s: Expression length: %d.", prefix, len);
+
 	for (int i = 0; i < len && i < 32; i++) {
 	  LOGE("%s: expr[%d] = 0x%02x ('%c')", prefix, i,
 	       (unsigned char)original_expression[i],
@@ -329,7 +331,7 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 
   for (int i = 0; essential_files[i] != NULL; i++) {
     const char *asset_path = essential_files[i];
-    const char *extract_path = asset_path + 4; // Skip "lib/" prefix
+    const char *extract_path = asset_path + 4; // Skip "lib/" prefix.
 
     jstring assetPath = (*env)->NewStringUTF(env, asset_path);
     jobject inputStream =
