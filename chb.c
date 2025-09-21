@@ -27,6 +27,8 @@
 #define MSG_TYPE_EXPRESSION 0x00
 #define MSG_TYPE_INTERRUPT 0x01
 
+#define SERVICE_NAME "CHB"
+
 typedef struct {
   char *message;
   enum { MSG_EXPRESSION, MSG_INTERRUPT, MSG_QUIT } type;
@@ -190,7 +192,7 @@ bool check_address_for_scheme_repl(const char *address)
       sdp_data_t *service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
 
       if (service_name && service_name->dtd == SDP_TEXT_STR8) {
-	if (strstr(service_name->val.str, "CHB")) {
+	if (strstr(service_name->val.str, SERVICE_NAME)) {
 	  found_scheme_repl = true;
 	}
       }
@@ -528,7 +530,7 @@ char *scan_paired_devices()
 	sdp_data_t *service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
 
 	if (service_name && service_name->dtd == SDP_TEXT_STR8) {
-	  if (strstr(service_name->val.str, "CHB")) {
+	  if (strstr(service_name->val.str, SERVICE_NAME)) {
 	    found_scheme_repl = true;
 	  }
 	}
@@ -607,7 +609,7 @@ char *scan_known_addresses()
 	sdp_data_t *service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
 
 	if (service_name && service_name->dtd == SDP_TEXT_STR8) {
-	  if (strstr(service_name->val.str, "CHB")) {
+	  if (strstr(service_name->val.str, SERVICE_NAME)) {
 	    found_scheme_repl = true;
 	  }
 	}
