@@ -261,6 +261,7 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 
   if (!assetManager) {
     LOGE("Failed to get AssetManager.");
+    (*env)->DeleteLocalRef(env, activityClass);
     return -1;
   }
 
@@ -269,6 +270,8 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 
   if (!mkdir_cmd) {
     LOGE("Failed to allocate memory for mkdir command.");
+    (*env)->DeleteLocalRef(env, assetManager);
+    (*env)->DeleteLocalRef(env, activityClass);
     return -1;
   }
 
@@ -278,6 +281,10 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
     LOGE("extract_chibi_assets_jni: Failed to create directory %s (exit code: "
 	 "%d).",
 	 target_base, mkdir_result);
+    free(mkdir_cmd);
+    (*env)->DeleteLocalRef(env, assetManager);
+    (*env)->DeleteLocalRef(env, activityClass);
+    return -1;
   }
   free(mkdir_cmd);
   LOGI("Starting essential Scheme library extraction.");
@@ -328,6 +335,7 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 			  "(Ljava/lang/String;)Ljava/io/InputStream;");
 
   int count = 0;
+  int has_error = 0;
 
   for (int i = 0; essential_files[i] != NULL; i++) {
     const char *asset_path = essential_files[i];
@@ -373,12 +381,14 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 
 	  if (!target_path) {
 	    LOGE("Failed to allocate memory for target path.");
+	    has_error = 1;
 	    goto cleanup;
 	  }
 
 	  parent_dir = safe_sprintf_alloc("%s", target_path);
 	  if (!parent_dir) {
 	    LOGE("Failed to allocate memory for parent directory.");
+	    has_error = 1;
 	    goto cleanup;
 	  }
 
@@ -389,6 +399,7 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 	    mkdir_cmd = safe_sprintf_alloc("mkdir -p %s", parent_dir);
 	    if (!mkdir_cmd) {
 	      LOGE("Failed to allocate memory for mkdir command.");
+	      has_error = 1;
 	      goto cleanup;
 	    }
 
@@ -398,6 +409,9 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 	      LOGE("extract_asset_file: Failed to create directory %s (exit "
 		   "code: %d).",
 		   parent_dir, mkdir_result);
+	      free(mkdir_cmd);
+	      has_error = 1;
+	      goto cleanup;
 	    }
 	    free(mkdir_cmd);
 	  }
@@ -405,11 +419,30 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 	  FILE *fp = fopen(target_path, "wb");
 
 	  if (fp) {
-	    fwrite(bufferPtr, 1, totalBytesRead, fp);
-	    fclose(fp);
+	    size_t written = fwrite(bufferPtr, 1, totalBytesRead, fp);
+	    int close_result = fclose(fp);
+
+	    if (written != (size_t)totalBytesRead) {
+	      LOGE("Failed to write complete file: %s (wrote %zu of %d bytes)",
+		   target_path, written, totalBytesRead);
+	      has_error = 1;
+	      goto cleanup;
+	    }
+
+	    if (close_result != 0) {
+	      LOGE("Failed to close file: %s", target_path);
+	      has_error = 1;
+	      goto cleanup;
+	    }
 
 	    if (strstr(target_path, ".so") != NULL) {
-	      chmod(target_path, 0755);
+	      if (chmod(target_path, 0755) != 0) {
+		LOGE("Failed to set executable permissions on shared library: "
+		     "%s",
+		     target_path);
+		has_error = 1;
+		goto cleanup;
+	      }
 	      LOGI("Extracted shared library: %s (%d bytes)", extract_path,
 		   totalBytesRead);
 	    } else {
@@ -419,6 +452,8 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 	    count++;
 	  } else {
 	    LOGE("Failed to write file: %s", target_path);
+	    has_error = 1;
+	    goto cleanup;
 	  }
 
 	cleanup:
@@ -427,6 +462,9 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 	  if (parent_dir)
 	    free(parent_dir);
 	  (*env)->ReleaseByteArrayElements(env, buffer, bufferPtr, JNI_ABORT);
+	  if (has_error) {
+	    break;
+	  }
 	}
 	(*env)->DeleteLocalRef(env, buffer);
       }
@@ -443,6 +481,11 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
   (*env)->DeleteLocalRef(env, assetManager);
   (*env)->DeleteLocalRef(env, assetManagerClass);
   (*env)->DeleteLocalRef(env, activityClass);
+
+  if (has_error) {
+    LOGE("Essential file extraction failed due to errors.");
+    return -1;
+  }
 
   if (count > 0) {
     LOGI("Essential file extraction complete: %d files extracted", count);
