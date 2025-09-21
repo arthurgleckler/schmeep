@@ -90,16 +90,13 @@ int init_scheme()
     scheme_ctx = NULL;
     return -1;
   }
-  LOGI("init_scheme: Setting up Android-specific module paths.");
 
   sexp module_path_string =
       sexp_c_string(scheme_ctx, "/data/data/com.speechcode.repl/lib", -1);
 
   sexp_global(scheme_ctx, SEXP_G_MODULE_PATH) =
       sexp_list1(scheme_ctx, module_path_string);
-  LOGI("init_scheme: Set module directory to: /data/data/com.speechcode.repl/lib.");
   sexp_load_standard_ports(scheme_ctx, scheme_env, stdin, stdout, stderr, 1);
-  LOGI("init_scheme: Attempting to load R7RS standard environment.");
 
   sexp std_env = sexp_load_standard_env(scheme_ctx, scheme_env, SEXP_SEVEN);
 
