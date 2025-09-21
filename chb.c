@@ -131,7 +131,11 @@ void save_cached_address(const char *address)
 
     if (cache_dir) {
       sprintf(cache_dir, "%s/%s", home, CACHE_DIR);
-      mkdir(cache_dir, 0755);
+      if (mkdir(cache_dir, 0755) != 0 && errno != EEXIST) {
+	perror("Failed to create cache directory.");
+	free(cache_dir);
+	return;
+      }
       free(cache_dir);
     }
   }

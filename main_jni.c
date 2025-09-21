@@ -81,7 +81,12 @@ void extract_chibi_scheme_assets()
   char mkdir_cmd[256];
 
   snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", target_base);
-  system(mkdir_cmd);
+
+  int mkdir_result = system(mkdir_cmd);
+
+  if (mkdir_result != 0) {
+    LOGE("extract_chibi_scheme_assets: Failed to create directory %s (exit code: %d).", target_base, mkdir_result);
+  }
   LOGI("extract_chibi_scheme_assets: Completed (JNI mode - assets should be extracted by build system).");
 }
 
@@ -356,7 +361,12 @@ int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
   char mkdir_cmd[256];
 
   snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", target_base);
-  system(mkdir_cmd);
+
+  int mkdir_result = system(mkdir_cmd);
+
+  if (mkdir_result != 0) {
+    LOGE("extract_chibi_assets_jni: Failed to create directory %s (exit code: %d).", target_base, mkdir_result);
+  }
   LOGI("Starting essential Scheme library extraction.");
 
   const char *essential_files[] = {
@@ -448,7 +458,12 @@ int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
 	    char mkdir_cmd[768];
 
 	    snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", parent_dir);
-	    system(mkdir_cmd);
+
+	    int mkdir_result = system(mkdir_cmd);
+
+	    if (mkdir_result != 0) {
+	      LOGE("extract_asset_file: Failed to create directory %s (exit code: %d).", parent_dir, mkdir_result);
+	    }
 	  }
 
 	  FILE *fp = fopen(target_path, "wb");
