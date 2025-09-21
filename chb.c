@@ -156,7 +156,7 @@ void save_cached_address(const char *address)
 
 bool check_address_for_scheme_repl(const char *address)
 {
-  printf("Checking cached address %s.", address);
+  printf("Checking cached address %s.\n", address);
   fflush(stdout);
 
   bdaddr_t target;
@@ -166,13 +166,14 @@ bool check_address_for_scheme_repl(const char *address)
   sdp_session_t *session = sdp_connect(BDADDR_ANY, &target, SDP_RETRY_IF_BUSY);
 
   if (!session) {
-    printf(" (connection failed)\n");
+    printf("Connection failed.\n");
     return false;
   }
 
   uuid_t rfcomm_uuid;
 
   sdp_uuid16_create(&rfcomm_uuid, RFCOMM_UUID);
+
   sdp_list_t *search_list = sdp_list_append(NULL, &rfcomm_uuid);
   uint32_t range = 0x0000ffff;
   sdp_list_t *attr_list = sdp_list_append(NULL, &range);
@@ -208,10 +209,10 @@ bool check_address_for_scheme_repl(const char *address)
   sdp_close(session);
 
   if (found_scheme_repl) {
-    printf(" CHB found!\n");
+    printf("CHB service found.\n");
     return true;
   } else {
-    printf(" (no CHB service)\n");
+    printf("No CHB service found\n");
     return false;
   }
 }
@@ -233,17 +234,17 @@ int send_expression_message(int sock, const char *message)
   uint8_t msg_type = MSG_TYPE_EXPRESSION;
 
   if (send(sock, &msg_type, 1, 0) != 1) {
-    perror("Failed to send message type");
+    perror("Failed to send message type.");
     return -1;
   }
 
   if (send(sock, &network_len, 4, 0) != 4) {
-    perror("Failed to send length");
+    perror("Failed to send length.");
     return -1;
   }
 
   if (send(sock, message, len, 0) != (ssize_t) len) {
-    perror("Failed to send message");
+    perror("Failed to send message.");
     return -1;
   }
 
@@ -256,7 +257,7 @@ int send_interrupt_message(int sock)
   uint8_t msg_type = MSG_TYPE_INTERRUPT;
 
   if (send(sock, &msg_type, 1, 0) != 1) {
-    perror("Failed to send interrupt");
+    perror("Failed to send interrupt.");
     return -1;
   }
   return 0;
@@ -277,7 +278,7 @@ char *receive_message_with_interrupt_check(int sock)
     if (select_result < 0) {
       if (errno == EINTR)
 	continue;
-      perror("select failed");
+      perror("Select failed.");
       return NULL;
     }
 
@@ -319,7 +320,7 @@ char *receive_message(int sock)
 
     if (result <= 0) {
       if (result < 0)
-	perror("Failed to receive length");
+	perror("Failed to receive length.");
       return NULL;
     }
     bytes_received += result;
@@ -335,7 +336,7 @@ char *receive_message(int sock)
   char *buffer = malloc(len + 1);
 
   if (!buffer) {
-    perror("Failed to allocate buffer");
+    perror("Failed to allocate buffer.");
     return NULL;
   }
 
@@ -345,7 +346,7 @@ char *receive_message(int sock)
 	recv(sock, buffer + bytes_received, len - bytes_received, 0);
     if (result <= 0) {
       if (result < 0)
-	perror("Failed to receive message");
+	perror("Failed to receive message.");
       free(buffer);
       return NULL;
     }
@@ -377,7 +378,7 @@ int find_service_channel(const char *bt_addr)
        "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
        &u[0], &u[1], &u[2], &u[3], &u[4], &u[5], &u[6], &u[7], &u[8], &u[9],
        &u[10], &u[11], &u[12], &u[13], &u[14], &u[15]) != 16) {
-    fprintf(stderr, "Invalid UUID format\n");
+    fprintf(stderr, "Invalid UUID format.\n");
     return -1;
   }
   for (int i = 0; i < 16; i++) {
@@ -387,7 +388,7 @@ int find_service_channel(const char *bt_addr)
 
   session = sdp_connect(BDADDR_ANY, &target, SDP_RETRY_IF_BUSY);
   if (!session) {
-    perror("Failed to connect to SDP server");
+    perror("Failed to connect to SDP server.");
     return -1;
   }
 
@@ -427,7 +428,7 @@ int find_service_channel(const char *bt_addr)
 	      case SDP_UINT8:
 		if (proto == RFCOMM_UUID) {
 		  channel = d->val.uint8;
-		  printf("Found service on RFCOMM channel %d\n", channel);
+		  printf("Found service on RFCOMM channel %d.\n", channel);
 		  goto cleanup;
 		}
 		break;
@@ -455,19 +456,19 @@ int find_service_channel(const char *bt_addr)
 
 char *scan_paired_devices()
 {
-  printf("Scanning paired Bluetooth devices for CHB service.\n");
+  printf("Scanning all paired and connected Bluetooth devices for CHB service.\n");
 
   int dev_id = hci_get_route(NULL);
 
   if (dev_id < 0) {
-    perror("No Bluetooth adapter found");
+    perror("No Bluetooth adapter found.");
     return NULL;
   }
 
   int sock = hci_open_dev(dev_id);
 
   if (sock < 0) {
-    perror("Failed to open HCI device");
+    perror("Failed to open HCI device.");
     return NULL;
   }
 
@@ -486,25 +487,26 @@ char *scan_paired_devices()
   ci = cl->conn_info;
 
   if (ioctl(sock, HCIGETCONNLIST, (void *)cl) < 0) {
+    printf("Could not get active connections.  Scanning paired devices only.\n");
     free(cl);
     close(sock);
-    return scan_known_addresses();
+    return NULL;
   }
 
-  printf("Found %d active connections, checking for CHB.\n", cl->conn_num);
+  printf("Found %d active connections.  Checking for CHB.\n", cl->conn_num);
 
   for (int i = 0; i < cl->conn_num; i++) {
     char addr_str[19];
 
     ba2str(&ci[i].bdaddr, addr_str);
 
-    printf("Checking %s.", addr_str);
+    printf("Checking %s.\n", addr_str);
     fflush(stdout);
 
     sdp_session_t *session =
 	sdp_connect(BDADDR_ANY, &ci[i].bdaddr, SDP_RETRY_IF_BUSY);
     if (!session) {
-      printf(" (SDP connection failed)\n");
+      printf("SDP connection failed.\n");
       continue;
     }
 
@@ -546,7 +548,7 @@ char *scan_paired_devices()
     sdp_close(session);
 
     if (found_scheme_repl) {
-      printf(" CHB found!\n");
+      printf("CHB service found.\n");
       char *result_addr = malloc(19);
 
       strcpy(result_addr, addr_str);
@@ -554,7 +556,7 @@ char *scan_paired_devices()
       close(sock);
       return result_addr;
     } else {
-      printf(" (no CHB service)\n");
+      printf("No CHB service.\n");
     }
   }
 
@@ -573,7 +575,7 @@ char *scan_known_addresses()
   };
 
   for (int i = 0; known_addresses[i] != NULL; i++) {
-    printf("Checking %s.", known_addresses[i]);
+    printf("Checking %s.\n", known_addresses[i]);
     fflush(stdout);
 
     bdaddr_t target;
@@ -583,7 +585,7 @@ char *scan_known_addresses()
     sdp_session_t *session =
 	sdp_connect(BDADDR_ANY, &target, SDP_RETRY_IF_BUSY);
     if (!session) {
-      printf(" (connection failed)\n");
+      printf("Connection failed.\n");
       continue;
     }
 
@@ -625,13 +627,13 @@ char *scan_known_addresses()
     sdp_close(session);
 
     if (found_scheme_repl) {
-      printf(" CHB found!\n");
+      printf("CHB service found.\n");
       char *result_addr = malloc(19);
 
       strcpy(result_addr, known_addresses[i]);
       return result_addr;
     } else {
-      printf(" (no CHB service)\n");
+      printf("No CHB service found.\n");
     }
   }
 
@@ -649,7 +651,7 @@ int main(int argc, char *argv[])
     if (cached_addr) {
       if (check_address_for_scheme_repl(cached_addr)) {
 	discovered_addr = cached_addr;
-	printf("Using cached device: %s\n", discovered_addr);
+	printf("Using cached device: %s.\n", discovered_addr);
       } else {
 	free(cached_addr);
 	cached_addr = NULL;
@@ -657,8 +659,7 @@ int main(int argc, char *argv[])
     }
 
     if (!discovered_addr) {
-      printf
-	  ("No cached address or cached address failed, scanning devices.\n");
+      printf("No cached address or cached address failed.  Scanning devices.\n");
       discovered_addr = scan_paired_devices();
       if (!discovered_addr) {
 	fprintf(stderr, "No CHB service found\n");
@@ -692,7 +693,7 @@ int main(int argc, char *argv[])
   int sock = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
 
   if (sock < 0) {
-    perror("Failed to create socket");
+    perror("Failed to create socket.");
     return 1;
   }
   // No socket timeout.
@@ -704,17 +705,17 @@ int main(int argc, char *argv[])
 
   printf("Connecting to %s on channel %d.\n", bt_addr, port);
   if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-    perror("Failed to connect");
+    perror("Failed to connect.");
     close(sock);
     return 1;
   }
 
   printf("Connected! Starting REPL session.\n");
-  printf
-      ("Type Scheme expressions (or 'quit' to exit). Press Ctrl-C to interrupt long-running evaluations.\n\n");
+  printf ("Type Scheme expressions (or 'quit' to exit).");
+  printf("  Press Ctrl-C to interrupt long-running evaluations.\n\n");
 
   if (pipe(signal_pipe) < 0) {
-    perror("Failed to create signal pipe");
+    perror("Failed to create signal pipe.");
     close(sock);
     return 1;
   }
@@ -725,12 +726,12 @@ int main(int argc, char *argv[])
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = 0;
   if (sigaction(SIGINT, &sa, NULL) < 0) {
-    perror("Failed to set signal handler");
+    perror("Failed to set signal handler.");
     close(sock);
     return 1;
   }
   if (pthread_create(&input_thread_id, NULL, input_thread, &sock) != 0) {
-    perror("Failed to create input thread");
+    perror("Failed to create input thread.");
     close(sock);
     return 1;
   }
