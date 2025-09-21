@@ -181,6 +181,13 @@ echo -e "(define x 42)\nx\n(* x 2)" | ./chb AA:BB:CC:DD:EE:FF
 
 ## Critical Development Guidelines
 
+### Statically allocated buffers create risk.
+- If it's necessary to allocate a buffer statically, guarantee that
+  bounds checks are done unless it is provable that the buffer will
+  always be big enough.
+- Otherwise, allocate it dynamically, and make sure that it is freed
+  when no longer in use.
+
 ### Never leave whitespace at the end of a source code line.
 
 ### Always use complete sentences in comments and messages.

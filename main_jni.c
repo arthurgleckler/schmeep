@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <execinfo.h>
 #include <ctype.h>
+#include <stdarg.h>
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "repl", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "repl", __VA_ARGS__)
@@ -20,6 +21,30 @@
 sexp scheme_ctx = NULL;
 sexp scheme_env = NULL;
 static pthread_mutex_t scheme_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+char *safe_sprintf_alloc(const char *format, ...)
+{
+  va_list args1, args2;
+
+  va_start(args1, format);
+  va_copy(args2, args1);
+
+  int size = vsnprintf(NULL, 0, format, args1) + 1;
+
+  va_end(args1);
+
+  char *buffer = malloc(size);
+
+  if (!buffer) {
+    va_end(args2);
+    return NULL;
+  }
+
+  vsnprintf(buffer, size, format, args2);
+  va_end(args2);
+
+  return buffer;
+}
 
 char *log_scheme_exception(sexp exception_obj, sexp ctx,
 			   const char *prefix, const char *original_expression);
@@ -136,7 +161,7 @@ int init_scheme()
 char *log_scheme_exception(sexp exception_obj, sexp ctx,
 			   const char *prefix, const char *original_expression)
 {
-  static char error_message[1024];
+  static _Thread_local char error_message[2048];
   int pos = 0;
 
   if (!exception_obj || !sexp_exceptionp(exception_obj)) {
@@ -244,16 +269,20 @@ int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
     return -1;
   }
 
-  char target_base[] = "/data/data/com.speechcode.repl/lib";
-  char mkdir_cmd[256];
+  const char *target_base = "/data/data/com.speechcode.repl/lib";
+  char *mkdir_cmd = safe_sprintf_alloc("mkdir -p %s", target_base);
 
-  snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", target_base);
+  if (!mkdir_cmd) {
+    LOGE("Failed to allocate memory for mkdir command.");
+    return -1;
+  }
 
   int mkdir_result = system(mkdir_cmd);
 
   if (mkdir_result != 0) {
     LOGE("extract_chibi_assets_jni: Failed to create directory %s (exit code: %d).", target_base, mkdir_result);
   }
+  free(mkdir_cmd);
   LOGI("Starting essential Scheme library extraction.");
 
   const char *essential_files[] = {
@@ -330,27 +359,38 @@ int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
 
 	if (bytesRead > 0) {
 	  jbyte *bufferPtr = (*env)->GetByteArrayElements(env, buffer, NULL);
-	  char target_path[512];
+	  char *target_path =
+	      safe_sprintf_alloc("%s/%s", target_base, extract_path);
+	  char *parent_dir = NULL;
+	  char *mkdir_cmd = NULL;
 
-	  snprintf(target_path, sizeof(target_path), "%s/%s", target_base,
-		   extract_path);
+	  if (!target_path) {
+	    LOGE("Failed to allocate memory for target path.");
+	    goto cleanup;
+	  }
 
-	  char parent_dir[512];
+	  parent_dir = safe_sprintf_alloc("%s", target_path);
+	  if (!parent_dir) {
+	    LOGE("Failed to allocate memory for parent directory.");
+	    goto cleanup;
+	  }
 
-	  strncpy(parent_dir, target_path, sizeof(parent_dir));
 	  char *last_slash = strrchr(parent_dir, '/');
 
 	  if (last_slash) {
 	    *last_slash = '\0';
-	    char mkdir_cmd[768];
-
-	    snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", parent_dir);
+	    mkdir_cmd = safe_sprintf_alloc("mkdir -p %s", parent_dir);
+	    if (!mkdir_cmd) {
+	      LOGE("Failed to allocate memory for mkdir command.");
+	      goto cleanup;
+	    }
 
 	    int mkdir_result = system(mkdir_cmd);
 
 	    if (mkdir_result != 0) {
 	      LOGE("extract_asset_file: Failed to create directory %s (exit code: %d).", parent_dir, mkdir_result);
 	    }
+	    free(mkdir_cmd);
 	  }
 
 	  FILE *fp = fopen(target_path, "wb");
@@ -372,11 +412,15 @@ int extract_chibi_assets_jni(JNIEnv * env, jobject activity)
 	    LOGE("Failed to write file: %s", target_path);
 	  }
 
+ cleanup:
+	  if (target_path)
+	    free(target_path);
+	  if (parent_dir)
+	    free(parent_dir);
 	  (*env)->ReleaseByteArrayElements(env, buffer, bufferPtr, JNI_ABORT);
 	}
 	(*env)->DeleteLocalRef(env, buffer);
       }
-
       (*env)->CallVoidMethod(env, inputStream, closeMethod);
       (*env)->DeleteLocalRef(env, inputStream);
       (*env)->DeleteLocalRef(env, inputStreamClass);
