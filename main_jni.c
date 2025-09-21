@@ -342,7 +342,7 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
       jmethodID availableMethod =
 	  (*env)->GetMethodID(env, inputStreamClass, "available", "()I");
       jmethodID readMethod =
-	  (*env)->GetMethodID(env, inputStreamClass, "read", "([B)I");
+	  (*env)->GetMethodID(env, inputStreamClass, "read", "([BII)I");
       jmethodID closeMethod =
 	  (*env)->GetMethodID(env, inputStreamClass, "close", "()V");
 
@@ -350,10 +350,21 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 
       if (available > 0) {
 	jbyteArray buffer = (*env)->NewByteArray(env, available);
-	jint bytesRead =
-	    (*env)->CallIntMethod(env, inputStream, readMethod, buffer);
+	jint totalBytesRead = 0;
 
-	if (bytesRead > 0) {
+	while (totalBytesRead < available) {
+	  jint remaining = available - totalBytesRead;
+	  jint bytesRead = (*env)->CallIntMethod(
+	      env, inputStream, readMethod, buffer, totalBytesRead, remaining);
+
+	  if (bytesRead <= 0) {
+	    break;
+	  }
+
+	  totalBytesRead += bytesRead;
+	}
+
+	if (totalBytesRead > 0) {
 	  jbyte *bufferPtr = (*env)->GetByteArrayElements(env, buffer, NULL);
 	  char *target_path =
 	      safe_sprintf_alloc("%s/%s", target_base, extract_path);
@@ -394,16 +405,16 @@ int extract_chibi_assets_jni(JNIEnv *env, jobject activity) {
 	  FILE *fp = fopen(target_path, "wb");
 
 	  if (fp) {
-	    fwrite(bufferPtr, 1, bytesRead, fp);
+	    fwrite(bufferPtr, 1, totalBytesRead, fp);
 	    fclose(fp);
 
 	    if (strstr(target_path, ".so") != NULL) {
 	      chmod(target_path, 0755);
 	      LOGI("Extracted shared library: %s (%d bytes)", extract_path,
-		   bytesRead);
+		   totalBytesRead);
 	    } else {
 	      LOGI("Extracted essential file: %s (%d bytes)", extract_path,
-		   bytesRead);
+		   totalBytesRead);
 	    }
 	    count++;
 	  } else {
