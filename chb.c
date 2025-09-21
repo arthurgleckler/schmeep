@@ -680,7 +680,6 @@ int main(int argc, char *argv[])
 void *input_thread(void *arg)
 {
   int sock = *(int *)arg;
-  char input[1024];
   bool stdin_is_terminal = isatty(STDIN_FILENO);
 
   while (1) {
@@ -698,26 +697,23 @@ void *input_thread(void *arg)
 	free(line);
       break;
     }
-    strncpy(input, line, sizeof(input) - 1);
-    input[sizeof(input) - 1] = '\0';
-    free(line);
 
-    size_t input_len = strlen(input);
-
-    if (input_len > 0 && input[input_len - 1] == '\n') {
-      input[input_len - 1] = '\0';
+    if (nread > 0 && line[nread - 1] == '\n') {
+      line[nread - 1] = '\0';
     }
-    if (strcmp(input, "quit") == 0 || strcmp(input, "exit") == 0
-	|| strcmp(input, ":q") == 0) {
+    if (strcmp(line, "quit") == 0 || strcmp(line, "exit") == 0
+	|| strcmp(line, ":q") == 0) {
+      free(line);
       break;
     }
-    if (strlen(input) == 0) {
+    if (strlen(line) == 0) {
+      free(line);
       continue;
     }
 
     message_t *msg = malloc(sizeof(message_t));
 
-    msg->message = strdup(input);
+    msg->message = line;
     msg->type = MSG_EXPRESSION;
     pthread_mutex_lock(&queue_mutex);
     pending_message = msg;
