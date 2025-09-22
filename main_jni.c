@@ -275,21 +275,22 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
 
   (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
 
-  if (!result || sexp_exceptionp(result)) {
-    if (result && sexp_exceptionp(result)) {
-      sexp interrupt_error = sexp_global(scheme_ctx, SEXP_G_INTERRUPT_ERROR);
+  if (!result) {
+    LOGE("JNI: Failed to evaluate Scheme expression.");
+    pthread_mutex_unlock(&scheme_mutex);
+    return (*env)->NewStringUTF(env, "Error: Unknown evaluation error.");
+  }
 
-      if (result == interrupt_error) {
-	LOGI("JNI: Interrupt error detected - evaluation was interrupted "
-	     "successfully.");
-	pthread_mutex_unlock(&scheme_mutex);
-	return (*env)->NewStringUTF(env, "Interrupted.");
-      }
+  if (sexp_exceptionp(result)) {
+    if (result == sexp_global(scheme_ctx, SEXP_G_INTERRUPT_ERROR)) {
+      LOGI("JNI: Interrupt error detected - evaluation was interrupted successfully.");
+      pthread_mutex_unlock(&scheme_mutex);
+      return (*env)->NewStringUTF(env, "Interrupted.");
     }
 
     LOGE("JNI: Failed to evaluate Scheme expression.");
 
-    char *error_msg = (result && sexp_exceptionp(result)) ? format_exception(result, scheme_ctx, "JNI", expr_cstr) : "Error: Unknown evaluation error.";
+    char *error_msg = format_exception(result, scheme_ctx, "JNI", expr_cstr);
 
     pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, error_msg);
