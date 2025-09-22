@@ -2,7 +2,6 @@ package com.speechcode.repl;
 
 import android.util.Log;
 import android.webkit.JavascriptInterface;
-import android.webkit.WebView;
 
 public class ChibiScheme {
     private static final String TAG = "repl";
