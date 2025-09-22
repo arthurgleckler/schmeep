@@ -23,10 +23,10 @@ public class MainActivity extends Activity {
 
 	chibiScheme = new ChibiScheme(this);
 	try {
-	    if (chibiScheme.shouldExtractAssets()) {
+	    if (AssetExtractor.shouldExtractAssets(this)) {
 		Log.i(TAG, "Extracting assets based on version check.");
 		if (AssetExtractor.extractAssets(this)) {
-		    chibiScheme.markAssetsExtracted();
+		    AssetExtractor.markAssetsExtracted(this);
 		    Log.i(TAG, "Asset extraction successful.");
 		} else {
 		    Log.e(TAG, "Asset extraction failed. Continuing with basic environment.");

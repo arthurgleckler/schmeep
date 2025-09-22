@@ -1,10 +1,13 @@
 package com.speechcode.repl;
 
 import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.util.Log;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -138,6 +141,75 @@ public class AssetExtractor {
                 targetFile.delete();
             }
             throw e;
+        }
+    }
+
+    public static boolean shouldExtractAssets(Context context) {
+        try {
+            PackageInfo packageInfo =
+                context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+            long currentVersionCode = packageInfo.versionCode;
+
+            File markerFile = new File(
+                "/data/data/com.speechcode.repl/lib/.assets_timestamp");
+
+            if (!markerFile.exists()) {
+                Log.i(TAG, "Marker file doesn't exist, need to extract assets");
+                return true;
+            }
+
+            try (FileInputStream fis = new FileInputStream(markerFile)) {
+                byte[] buffer = new byte[20];
+                int bytesRead = fis.read(buffer);
+
+                if (bytesRead <= 0) {
+                    Log.i(TAG, "Marker file is empty, need to extract assets");
+                    return true;
+                }
+
+                String storedVersionString =
+                    new String(buffer, 0, bytesRead).trim();
+                long storedVersionCode = Long.parseLong(storedVersionString);
+
+                if (currentVersionCode != storedVersionCode) {
+                    Log.i(TAG, "Version changed from " + storedVersionCode +
+                               " to " + currentVersionCode +
+                               ", need to extract assets");
+                    return true;
+                } else {
+                    Log.i(TAG, "Version unchanged (" + currentVersionCode +
+                               "), skipping asset extraction");
+                    return false;
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG,
+                  "Error checking asset extraction status: " + e.getMessage());
+            return true;
+        }
+    }
+
+    public static void markAssetsExtracted(Context context) {
+        try {
+            PackageInfo packageInfo =
+                context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+            long currentVersionCode = packageInfo.versionCode;
+
+            File libDir = new File("/data/data/com.speechcode.repl/lib");
+            if (!libDir.exists()) {
+                libDir.mkdirs();
+            }
+
+            File markerFile = new File(libDir, ".assets_timestamp");
+            try (FileOutputStream fos = new FileOutputStream(markerFile)) {
+                fos.write(String.valueOf(currentVersionCode).getBytes());
+                fos.flush();
+            }
+
+            Log.i(TAG, "Asset extraction completed for version " +
+                       currentVersionCode);
+        } catch (Exception e) {
+            Log.e(TAG, "Error marking assets extracted: " + e.getMessage());
         }
     }
 }
