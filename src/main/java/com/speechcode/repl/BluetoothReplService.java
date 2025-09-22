@@ -27,6 +27,7 @@ public class BluetoothReplService {
 	UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private static final String SERVICE_NAME = "CHB";
     private static final int MAX_MESSAGE_LENGTH = 1048576;
+    private static final int BLUETOOTH_REQUEST_CODE = 1001;
 
     private static final byte MSG_TYPE_EXPRESSION = 0x00;
     private static final byte MSG_TYPE_INTERRUPT = 0x01;
@@ -176,6 +177,38 @@ public class BluetoothReplService {
 		mainActivity.checkSelfPermission(
 		    Manifest.permission.BLUETOOTH_ADMIN) ==
 		    PackageManager.PERMISSION_GRANTED;
+	}
+    }
+
+    public void requestBluetoothPermissions() {
+	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+	    String[] permissions = {Manifest.permission.BLUETOOTH_CONNECT,
+				    Manifest.permission.BLUETOOTH_ADVERTISE};
+	    for (String permission : permissions) {
+		if (mainActivity.checkSelfPermission(permission) !=
+		    PackageManager.PERMISSION_GRANTED) {
+		    mainActivity.requestPermissions(permissions, BLUETOOTH_REQUEST_CODE);
+		    break;
+		}
+	    }
+	}
+    }
+
+    public void handleBluetoothPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+	if (requestCode == BLUETOOTH_REQUEST_CODE) {
+	    boolean allGranted = true;
+	    for (int result : grantResults) {
+		if (result != PackageManager.PERMISSION_GRANTED) {
+		    allGranted = false;
+		    break;
+		}
+	    }
+	    if (allGranted) {
+		Log.i(TAG, "Bluetooth permissions granted");
+		start();
+	    } else {
+		Log.w(TAG, "Bluetooth permissions denied");
+	    }
 	}
     }
 

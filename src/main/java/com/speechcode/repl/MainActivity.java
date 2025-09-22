@@ -75,8 +75,8 @@ public class MainActivity extends Activity {
 					   int[] grantResults) {
 	super.onRequestPermissionsResult(requestCode, permissions,
 					 grantResults);
-	if (chibiScheme != null) {
-	    chibiScheme.handleBluetoothPermissionsResult(requestCode, permissions, grantResults);
+	if (chibiScheme != null && chibiScheme.getBluetoothReplService() != null) {
+	    chibiScheme.getBluetoothReplService().handleBluetoothPermissionsResult(requestCode, permissions, grantResults);
 	}
     }
 }
