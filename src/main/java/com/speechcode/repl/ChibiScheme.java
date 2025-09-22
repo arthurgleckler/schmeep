@@ -17,18 +17,7 @@ public class ChibiScheme {
 	this.mainActivity = activity;
 
 	try {
-	    if (AssetExtractor.shouldExtractAssets(activity)) {
-		Log.i(TAG, "Extracting assets based on version check.");
-		if (AssetExtractor.extractAssets(activity)) {
-		    AssetExtractor.markAssetsExtracted(activity);
-		    Log.i(TAG, "Asset extraction successful.");
-		} else {
-		    Log.e(TAG, "Asset extraction failed. Continuing with basic environment.");
-		}
-	    } else {
-		Log.i(TAG, "Skipping asset extraction - version unchanged.");
-	    }
-
+	    AssetExtractor.handleAssetExtraction(activity);
 	    initializeScheme();
 	    Log.i(TAG, "Chibi Scheme initialized successfully.");
 	} catch (Exception e) {

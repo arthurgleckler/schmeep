@@ -219,7 +219,6 @@ public class AssetExtractor {
                 Log.i(TAG, "Extracting assets based on version check.");
                 if (extractAssets(context)) {
                     markAssetsExtracted(context);
-                    Log.i(TAG, "Asset extraction successful.");
                 } else {
                     Log.e(TAG, "Asset extraction failed. Continuing with basic environment.");
                 }
