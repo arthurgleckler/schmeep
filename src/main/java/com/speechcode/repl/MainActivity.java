@@ -77,10 +77,6 @@ public class MainActivity extends Activity {
 	Log.i(TAG, "MainActivity destroyed");
     }
 
-    public BluetoothReplService getBluetoothReplService() {
-	return bluetoothReplService;
-    }
-
     @Override
     public void onRequestPermissionsResult(int requestCode,
 					   String[] permissions,
