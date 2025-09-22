@@ -212,13 +212,8 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_interruptScheme(
     JNIEnv *env, jobject thiz) {
   LOGI("JNI: interruptScheme called.");
 
-  sexp thread = scheme_ctx;
-
-  for (; thread && sexp_contextp(thread); thread = sexp_context_child(thread)) {
-    sexp_context_interruptp(thread) = 1;
-  }
-
-  return (*env)->NewStringUTF(env, "Interrupted");
+  sexp_context_interruptp(sexp_context_child(scheme_ctx)) = 1;
+  return (*env)->NewStringUTF(env, "Interrupted.");
 }
 
 JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_evaluateScheme(
