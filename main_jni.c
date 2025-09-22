@@ -22,29 +22,6 @@ sexp scheme_ctx = NULL;
 sexp scheme_env = NULL;
 static pthread_mutex_t scheme_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-char *safe_sprintf_alloc(const char *format, ...) {
-  va_list args1, args2;
-
-  va_start(args1, format);
-  va_copy(args2, args1);
-
-  int size = vsnprintf(NULL, 0, format, args1) + 1;
-
-  va_end(args1);
-
-  char *buffer = malloc(size);
-
-  if (!buffer) {
-    va_end(args2);
-    return NULL;
-  }
-
-  vsnprintf(buffer, size, format, args2);
-  va_end(args2);
-
-  return buffer;
-}
-
 char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
 			   const char *original_expression);
 
