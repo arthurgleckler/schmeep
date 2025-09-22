@@ -9,10 +9,8 @@ import android.webkit.WebView;
 
 public class MainActivity extends Activity {
     private static final String TAG = "repl";
-    private static final int BLUETOOTH_REQUEST_CODE = 1001;
     private WebView webView;
     private ChibiScheme chibiScheme;
-    private BluetoothReplService bluetoothReplService;
 
     static { System.loadLibrary("repl"); }
 
@@ -56,23 +54,21 @@ public class MainActivity extends Activity {
 	}
 	webView.setWebChromeClient(new DebugWebChromeClient());
 	webView.loadUrl("file:///android_asset/test.html");
-	bluetoothReplService =
-	    new BluetoothReplService(this, chibiScheme, webView);
-	bluetoothReplService.requestBluetoothPermissions();
+	chibiScheme.initializeBluetooth(webView);
 	Log.i(TAG, "WebView setup completed.");
     }
 
     @Override
     protected void onDestroy() {
 	super.onDestroy();
-	if (bluetoothReplService != null) {
-	    bluetoothReplService.stop();
+	if (chibiScheme != null) {
+	    chibiScheme.stopBluetooth();
 	}
 	Log.i(TAG, "MainActivity destroyed");
     }
 
     public BluetoothReplService getBluetoothReplService() {
-	return bluetoothReplService;
+	return chibiScheme.getBluetoothReplService();
     }
 
     @Override
@@ -81,9 +77,11 @@ public class MainActivity extends Activity {
 					   int[] grantResults) {
 	super.onRequestPermissionsResult(requestCode, permissions,
 					 grantResults);
-	if (bluetoothReplService != null) {
-	    bluetoothReplService.handleBluetoothPermissionsResult(
-		requestCode, permissions, grantResults);
+	if (chibiScheme != null &&
+	    chibiScheme.getBluetoothReplService() != null) {
+	    chibiScheme.getBluetoothReplService()
+		.handleBluetoothPermissionsResult(requestCode, permissions,
+						  grantResults);
 	}
     }
 }
