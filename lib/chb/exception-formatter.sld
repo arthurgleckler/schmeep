@@ -11,6 +11,7 @@
                 (irritants (exception-irritants exception)))
             (call-with-output-string
 	     (lambda (port)
+	       (display "Exception:" port)
 	       (let ((components (append
 				  (if message (list message) '())
 				  (if kind `((kind ,kind)) '())
@@ -19,6 +20,6 @@
 				      '()))))
 		 (do ((c components (cdr c)))
 		     ((null? c))
-		   (display (car c) port)
-		   (if (not (null? (cdr c))) (display " " port)))))))
+		   (display " " port)
+		   (display (car c) port))))))
           "Not an exception."))))
