@@ -51,18 +51,27 @@ $(CHIBI_TARGET_ARM64):
 		-o makecapk/lib/arm64-v8a/srfi-27-rand.so \
 		chibi-scheme/lib/srfi/27/rand.c \
 		-L$(dir $@) -lchibi-scheme
+	$(CC_ARM64) -fPIC -shared $(CHIBI_CFLAGS) $(CFLAGS_ARM64) \
+		-Ichibi-scheme/include \
+		-o makecapk/lib/arm64-v8a/chibi-ast.so \
+		chibi-scheme/lib/chibi/ast.c \
+		-L$(dir $@) -lchibi-scheme
 
 makecapk/lib/arm64-v8a/lib$(APPNAME).so: $(ANDROID_SRCS) $(CHIBI_TARGET_ARM64)
 	$(CC_ARM64) $(CFLAGS) $(CFLAGS_ARM64) -o $@ $(filter %.c,$^) -L$(dir $@) \
 	-L$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/sysroot/usr/lib/aarch64-linux-android/$(ANDROID_VERSION) \
 	$(LDFLAGS) -lchibi-scheme
 
-$(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64)
+$(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64) lib/chb/exception-formatter.sld
 	mkdir -p $@
 	cd $(CHIBI_SCHEME_DIR)/lib && find . \( -name "*.scm" -o -name "*.sld" \) \
 		-exec cp --parents {} ../../$@/ \;
+	mkdir -p $@/chb
+	cp lib/chb/exception-formatter.sld $@/chb/
 	mkdir -p $@/srfi/27
 	cp makecapk/lib/arm64-v8a/srfi-27-rand.so $@/srfi/27/rand.so
+	mkdir -p $@/chibi
+	cp makecapk/lib/arm64-v8a/chibi-ast.so $@/chibi/ast.so
 
 all: chb makecapk.apk
 

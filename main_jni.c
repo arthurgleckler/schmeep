@@ -45,7 +45,7 @@ char *safe_sprintf_alloc(const char *format, ...) {
   return buffer;
 }
 
-char *log_scheme_exception(sexp exception_obj, sexp ctx, const char *prefix,
+char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
 			   const char *original_expression);
 
 void cleanup_scheme() {
@@ -126,8 +126,6 @@ int init_scheme() {
 
   if (sexp_exceptionp(std_env)) {
     LOGE("init_scheme: Failed to load R7RS standard environment.");
-    log_scheme_exception(std_env, scheme_ctx, "init_scheme", NULL);
-
     sexp_destroy_context(scheme_ctx);
     scheme_ctx = NULL;
     scheme_env = NULL;
@@ -140,119 +138,57 @@ int init_scheme() {
   const char *set_path_expr =
       "(current-module-path (cons \"/data/data/com.speechcode.repl/lib\" "
       "(current-module-path)))";
-  sexp path_sexp = sexp_read_from_string(scheme_ctx, set_path_expr, -1);
 
-  if (path_sexp && !sexp_exceptionp(path_sexp)) {
-    sexp path_result = sexp_eval(scheme_ctx, path_sexp, scheme_env);
+  sexp path_result = sexp_eval_string(scheme_ctx, set_path_expr, -1, scheme_env);
 
-    if (path_result && !sexp_exceptionp(path_result)) {
-      LOGI("init_scheme: Library search path configured.");
-    } else {
-      LOGE("init_scheme: Failed to set library search path.");
-    }
+  if (path_result && !sexp_exceptionp(path_result)) {
+    LOGI("init_scheme: Library search path configured.");
+  } else {
+    LOGE("init_scheme: Failed to set library search path.");
+  }
+
+  sexp import_result
+    = sexp_eval_string(scheme_ctx, "(import (chb exception-formatter))", -1,
+		       scheme_env);
+
+  if (import_result && !sexp_exceptionp(import_result)) {
+    LOGI("init_scheme: Exception formatter imported.");
+  } else {
+    LOGE("init_scheme: Failed to import exception formatter.");
   }
   LOGI("init_scheme: Scheme context initialized successfully.");
   return 0;
 }
 
-char *log_scheme_exception(sexp exception_obj, sexp ctx, const char *prefix,
-			   const char *original_expression) {
+char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
+		       const char *original_expression) {
   static _Thread_local char error_message[2048];
-  int pos = 0;
 
-  if (!exception_obj || !sexp_exceptionp(exception_obj)) {
-    LOGE("%s: Not a valid exception object", prefix);
-    snprintf(error_message, sizeof(error_message),
-	     "Error: Invalid exception object.");
-    return error_message;
+  if (!ctx || !scheme_env) {
+    return "Error: Scheme not available.";
   }
 
-  LOGE("%s: Exception object type: %d", prefix, sexp_type_tag(exception_obj));
+  sexp formatter_symbol = sexp_intern(ctx, "format-exception", -1);
+  sexp formatter = sexp_env_ref(ctx, scheme_env, formatter_symbol, SEXP_FALSE);
 
-  sexp msg = sexp_exception_message(exception_obj);
-  sexp kind = sexp_exception_kind(exception_obj);
-  sexp irritants = sexp_exception_irritants(exception_obj);
-  sexp source = sexp_exception_source(exception_obj);
+  if (formatter && sexp_procedurep(formatter)) {
+    sexp prefix_str = sexp_c_string(ctx, prefix, -1);
+    sexp original_str = original_expression ? sexp_c_string(ctx, original_expression, -1) : SEXP_FALSE;
+    sexp call_args = sexp_list3(ctx, exception_obj, prefix_str, original_str);
+    sexp result = sexp_apply(ctx, formatter, call_args);
 
-  pos = snprintf(error_message, sizeof(error_message), "Error: ");
+    if (!sexp_exceptionp(result) && result && sexp_stringp(result)) {
+      const char *result_str = sexp_string_data(result);
 
-  if (msg && sexp_stringp(msg)) {
-    const char *msg_data = sexp_string_data(msg);
-
-    if (msg_data && strlen(msg_data) > 0 && strlen(msg_data) < 200) {
-      pos += snprintf(error_message + pos, sizeof(error_message) - pos, "%s",
-		      msg_data);
-    } else {
-      pos += snprintf(error_message + pos, sizeof(error_message) - pos,
-		      "Invalid error message.");
-    }
-    LOGE("%s: Error message: %s", prefix, sexp_string_data(msg));
-  } else {
-    pos += snprintf(error_message + pos, sizeof(error_message) - pos,
-		    "Unknown error.");
-    LOGE("%s: Error message is NULL or not a string (msg=%p).", prefix, msg);
-  }
-
-  if (kind && sexp_symbolp(kind)) {
-    sexp kind_str = sexp_symbol_to_string(ctx, kind);
-
-    if (kind_str && sexp_stringp(kind_str)) {
-      LOGE("%s: Error kind: %s", prefix, sexp_string_data(kind_str));
-    }
-  } else {
-    LOGE("%s: Error kind is NULL or not a symbol (kind=%p).", prefix, kind);
-  }
-
-  if (irritants) {
-    LOGE("%s: Error irritants present (irritants=%p).", prefix, irritants);
-    if (sexp_pairp(irritants)) {
-      sexp first_irritant = sexp_car(irritants);
-
-      if (first_irritant && sexp_stringp(first_irritant)) {
-	LOGE("%s: First irritant string: %s.", prefix,
-	     sexp_string_data(first_irritant));
-      } else {
-	LOGE("%s: First irritant: %p type=%d.", prefix, first_irritant,
-	     first_irritant ? sexp_type_tag(first_irritant) : -1);
+      if (result_str) {
+	strncpy(error_message, result_str, sizeof(error_message) - 1);
+	error_message[sizeof(error_message) - 1] = '\0';
+	return error_message;
       }
     }
   }
-
-  if (source) {
-    LOGE("%s: Error source present (source=%p) type=%d.", prefix, source,
-	 sexp_type_tag(source));
-  }
-
-  if (msg && sexp_stringp(msg)) {
-    const char *error_msg = sexp_string_data(msg);
-
-    if (strstr(error_msg, "dotted list")) {
-      LOGE("%s: MEMORY CORRUPTION DETECTED - Dotted list error indicates "
-	   "corrupted input.",
-	   prefix);
-      if (original_expression) {
-	LOGE("%s: Original expression was: %s.", prefix, original_expression);
-
-	LOGE("%s: Expression string pointer: %p.", prefix, original_expression);
-
-	int len = strlen(original_expression);
-
-	LOGE("%s: Expression length: %d.", prefix, len);
-
-	for (int i = 0; i < len && i < 32; i++) {
-	  LOGE("%s: expr[%d] = 0x%02x ('%c')", prefix, i,
-	       (unsigned char)original_expression[i],
-	       isprint(original_expression[i]) ? original_expression[i] : '?');
-	}
-      }
-    }
-  }
-
-  error_message[sizeof(error_message) - 1] = '\0';
-  return error_message;
+  return "Error: Scheme formatter failed.";
 }
-
-
 
 JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(
     JNIEnv *env, jobject thiz) {
@@ -351,7 +287,7 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
 
     if (code_sexp && sexp_exceptionp(code_sexp)) {
       error_msg =
-	  log_scheme_exception(code_sexp, scheme_ctx, "JNI Parse", expr_cstr);
+	  format_exception(code_sexp, scheme_ctx, "JNI Parse", expr_cstr);
     } else {
       error_msg = "Parse Error: Failed to parse expression";
     }
@@ -390,7 +326,7 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
 
     if (result && sexp_exceptionp(result)) {
       error_msg =
-	  log_scheme_exception(result, scheme_ctx, "JNI Eval", expr_cstr);
+	  format_exception(result, scheme_ctx, "JNI Eval", expr_cstr);
     } else {
       error_msg = "Error: Unknown evaluation error";
     }

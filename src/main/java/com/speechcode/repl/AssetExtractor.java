@@ -13,6 +13,9 @@ public class AssetExtractor {
     private static final String TAG = "repl";
 
     private static final String[] ESSENTIAL_FILES = {
+	"lib/chb/exception-formatter.sld",
+	"lib/chibi/ast.scm",
+	"lib/chibi/ast.so",
         "lib/chibi/ast.sld",
         "lib/chibi/equiv.sld",
         "lib/chibi/io.sld",
