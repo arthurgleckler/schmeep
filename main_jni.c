@@ -167,7 +167,7 @@ char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
   return "Error: Scheme formatter failed.";
 }
 
-JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(
+JNIEXPORT void JNICALL Java_com_speechcode_repl_ChibiScheme_initializeScheme(
     JNIEnv *env, jobject thiz) {
   LOGI("JNI: initializeScheme called.");
 
@@ -206,7 +206,7 @@ JNIEXPORT void JNICALL Java_com_speechcode_repl_MainActivity_initializeScheme(
   pthread_mutex_unlock(&scheme_mutex);
 }
 
-JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(
+JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_interruptScheme(
     JNIEnv *env, jobject thiz) {
   LOGI("JNI: interruptScheme called.");
 
@@ -219,7 +219,7 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(
   return (*env)->NewStringUTF(env, "Interrupted");
 }
 
-JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
+JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_evaluateScheme(
     JNIEnv *env, jobject thiz, jstring expression) {
   LOGI("JNI: evaluateScheme called.");
 

@@ -32,6 +32,7 @@ public class BluetoothReplService {
     private static final byte MSG_TYPE_INTERRUPT = 0x01;
 
     private final MainActivity mainActivity;
+    private final ChibiScheme chibiScheme;
     private final WebView webView;
     private final ExecutorService executorService;
     private final ExecutorService evaluatorService;
@@ -46,8 +47,9 @@ public class BluetoothReplService {
 
     private String connectionStatus;
 
-    public BluetoothReplService(MainActivity activity, WebView webView) {
+    public BluetoothReplService(MainActivity activity, ChibiScheme chibiScheme, WebView webView) {
 	this.mainActivity = activity;
+	this.chibiScheme = chibiScheme;
 	this.webView = webView;
 	this.executorService = Executors.newSingleThreadExecutor();
 	this.evaluatorService = Executors.newSingleThreadExecutor();
@@ -255,7 +257,7 @@ public class BluetoothReplService {
 				"*** EXECUTOR TASK STARTED - About to call interruptScheme() ***");
 			    Log.i(TAG,
 				  "*** CALLING interruptScheme() (async) ***");
-			    String result = mainActivity.interruptScheme();
+			    String result = chibiScheme.interruptScheme();
 			    Log.i(TAG, "*** interruptScheme() returned: " +
 					   result + " ***");
 			    writeMessage(currentOutputStream, result);
@@ -289,7 +291,7 @@ public class BluetoothReplService {
 		updateConnectionStatus("Evaluating expression.");
 		Log.i(TAG, "Evaluating expression: " +
 			       request.expression.replace("\n", "\\n"));
-		String result = mainActivity.evaluateScheme(request.expression);
+		String result = chibiScheme.evaluateScheme(request.expression);
 		Log.i(TAG, "Evaluated result: " + result.replace("\n", "\\n"));
 		updateConnectionStatus("Client connected");
 
