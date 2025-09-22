@@ -95,7 +95,7 @@ public class AssetExtractor {
         }
 
         if (count > 0) {
-            Log.i(TAG, "Essential file extraction complete: " + count + " files extracted");
+            Log.i(TAG, "Essential file extraction complete: " + count + " files extracted.");
             return true;
         } else {
             Log.e(TAG, "No essential files extracted.");
@@ -132,7 +132,7 @@ public class AssetExtractor {
                 }
             }
 
-            Log.d(TAG, "Extracted " + assetPath + " (" + totalBytes + " bytes)");
+            Log.d(TAG, "Extracted " + assetPath + " (" + totalBytes + " bytes).");
             return true;
 
         } catch (IOException e) {
@@ -154,7 +154,7 @@ public class AssetExtractor {
                 "/data/data/com.speechcode.repl/lib/.assets_timestamp");
 
             if (!markerFile.exists()) {
-                Log.i(TAG, "Marker file doesn't exist, need to extract assets");
+                Log.i(TAG, "Marker file doesn't exist.  Need to extract assets.");
                 return true;
             }
 
@@ -163,7 +163,7 @@ public class AssetExtractor {
                 int bytesRead = fis.read(buffer);
 
                 if (bytesRead <= 0) {
-                    Log.i(TAG, "Marker file is empty, need to extract assets");
+                    Log.i(TAG, "Marker file is empty.  Need to extract assets.");
                     return true;
                 }
 
@@ -174,11 +174,11 @@ public class AssetExtractor {
                 if (currentVersionCode != storedVersionCode) {
                     Log.i(TAG, "Version changed from " + storedVersionCode +
                                " to " + currentVersionCode +
-                               ", need to extract assets");
+                               ".  Need to extract assets.");
                     return true;
                 } else {
                     Log.i(TAG, "Version unchanged (" + currentVersionCode +
-                               "), skipping asset extraction");
+                               ").  Skipping asset extraction.");
                     return false;
                 }
             }
@@ -207,9 +207,27 @@ public class AssetExtractor {
             }
 
             Log.i(TAG, "Asset extraction completed for version " +
-                       currentVersionCode);
+                       currentVersionCode + ".");
         } catch (Exception e) {
             Log.e(TAG, "Error marking assets extracted: " + e.getMessage());
+        }
+    }
+
+    public static void handleAssetExtraction(Context context) {
+        try {
+            if (shouldExtractAssets(context)) {
+                Log.i(TAG, "Extracting assets based on version check.");
+                if (extractAssets(context)) {
+                    markAssetsExtracted(context);
+                    Log.i(TAG, "Asset extraction successful.");
+                } else {
+                    Log.e(TAG, "Asset extraction failed. Continuing with basic environment.");
+                }
+            } else {
+                Log.i(TAG, "Skipping asset extraction - version unchanged.");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error during asset extraction: " + e.getMessage());
         }
     }
 }
