@@ -278,10 +278,9 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
       return (*env)->NewStringUTF(env, "Interrupted.");
     }
 
-    LOGE("JNI: Failed to evaluate Scheme expression.");
-
     char *error_msg = format_exception(result, scheme_ctx, "JNI", expr_cstr);
 
+    LOGE("JNI: %s", error_msg);
     pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, error_msg);
   }
