@@ -260,7 +260,7 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
     LOGE("JNI: Scheme not initialized - ctx=%p env=%p", scheme_ctx, scheme_env);
     in_user_evaluation = 0;
     pthread_mutex_unlock(&scheme_mutex);
-    return (*env)->NewStringUTF(env, "Error: Scheme not initialized");
+    return (*env)->NewStringUTF(env, "Error: Scheme not initialized.");
   }
 
   const char *expr_cstr = (*env)->GetStringUTFChars(env, expression, NULL);
@@ -268,44 +268,12 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
   if (!expr_cstr) {
     LOGE("JNI: Failed to convert expression string.");
     pthread_mutex_unlock(&scheme_mutex);
-    return (*env)->NewStringUTF(env, "Error: Invalid expression string");
+    return (*env)->NewStringUTF(env, "Error: Invalid expression string.");
   }
 
-  sexp_gc_var1(code_sexp);
-  sexp_gc_preserve1(scheme_ctx, code_sexp);
-
-  code_sexp = sexp_read_from_string(scheme_ctx, expr_cstr, -1);
-
-  LOGI("JNI: sexp_read_from_string returned - code_sexp=%p", code_sexp);
-
-  if (!code_sexp || sexp_exceptionp(code_sexp)) {
-    LOGE("JNI: Failed to parse Scheme expression - code_sexp=%p exception=%d",
-	 code_sexp, code_sexp ? sexp_exceptionp(code_sexp) : -1);
-    LOGE("JNI: INPUT EXPRESSION WAS: '%s'", expr_cstr);
-
-    char *error_msg;
-
-    if (code_sexp && sexp_exceptionp(code_sexp)) {
-      error_msg =
-	  format_exception(code_sexp, scheme_ctx, "JNI Parse", expr_cstr);
-    } else {
-      error_msg = "Parse Error: Failed to parse expression";
-    }
-
-    sexp_gc_release1(scheme_ctx);
-    pthread_mutex_unlock(&scheme_mutex);
-    (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
-    return (*env)->NewStringUTF(env, error_msg);
-  }
+  sexp result = sexp_eval_string(scheme_ctx, expr_cstr, -1, scheme_env);
 
   (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
-
-  LOGI("JNI: About to call sexp_eval - ctx=%p code_sexp=%p env=%p", scheme_ctx,
-       code_sexp, scheme_env);
-
-  sexp result = sexp_eval(scheme_ctx, code_sexp, scheme_env);
-
-  LOGI("JNI: sexp_eval returned - result=%p", result);
 
   if (!result || sexp_exceptionp(result)) {
     if (result && sexp_exceptionp(result)) {
@@ -313,25 +281,16 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
 
       if (result == interrupt_error) {
 	LOGI("JNI: Interrupt error detected - evaluation was interrupted "
-	     "successfully");
+	     "successfully.");
 	pthread_mutex_unlock(&scheme_mutex);
-	return (*env)->NewStringUTF(env, "Interrupted");
+	return (*env)->NewStringUTF(env, "Interrupted.");
       }
     }
 
     LOGE("JNI: Failed to evaluate Scheme expression.");
-    LOGE("JNI: INPUT EXPRESSION WAS: '%s'", expr_cstr);
 
-    char *error_msg;
+    char *error_msg = (result && sexp_exceptionp(result)) ? format_exception(result, scheme_ctx, "JNI", expr_cstr) : "Error: Unknown evaluation error.";
 
-    if (result && sexp_exceptionp(result)) {
-      error_msg =
-	  format_exception(result, scheme_ctx, "JNI Eval", expr_cstr);
-    } else {
-      error_msg = "Error: Unknown evaluation error";
-    }
-
-    sexp_gc_release1(scheme_ctx);
     pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, error_msg);
   }
@@ -339,27 +298,24 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
   sexp result_str = sexp_write_to_string(scheme_ctx, result);
 
   if (!result_str || sexp_exceptionp(result_str)) {
-    LOGE("JNI: Failed to convert result to string - result_str=%p exception=%d",
+    LOGE("JNI: Failed to convert result to string - result_str=%p exception=%d.",
 	 result_str, result_str ? sexp_exceptionp(result_str) : -1);
-    sexp_gc_release1(scheme_ctx);
     pthread_mutex_unlock(&scheme_mutex);
-    return (*env)->NewStringUTF(env, "Error: Result conversion error");
+    return (*env)->NewStringUTF(env, "Error: Result conversion error.");
   }
 
   const char *result_cstr = sexp_string_data(result_str);
 
   if (!result_cstr) {
     LOGE("JNI: sexp_string_data returned NULL for valid result_str.");
-    sexp_gc_release1(scheme_ctx);
     pthread_mutex_unlock(&scheme_mutex);
-    return (*env)->NewStringUTF(env, "Error: String data extraction failed");
+    return (*env)->NewStringUTF(env, "Error: String data extraction failed.");
   }
 
   LOGI("JNI: Scheme result: %s", result_cstr);
 
   jstring java_result = (*env)->NewStringUTF(env, result_cstr);
 
-  sexp_gc_release1(scheme_ctx);
   in_user_evaluation = 0;
   pthread_mutex_unlock(&scheme_mutex);
 
