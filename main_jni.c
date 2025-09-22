@@ -242,23 +242,13 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_interruptScheme(
   return (*env)->NewStringUTF(env, "Interrupted");
 }
 
-static int in_user_evaluation = 0;
-
-__attribute__((visibility("default"))) int is_in_user_evaluation() {
-  return in_user_evaluation;
-}
-
 JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
     JNIEnv *env, jobject thiz, jstring expression) {
   LOGI("JNI: evaluateScheme called.");
 
   pthread_mutex_lock(&scheme_mutex);
-
-  in_user_evaluation = 1;
-
   if (scheme_ctx == NULL || scheme_env == NULL) {
     LOGE("JNI: Scheme not initialized - ctx=%p env=%p", scheme_ctx, scheme_env);
-    in_user_evaluation = 0;
     pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Scheme not initialized.");
   }
@@ -317,8 +307,6 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_MainActivity_evaluateScheme(
 
   jstring java_result = (*env)->NewStringUTF(env, result_cstr);
 
-  in_user_evaluation = 0;
   pthread_mutex_unlock(&scheme_mutex);
-
   return java_result;
 }
