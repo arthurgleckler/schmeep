@@ -22,24 +22,6 @@ public class MainActivity extends Activity {
 	Log.i(TAG, "MainActivity onCreate started.");
 
 	chibiScheme = new ChibiScheme(this);
-	try {
-	    if (AssetExtractor.shouldExtractAssets(this)) {
-		Log.i(TAG, "Extracting assets based on version check.");
-		if (AssetExtractor.extractAssets(this)) {
-		    AssetExtractor.markAssetsExtracted(this);
-		    Log.i(TAG, "Asset extraction successful.");
-		} else {
-		    Log.e(TAG, "Asset extraction failed. Continuing with basic environment.");
-		}
-	    } else {
-		Log.i(TAG, "Skipping asset extraction - version unchanged.");
-	    }
-
-	    chibiScheme.initializeScheme();
-	    Log.i(TAG, "Chibi Scheme initialized successfully.");
-	} catch (Exception e) {
-	    Log.e(TAG, "Failed to initialize Chibi Scheme: " + e.getMessage());
-	}
 	setupWebView();
 	Log.i(TAG, "MainActivity onCreate completed.");
     }
