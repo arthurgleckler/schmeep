@@ -23,7 +23,7 @@ sexp scheme_env = NULL;
 static pthread_mutex_t scheme_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
-			   const char *original_expression);
+		       const char *original_expression);
 
 void cleanup_scheme() {
   if (scheme_ctx) {
@@ -116,7 +116,8 @@ int init_scheme() {
       "(current-module-path (cons \"/data/data/com.speechcode.repl/lib\" "
       "(current-module-path)))";
 
-  sexp path_result = sexp_eval_string(scheme_ctx, set_path_expr, -1, scheme_env);
+  sexp path_result =
+      sexp_eval_string(scheme_ctx, set_path_expr, -1, scheme_env);
 
   if (path_result && !sexp_exceptionp(path_result)) {
     LOGI("init_scheme: Library search path configured.");
@@ -124,9 +125,8 @@ int init_scheme() {
     LOGE("init_scheme: Failed to set library search path.");
   }
 
-  sexp import_result
-    = sexp_eval_string(scheme_ctx, "(import (chb exception-formatter))", -1,
-		       scheme_env);
+  sexp import_result = sexp_eval_string(
+      scheme_ctx, "(import (chb exception-formatter))", -1, scheme_env);
 
   if (import_result && !sexp_exceptionp(import_result)) {
     LOGI("init_scheme: Exception formatter imported.");
@@ -150,7 +150,9 @@ char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
 
   if (formatter && sexp_procedurep(formatter)) {
     sexp prefix_str = sexp_c_string(ctx, prefix, -1);
-    sexp original_str = original_expression ? sexp_c_string(ctx, original_expression, -1) : SEXP_FALSE;
+    sexp original_str = original_expression
+			    ? sexp_c_string(ctx, original_expression, -1)
+			    : SEXP_FALSE;
     sexp call_args = sexp_list3(ctx, exception_obj, prefix_str, original_str);
     sexp result = sexp_apply(ctx, formatter, call_args);
 
@@ -250,7 +252,8 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_evaluateScheme(
 
   if (sexp_exceptionp(result)) {
     if (result == sexp_global(scheme_ctx, SEXP_G_INTERRUPT_ERROR)) {
-      LOGI("JNI: Interrupt error detected - evaluation was interrupted successfully.");
+      LOGI("JNI: Interrupt error detected - evaluation was interrupted "
+	   "successfully.");
       pthread_mutex_unlock(&scheme_mutex);
       return (*env)->NewStringUTF(env, "Interrupted.");
     }
@@ -265,8 +268,9 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_evaluateScheme(
   sexp result_str = sexp_write_to_string(scheme_ctx, result);
 
   if (!result_str || sexp_exceptionp(result_str)) {
-    LOGE("JNI: Failed to convert result to string - result_str=%p exception=%d.",
-	 result_str, result_str ? sexp_exceptionp(result_str) : -1);
+    LOGE(
+	"JNI: Failed to convert result to string - result_str=%p exception=%d.",
+	result_str, result_str ? sexp_exceptionp(result_str) : -1);
     pthread_mutex_unlock(&scheme_mutex);
     return (*env)->NewStringUTF(env, "Error: Result conversion error.");
   }

@@ -48,7 +48,8 @@ public class BluetoothReplService {
 
     private String connectionStatus;
 
-    public BluetoothReplService(MainActivity activity, ChibiScheme chibiScheme, WebView webView) {
+    public BluetoothReplService(MainActivity activity, ChibiScheme chibiScheme,
+				WebView webView) {
 	this.mainActivity = activity;
 	this.chibiScheme = chibiScheme;
 	this.webView = webView;
@@ -187,14 +188,17 @@ public class BluetoothReplService {
 	    for (String permission : permissions) {
 		if (mainActivity.checkSelfPermission(permission) !=
 		    PackageManager.PERMISSION_GRANTED) {
-		    mainActivity.requestPermissions(permissions, BLUETOOTH_REQUEST_CODE);
+		    mainActivity.requestPermissions(permissions,
+						    BLUETOOTH_REQUEST_CODE);
 		    break;
 		}
 	    }
 	}
     }
 
-    public void handleBluetoothPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void handleBluetoothPermissionsResult(int requestCode,
+						 String[] permissions,
+						 int[] grantResults) {
 	if (requestCode == BLUETOOTH_REQUEST_CODE) {
 	    boolean allGranted = true;
 	    for (int result : grantResults) {

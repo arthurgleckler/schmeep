@@ -38,9 +38,12 @@ public class MainActivity extends Activity {
 	webSettings.setAllowFileAccess(true);
 	webSettings.setAllowContentAccess(true);
 	try {
-	    Log.i(TAG, "Direct JNI test result: " + chibiScheme.evaluateScheme("(+ 2 3)"));
-	    Log.i(TAG, "Direct JNI test result: " + chibiScheme.evaluateScheme("(* 4 5)"));
-	    Log.i(TAG, "Direct JNI test result: " + chibiScheme.evaluateScheme("(list 1 2 3)"));
+	    Log.i(TAG, "Direct JNI test result: " +
+			   chibiScheme.evaluateScheme("(+ 2 3)"));
+	    Log.i(TAG, "Direct JNI test result: " +
+			   chibiScheme.evaluateScheme("(* 4 5)"));
+	    Log.i(TAG, "Direct JNI test result: " +
+			   chibiScheme.evaluateScheme("(list 1 2 3)"));
 	} catch (Exception e) {
 	    Log.e(TAG, "JNI test failed: " + e.getMessage());
 	}
@@ -53,7 +56,8 @@ public class MainActivity extends Activity {
 	}
 	webView.setWebChromeClient(new DebugWebChromeClient());
 	webView.loadUrl("file:///android_asset/test.html");
-	bluetoothReplService = new BluetoothReplService(this, chibiScheme, webView);
+	bluetoothReplService =
+	    new BluetoothReplService(this, chibiScheme, webView);
 	bluetoothReplService.requestBluetoothPermissions();
 	Log.i(TAG, "WebView setup completed.");
     }
@@ -78,7 +82,8 @@ public class MainActivity extends Activity {
 	super.onRequestPermissionsResult(requestCode, permissions,
 					 grantResults);
 	if (bluetoothReplService != null) {
-	    bluetoothReplService.handleBluetoothPermissionsResult(requestCode, permissions, grantResults);
+	    bluetoothReplService.handleBluetoothPermissionsResult(
+		requestCode, permissions, grantResults);
 	}
     }
 }
