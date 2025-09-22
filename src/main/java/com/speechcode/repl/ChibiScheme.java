@@ -3,11 +3,11 @@ package com.speechcode.repl;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 
-public class SchemeInterface {
+public class ChibiScheme {
     private static final String TAG = "repl";
     private MainActivity mainActivity;
 
-    public SchemeInterface(MainActivity activity) {
+    public ChibiScheme(MainActivity activity) {
 	this.mainActivity = activity;
     }
 

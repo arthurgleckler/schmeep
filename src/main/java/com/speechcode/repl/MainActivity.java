@@ -81,7 +81,7 @@ public class MainActivity extends Activity {
 	}
 	setContentView(webView);
 	try {
-	    SchemeInterface schemeInterface = new SchemeInterface(this);
+	    ChibiScheme schemeInterface = new ChibiScheme(this);
 	    webView.addJavascriptInterface(schemeInterface, "Scheme");
 	    Log.i(TAG, "JavaScript interface added successfully.");
 	} catch (Exception e) {

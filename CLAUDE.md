@@ -23,7 +23,7 @@ combines:
 
 - **MainActivity.java**: Primary Android Activity with WebView setup,
   JNI integration, and WebView console logging
-- **SchemeInterface.java**: Separate class providing JavaScript
+- **ChibiScheme.java**: Separate class providing JavaScript
   interface to avoid inner class compilation issues
 - **BluetoothReplService.java**: Background Bluetooth SPP server for
   client communication and result display with thread-safe operations
@@ -43,7 +43,7 @@ system:
 - **JavaScript Layer**: WebView executes
   `window.Scheme.eval(expression)` calls with consistent double-quote
   syntax
-- **JNI Bridge**: `SchemeInterface.eval()` method bridges JavaScript
+- **JNI Bridge**: `ChibiScheme.eval()` method bridges JavaScript
   to native code with thread-safe evaluation
 - **Native Evaluation**: Chibi Scheme interpreter processes
   expressions with pthread mutex synchronization
@@ -213,7 +213,7 @@ echo -e "(define x 42)\nx\n(* x 2)" | ./chb AA:BB:CC:DD:EE:FF
 ### JavaScript/Native Communication
 - **JavaScript to Native**: `window.Scheme.eval(expression)` using
   `addJavascriptInterface` with consistent double-quote syntax
-- **Separate Class Design**: `SchemeInterface.java` and
+- **Separate Class Design**: `ChibiScheme.java` and
   `DebugWebChromeClient.java` avoid inner class compilation issues
 - **JNI Bridge**: Direct method calls to `evaluateScheme()` in
   main_jni.c with thread safety
