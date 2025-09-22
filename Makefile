@@ -110,16 +110,16 @@ classes.dex: \
 clean:
 	rm -rf AndroidManifest.xml $(APKFILE) chb classes.dex build/ makecapk.apk makecapk temp.apk
 
-indent: indent-c indent-java
+format: format-c format-java
 
-indent-c: chb.c main_jni.c
+format-c: chb.c main_jni.c
 	for file in $^; do \
 	  clang-format --style='{ColumnLimit: 80, IndentWidth: 2}' "$$file" | \
 	  unexpand -t 8 --first-only > "$$file.tmp" && \
 	  mv "$$file.tmp" "$$file"; \
 	done
 
-indent-java: src/main/java/com/speechcode/repl/*.java
+format-java: src/main/java/com/speechcode/repl/*.java
 	for file in $^; do \
 	  clang-format --style='{ColumnLimit: 80, IndentWidth: 4}' "$$file" | \
 	  unexpand -t 8 --first-only > "$$file.tmp" && \
