@@ -216,6 +216,12 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_interruptScheme(
   return (*env)->NewStringUTF(env, "Interrupted.");
 }
 
+JNIEXPORT void JNICALL
+Java_com_speechcode_repl_ChibiScheme_cleanupScheme(JNIEnv *env, jobject thiz) {
+  LOGI("JNI: cleanupScheme called.");
+  cleanup_scheme();
+}
+
 JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_evaluateScheme(
     JNIEnv *env, jobject thiz, jstring expression) {
   LOGI("JNI: evaluateScheme called.");
@@ -284,4 +290,9 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_evaluateScheme(
 
   pthread_mutex_unlock(&scheme_mutex);
   return java_result;
+}
+
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
+  LOGI("JNI: Library unloading, cleaning up Scheme context.");
+  cleanup_scheme();
 }

@@ -8,10 +8,9 @@ public class ChibiScheme {
     private static final String TAG = "repl";
     private MainActivity mainActivity;
 
+    public native void cleanupScheme();
     public native String evaluateScheme(String expression);
-
     public native void initializeScheme();
-
     public native String interruptScheme();
 
     public ChibiScheme(MainActivity activity) {
@@ -23,6 +22,8 @@ public class ChibiScheme {
 	    Log.i(TAG, "Chibi Scheme initialized successfully.");
 	} catch (Exception e) {
 	    Log.e(TAG, "Failed to initialize Chibi Scheme: " + e.getMessage());
+	    cleanupScheme();
+	    throw e;
 	}
     }
 

@@ -71,6 +71,9 @@ public class MainActivity extends Activity {
 	if (bluetoothReplService != null) {
 	    bluetoothReplService.stop();
 	}
+	if (chibiScheme != null) {
+	    chibiScheme.cleanupScheme();
+	}
 	Log.i(TAG, "MainActivity destroyed");
     }
 
