@@ -149,8 +149,6 @@ const SCHEME_EXPRESSIONS = [
   "(random-integer 10)"
 ];
 
-let evaluationLines = new Map();
-let evaluationCounter = 0;
 
 function evaluateScheme(expression) {
   try {
@@ -253,10 +251,6 @@ function generateSchemeButtons() {
   buttonGrid.appendChild(clearButton);
 }
 
-function initializePage() {
-  generateSchemeButtons();
-}
-
 function runSchemeExpression(expression) {
   const result = evaluateScheme(expression);
 
@@ -294,7 +288,7 @@ function updateConnectionStatusDisplay(status, statusType) {
   }
 }
 
-window.addEventListener("load", initializePage);
+window.addEventListener("load", generateSchemeButtons);
 </script>
 </head>
   <body>
