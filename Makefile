@@ -104,22 +104,10 @@ chb: chb.c
 	gcc -o chb chb.c -lbluetooth -lpthread
 
 
-classes.dex: \
-	src/main/java/com/speechcode/repl/AssetExtractor.java \
-	src/main/java/com/speechcode/repl/BluetoothReplService.java \
-	src/main/java/com/speechcode/repl/ChibiScheme.java \
-	src/main/java/com/speechcode/repl/DebugWebChromeClient.java \
-	src/main/java/com/speechcode/repl/EvaluationRequest.java \
-	src/main/java/com/speechcode/repl/MainActivity.java
+classes.dex: src/main/java/com/speechcode/repl/*.java
 	mkdir -p build/classes
 	javac -cp $(ANDROID_JAR) -d build/classes src/main/java/com/speechcode/repl/*.java
-	$(BUILD_TOOLS)/d8 --classpath $(ANDROID_JAR) --output . \
-		build/classes/com/speechcode/repl/AssetExtractor.class \
-		build/classes/com/speechcode/repl/BluetoothReplService.class \
-		build/classes/com/speechcode/repl/ChibiScheme.class \
-		build/classes/com/speechcode/repl/DebugWebChromeClient.class \
-		build/classes/com/speechcode/repl/EvaluationRequest.class \
-		build/classes/com/speechcode/repl/MainActivity.class
+	$(BUILD_TOOLS)/d8 --classpath $(ANDROID_JAR) --output . build/classes/com/speechcode/repl/*.class
 
 clean:
 	rm -rf AndroidManifest.xml $(APKFILE) chb classes.dex build/ makecapk.apk makecapk temp.apk

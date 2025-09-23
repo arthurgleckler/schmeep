@@ -54,12 +54,12 @@ public class MainActivity extends Activity {
 	    Log.e(TAG, "Failed to add JavaScript interface: " + e.getMessage());
 	}
 	webView.setWebChromeClient(new DebugWebChromeClient());
+	webView.setWebViewClient(new PageLoadedWebViewClient(this));
 	webView.loadUrl("file:///android_asset/test.html");
-	initializeBluetooth();
 	Log.i(TAG, "WebView setup completed.");
     }
 
-    private void initializeBluetooth() {
+    public void initializeBluetooth() {
 	bluetoothReplService =
 	    new BluetoothReplService(this, chibiScheme, webView);
 	bluetoothReplService.requestBluetoothPermissions();
