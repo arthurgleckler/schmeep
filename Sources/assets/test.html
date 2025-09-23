@@ -109,26 +109,26 @@ body {
   border-bottom-color: #ff9800;
 }
 
-.local-result {
+.local {
   color: #2E7D32;
 }
 
-.remote-result {
+.remote {
   color: #1976D2;
   font-weight: bold;
 }
 
-.queued-result {
+.queued {
   color: #FF9800;
   font-style: italic;
 }
 
-.error-result {
+.error {
   color: #D32F2F;
   font-weight: bold;
 }
 
-.info-result {
+.info {
   color: #7B1FA2;
   font-style: italic;
 }
@@ -167,8 +167,7 @@ function completeEvaluation(expression, result, type, icon) {
 
   if (lastSpan) {
     lastSpan.textContent = icon + " " + expression + " ⇒ " + result;
-    lastSpan.className = type === "remote" ? "remote-result" :
-                         type === "error" ? "error-result" : "local-result";
+    lastSpan.className = type;
   }
 }
 
@@ -185,29 +184,10 @@ function displayBluetoothResult(expression, result) {
 function displayResult(text, type) {
   const schemeContent = document.getElementById("scheme-content");
 
-  let className = "";
-  switch (type) {
-    case "local":
-      className = "local-result";
-      break;
-    case "remote":
-      className = "remote-result";
-      break;
-    case "queued":
-      className = "queued-result";
-      break;
-    case "error":
-      className = "error-result";
-      break;
-    case "info":
-      className = "info-result";
-      break;
-  }
-
   const br = document.createElement("br");
   const span = document.createElement("span");
 
-  span.className = className;
+  span.className = type;
   span.textContent = text;
 
   schemeContent.appendChild(br);
