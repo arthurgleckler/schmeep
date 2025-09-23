@@ -1,4 +1,4 @@
-.PHONY: push run test
+.PHONY: logs push run test
 
 ADB ?= adb
 ANDROID_VERSION ?= 33
@@ -51,6 +51,9 @@ $(CHIBI_TARGET_ARM64):
 	cp $(CHIBI_SCHEME_LIB) $@
 
 chibi-lib-sos: $(CHIBI_LIB_SO_FILES)
+
+logs:
+	adb logcat -s repl
 
 makecapk/lib/arm64-v8a/%.so: chibi-scheme/lib/%.c $(CHIBI_TARGET_ARM64)
 	@mkdir -p $(dir $@)
