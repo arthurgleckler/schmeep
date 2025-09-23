@@ -271,19 +271,19 @@ public class BluetoothReplService {
 	return input.replace("\"", "\\\"");
     }
 
-    private void displayReceivedExpression(String expression) {
+    private void displayExpression(String expression) {
 	String escapedExpression = escapeForJavaScript(expression);
-	String javascript = String.format(
-	    "displayBluetoothExpression(\"%s\");", escapedExpression);
+	String javascript = String.format("displayBluetoothExpression(\"%s\");",
+					  escapedExpression);
 
 	executeJavaScriptOnWebView(
 	    javascript,
 	    "Executing JavaScript for received Bluetooth expression: " +
 		expression,
-	    "displayReceivedExpression");
+	    "displayExpression");
     }
 
-    private void displayRemoteResult(String expression, String result) {
+    private void displayResult(String expression, String result) {
 	String escapedExpression = escapeForJavaScript(expression);
 	String escapedResult = escapeForJavaScript(result);
 	String javascript =
@@ -294,21 +294,7 @@ public class BluetoothReplService {
 	    javascript,
 	    "Executing JavaScript for Bluetooth result: " + expression + " = " +
 		result,
-	    "displayRemoteResult");
-    }
-
-    private String getStatusType(String status) {
-	if (status.contains("connected") || status.contains("Connected")) {
-	    return "connected";
-	} else if (status.contains("Evaluating") ||
-		   status.contains("evaluating")) {
-	    return "evaluating";
-	} else if (status.contains("failed") || status.contains("error") ||
-		   status.contains("disabled")) {
-	    return "error";
-	} else {
-	    return "warning";
-	}
+	    "displayResult");
     }
 
     private void handleClientSession() throws IOException {
@@ -322,7 +308,7 @@ public class BluetoothReplService {
 			Log.i(TAG, "Received expression: " +
 				       expression.replace("\n", "\\n"));
 
-			displayReceivedExpression(expression.trim());
+			displayExpression(expression.trim());
 
 			try {
 			    evaluationQueue.put(new EvaluationRequest(
@@ -393,7 +379,7 @@ public class BluetoothReplService {
 
 		writeMessage(request.responseStream, result);
 		Log.i(TAG, "Response sent successfully");
-		displayRemoteResult(request.expression, result);
+		displayResult(request.expression, result);
 
 	    } catch (InterruptedException e) {
 		Log.i(TAG, "Evaluation thread interrupted");
@@ -515,23 +501,8 @@ public class BluetoothReplService {
     private void updateConnectionStatus(String status) {
 	this.connectionStatus = status;
 	webView.post(() -> {
-	    String javascript = String.format(
-		"(function() { "
-		    +
-		    "var statusElement = document.querySelector(\".status-bar div\");"
-		    +
-		    "if (statusElement) statusElement.textContent = \"WebView + Bluetooth REPL: %s\";"
-		    + "})();",
-		status.replace("\"", "\\\""));
-	    webView.evaluateJavascript(javascript, null);
-	});
-
-	webView.post(() -> {
-	    String javascript = String.format(
-		"if (typeof updateConnectionStatusDisplay === \"function\") {"
-		    + "  updateConnectionStatusDisplay(\"%s\", \"%s\");"
-		    + "}",
-		status.replace("\"", "\\\""), getStatusType(status));
+	    String javascript = String.format("updateConnectionStatus(\"%s\");",
+					      status.replace("\"", "\\\""));
 	    webView.evaluateJavascript(javascript, null);
 	});
     }

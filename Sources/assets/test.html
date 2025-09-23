@@ -149,7 +149,6 @@ const SCHEME_EXPRESSIONS = [
   "(random-integer 10)"
 ];
 
-
 function evaluateScheme(expression) {
   try {
     if (window.Scheme && window.Scheme.eval) {
@@ -162,24 +161,28 @@ function evaluateScheme(expression) {
   }
 }
 
-function completeEvaluation(evalId, expression, result, type, icon) {
-  displayResult(icon + " " + expression + " ⇒ " + result, type, evalId);
+function completeEvaluation(expression, result, type, icon) {
+  const schemeContent = document.getElementById("scheme-content");
+  const lastSpan = schemeContent.querySelector("span:last-child");
+
+  if (lastSpan) {
+    lastSpan.textContent = icon + " " + expression + " ⇒ " + result;
+    lastSpan.className = type === "remote" ? "remote-result" :
+                         type === "error" ? "error-result" : "local-result";
+  }
 }
 
 function displayBluetoothExpression(expression) {
   console.log("Displaying received Bluetooth expression: " + expression);
-  window.currentEvalId = startEvaluation(expression, "🔗");
+  displayResult("🔗 " + expression + " ⇒ ...", "queued");
 }
 
 function displayBluetoothResult(expression, result) {
   console.log("Displaying Bluetooth result: " + expression + " = " + result);
-  if (window.currentEvalId) {
-    completeEvaluation(window.currentEvalId, expression, result, "remote", "🔗");
-    window.currentEvalId = null;
-  }
+  completeEvaluation(expression, result, "remote", "🔗");
 }
 
-function displayResult(text, type, evaluationId) {
+function displayResult(text, type) {
   const schemeContent = document.getElementById("scheme-content");
 
   let className = "";
@@ -193,9 +196,6 @@ function displayResult(text, type, evaluationId) {
     case "queued":
       className = "queued-result";
       break;
-    case "evaluating":
-      className = "queued-result";
-      break;
     case "error":
       className = "error-result";
       break;
@@ -204,26 +204,14 @@ function displayResult(text, type, evaluationId) {
       break;
   }
 
-  if (evaluationId && evaluationLines.has(evaluationId)) {
-    const existingSpan = evaluationLines.get(evaluationId);
+  const br = document.createElement("br");
+  const span = document.createElement("span");
 
-    existingSpan.textContent = text;
-    existingSpan.className = className;
-    evaluationLines.delete(evaluationId);
-  } else {
-    const br = document.createElement("br");
-    const span = document.createElement("span");
+  span.className = className;
+  span.textContent = text;
 
-    span.className = className;
-    span.textContent = text;
-
-    schemeContent.appendChild(br);
-    schemeContent.appendChild(span);
-
-    if (type === "evaluating" && evaluationId) {
-      evaluationLines.set(evaluationId, span);
-    }
-  }
+  schemeContent.appendChild(br);
+  schemeContent.appendChild(span);
 
   schemeContent.scrollTop = schemeContent.scrollHeight;
 }
@@ -261,11 +249,24 @@ function runSchemeExpression(expression) {
   }
 }
 
-function startEvaluation(expression, icon) {
-  const evalId = ++evaluationCounter;
+function updateConnectionStatus(status) {
+  const statusText = document.querySelector(".status-bar div");
+  if (statusText) {
+    statusText.textContent = "WebView + Bluetooth REPL: " + status;
+  }
 
-  displayResult(icon + " " + expression + " ⇒ ...", "evaluating", evalId);
-  return evalId;
+  const statusBar = document.getElementById("status-bar");
+  if (statusBar) {
+    statusBar.classList.remove("connected", "error", "warning");
+
+    if (status.includes("connected")) {
+      statusBar.classList.add("connected");
+    } else if (status.includes("Failed") || status.includes("not supported") || status.includes("disabled")) {
+      statusBar.classList.add("error");
+    } else if (status.includes("required") || status.includes("Waiting")) {
+      statusBar.classList.add("warning");
+    }
+  }
 }
 
 function updateConnectionStatusDisplay(status, statusType) {
@@ -293,12 +294,10 @@ window.addEventListener("load", generateSchemeButtons);
 </head>
   <body>
     <div id="status-bar" class="status-bar">
-      <div id="connection-status-text">Starting.</div>
-    </div>
+      <div id="connection-status-text">Starting.</div></div>
 
     <div class="main-content">
       <div class="section">
 	<div class="section-title">Scheme REPL</div>
-	<div id="scheme-content" class="scheme-output"></div>
-      </div>
+	<div id="scheme-content" class="scheme-output"></div></div>
       <div class="button-grid"></div></body></html>
