@@ -134,18 +134,6 @@ body {
 }
 </style>
 <script>
-function evaluateScheme(expression) {
-  try {
-    if (window.Scheme && window.Scheme.eval) {
-      return window.Scheme.eval(expression);
-    } else {
-      return "Scheme bridge not available.";
-    }
-  } catch (e) {
-    return "Error: " + e.message;
-  }
-}
-
 const SCHEME_EXPRESSIONS = [
   "(lambda (x) (+ x 1))",
   "(define (factorial n) (if (<= n 1) 1 (* n (factorial (- n 1)))))",
@@ -161,61 +149,37 @@ const SCHEME_EXPRESSIONS = [
   "(random-integer 10)"
 ];
 
-function updateConnectionStatusDisplay(status, statusType) {
-  const statusBar = document.getElementById("status-bar");
-  const statusText = document.getElementById("connection-status-text");
-
-  if (statusText) {
-    statusText.textContent = status;
-  }
-
-  if (statusBar) {
-    statusBar.classList.remove("connected", "error", "warning");
-    if (statusType === "connected") {
-      statusBar.classList.add("connected");
-    } else if (statusType === "error") {
-      statusBar.classList.add("error");
-    } else if (statusType === "warning") {
-      statusBar.classList.add("warning");
-    }
-  }
-}
-
-function generateSchemeButtons() {
-  const buttonGrid = document.querySelector(".button-grid");
-
-  buttonGrid.innerHTML = "";
-
-  SCHEME_EXPRESSIONS.forEach(expression => {
-    const localButton = document.createElement("button");
-
-    localButton.className = "scheme-button";
-    localButton.textContent = expression;
-    localButton.onclick = () => runSchemeExpression(expression);
-    localButton.title = "Run locally";
-    buttonGrid.appendChild(localButton);
-  });
-
-  const clearButton = document.createElement("button");
-
-  clearButton.className = "scheme-button";
-  clearButton.textContent = "🗑️ Clear Output";
-  clearButton.onclick = () => document.getElementById("scheme-content").innerHTML = "";
-  buttonGrid.appendChild(clearButton);
-}
-
-function runSchemeExpression(expression) {
-  const result = evaluateScheme(expression);
-
-  if (result.startsWith("Parse Error:") || result.startsWith("Error:")) {
-    displayResult("📱 " + expression + " → " + result, "error");
-  } else {
-    displayResult("📱 " + expression + " ⇒ " + result, "local");
-  }
-}
-
 let evaluationLines = new Map();
 let evaluationCounter = 0;
+
+function evaluateScheme(expression) {
+  try {
+    if (window.Scheme && window.Scheme.eval) {
+      return window.Scheme.eval(expression);
+    } else {
+      return "Scheme bridge not available.";
+    }
+  } catch (e) {
+    return "Error: " + e.message;
+  }
+}
+
+function completeEvaluation(evalId, expression, result, type, icon) {
+  displayResult(icon + " " + expression + " ⇒ " + result, type, evalId);
+}
+
+function displayReceivedBluetoothExpression(expression) {
+  console.log("Displaying received Bluetooth expression: " + expression);
+  window.currentEvalId = startEvaluation(expression, "🔗");
+}
+
+function displayBluetoothResult(expression, result) {
+  console.log("Displaying Bluetooth result: " + expression + " = " + result);
+  if (window.currentEvalId) {
+    completeEvaluation(window.currentEvalId, expression, result, "remote", "🔗");
+    window.currentEvalId = null;
+  }
+}
 
 function displayResult(text, type, evaluationId) {
   const schemeContent = document.getElementById("scheme-content");
@@ -266,6 +230,43 @@ function displayResult(text, type, evaluationId) {
   schemeContent.scrollTop = schemeContent.scrollHeight;
 }
 
+function generateSchemeButtons() {
+  const buttonGrid = document.querySelector(".button-grid");
+
+  buttonGrid.innerHTML = "";
+
+  SCHEME_EXPRESSIONS.forEach(expression => {
+    const localButton = document.createElement("button");
+
+    localButton.className = "scheme-button";
+    localButton.textContent = expression;
+    localButton.onclick = () => runSchemeExpression(expression);
+    localButton.title = "Run locally";
+    buttonGrid.appendChild(localButton);
+  });
+
+  const clearButton = document.createElement("button");
+
+  clearButton.className = "scheme-button";
+  clearButton.textContent = "🗑️ Clear Output";
+  clearButton.onclick = () => document.getElementById("scheme-content").innerHTML = "";
+  buttonGrid.appendChild(clearButton);
+}
+
+function initializePage() {
+  generateSchemeButtons();
+}
+
+function runSchemeExpression(expression) {
+  const result = evaluateScheme(expression);
+
+  if (result.startsWith("Parse Error:") || result.startsWith("Error:")) {
+    displayResult("📱 " + expression + " → " + result, "error");
+  } else {
+    displayResult("📱 " + expression + " ⇒ " + result, "local");
+  }
+}
+
 function startEvaluation(expression, icon) {
   const evalId = ++evaluationCounter;
 
@@ -273,25 +274,24 @@ function startEvaluation(expression, icon) {
   return evalId;
 }
 
-function completeEvaluation(evalId, expression, result, type, icon) {
-  displayResult(icon + " " + expression + " ⇒ " + result, type, evalId);
-}
+function updateConnectionStatusDisplay(status, statusType) {
+  const statusBar = document.getElementById("status-bar");
+  const statusText = document.getElementById("connection-status-text");
 
-function displayReceivedBluetoothExpression(expression) {
-  console.log("Displaying received Bluetooth expression: " + expression);
-  window.currentEvalId = startEvaluation(expression, "🔗");
-}
-
-function displayBluetoothResult(expression, result) {
-  console.log("Displaying Bluetooth result: " + expression + " = " + result);
-  if (window.currentEvalId) {
-    completeEvaluation(window.currentEvalId, expression, result, "remote", "🔗");
-    window.currentEvalId = null;
+  if (statusText) {
+    statusText.textContent = status;
   }
-}
 
-function initializePage() {
-  generateSchemeButtons();
+  if (statusBar) {
+    statusBar.classList.remove("connected", "error", "warning");
+    if (statusType === "connected") {
+      statusBar.classList.add("connected");
+    } else if (statusType === "error") {
+      statusBar.classList.add("error");
+    } else if (statusType === "warning") {
+      statusBar.classList.add("warning");
+    }
+  }
 }
 
 window.addEventListener("load", initializePage);
