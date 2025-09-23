@@ -274,7 +274,7 @@ public class BluetoothReplService {
     private void displayReceivedExpression(String expression) {
 	String escapedExpression = escapeForJavaScript(expression);
 	String javascript = String.format(
-	    "displayReceivedBluetoothExpression(\"%s\");", escapedExpression);
+	    "displayBluetoothExpression(\"%s\");", escapedExpression);
 
 	executeJavaScriptOnWebView(
 	    javascript,

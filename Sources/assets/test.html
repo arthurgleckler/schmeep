@@ -168,7 +168,7 @@ function completeEvaluation(evalId, expression, result, type, icon) {
   displayResult(icon + " " + expression + " ⇒ " + result, type, evalId);
 }
 
-function displayReceivedBluetoothExpression(expression) {
+function displayBluetoothExpression(expression) {
   console.log("Displaying received Bluetooth expression: " + expression);
   window.currentEvalId = startEvaluation(expression, "🔗");
 }
