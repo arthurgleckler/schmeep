@@ -140,8 +140,7 @@ function evaluateScheme(expression) {
 }
 
 function completeEvaluation(expression, result, type, icon) {
-  const schemeContent = document.getElementById("scheme-content");
-  const lastSpan = schemeContent.querySelector("span:last-child");
+  const lastSpan = document.querySelector("#scheme-content span:last-child");
 
   if (lastSpan) {
     lastSpan.textContent = icon + " " + expression + " ⇒ " + result;
