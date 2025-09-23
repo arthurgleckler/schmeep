@@ -150,10 +150,7 @@ char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
 
   if (formatter && sexp_procedurep(formatter)) {
     sexp prefix_str = sexp_c_string(ctx, prefix, -1);
-    sexp original_str = original_expression
-			    ? sexp_c_string(ctx, original_expression, -1)
-			    : SEXP_FALSE;
-    sexp call_args = sexp_list3(ctx, exception_obj, prefix_str, original_str);
+    sexp call_args = sexp_list2(ctx, exception_obj, prefix_str);
     sexp result = sexp_apply(ctx, formatter, call_args);
 
     if (!sexp_exceptionp(result) && result && sexp_stringp(result)) {

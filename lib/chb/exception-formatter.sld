@@ -3,7 +3,7 @@
 	  (chibi ast))
   (export format-exception)
   (begin
-    (define (format-exception exception prefix original-expression)
+    (define (format-exception exception prefix)
       "Format a Scheme exception object into a human-readable error message."
       (if (exception? exception)
           (let ((message (exception-message exception))
