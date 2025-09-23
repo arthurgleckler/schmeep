@@ -199,11 +199,11 @@ function generateSchemeButtons() {
 function runSchemeExpression(expression) {
   const result = evaluateScheme(expression);
 
-  if (result.startsWith("Parse Error:") || result.startsWith("Error:")) {
-    displayResult("📱 " + expression + " → " + result, "error");
-  } else {
-    displayResult("📱 " + expression + " ⇒ " + result, "local");
-  }
+  spinner.classList.remove("evaluating");
+  completeEvaluation(expression,
+                     result,
+                     (result.startsWith("Parse Error:") || result.startsWith("Error:")) ? "error" : "local",
+                     "📱");
 }
 
 function updateConnectionStatus(status) {
