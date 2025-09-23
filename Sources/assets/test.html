@@ -146,7 +146,7 @@ function evaluateScheme(expression) {
   }
 }
 
-const schemeExpressions = [
+const SCHEME_EXPRESSIONS = [
   "(lambda (x) (+ x 1))",
   "(define (factorial n) (if (<= n 1) 1 (* n (factorial (- n 1)))))",
   "(+ 1 2 3 4 5)",
@@ -160,7 +160,6 @@ const schemeExpressions = [
   "(import (srfi 27))",
   "(random-integer 10)"
 ];
-
 
 function updateConnectionStatusDisplay(status, statusType) {
   const statusBar = document.getElementById("status-bar");
@@ -187,7 +186,7 @@ function generateSchemeButtons() {
 
   buttonGrid.innerHTML = "";
 
-  schemeExpressions.forEach(expression => {
+  SCHEME_EXPRESSIONS.forEach(expression => {
     const localButton = document.createElement("button");
 
     localButton.className = "scheme-button";
