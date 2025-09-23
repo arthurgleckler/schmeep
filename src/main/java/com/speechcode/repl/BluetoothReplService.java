@@ -59,6 +59,54 @@ public class BluetoothReplService {
 	this.connectionStatus = "Bluetooth disabled";
     }
 
+    public void handleBluetoothPermissionsResult(int requestCode,
+						 String[] permissions,
+						 int[] grantResults) {
+	if (requestCode == BLUETOOTH_REQUEST_CODE) {
+	    boolean allGranted = true;
+	    for (int result : grantResults) {
+		if (result != PackageManager.PERMISSION_GRANTED) {
+		    allGranted = false;
+		    break;
+		}
+	    }
+	    if (allGranted) {
+		Log.i(TAG, "Bluetooth permissions granted");
+		start();
+	    } else {
+		Log.w(TAG, "Bluetooth permissions denied");
+	    }
+	}
+    }
+
+    public void requestBluetoothPermissions() {
+	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+	    String[] permissions = {Manifest.permission.BLUETOOTH_CONNECT,
+				    Manifest.permission.BLUETOOTH_ADVERTISE};
+	    boolean needsPermission = false;
+
+	    for (String permission : permissions) {
+		if (mainActivity.checkSelfPermission(permission) !=
+		    PackageManager.PERMISSION_GRANTED) {
+		    needsPermission = true;
+		    break;
+		}
+	    }
+	    if (needsPermission) {
+		mainActivity.requestPermissions(permissions,
+						BLUETOOTH_REQUEST_CODE);
+	    } else {
+		Log.i(TAG, "Bluetooth permissions already granted");
+		start();
+	    }
+	} else {
+	    if (hasBluetoothPermissions()) {
+		Log.i(TAG, "Bluetooth permissions already granted");
+		start();
+	    }
+	}
+    }
+
     public void start() {
 	if (isRunning.compareAndSet(false, true)) {
 	    bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -180,87 +228,102 @@ public class BluetoothReplService {
 	}
     }
 
-    public void requestBluetoothPermissions() {
-	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-	    String[] permissions = {Manifest.permission.BLUETOOTH_CONNECT,
-				    Manifest.permission.BLUETOOTH_ADVERTISE};
-	    boolean needsPermission = false;
-
-	    for (String permission : permissions) {
-		if (mainActivity.checkSelfPermission(permission) !=
-		    PackageManager.PERMISSION_GRANTED) {
-		    needsPermission = true;
-		    break;
-		}
-	    }
-	    if (needsPermission) {
-		mainActivity.requestPermissions(permissions,
-						BLUETOOTH_REQUEST_CODE);
-	    } else {
-		Log.i(TAG, "Bluetooth permissions already granted");
-		start();
-	    }
-	} else {
-	    if (hasBluetoothPermissions()) {
-		Log.i(TAG, "Bluetooth permissions already granted");
-		start();
+    private void closeClientConnection() {
+	try {
+	    if (inputStream != null)
+		inputStream.close();
+	    if (outputStream != null)
+		outputStream.close();
+	    if (clientSocket != null)
+		clientSocket.close();
+	} catch (IOException e) {
+	    Log.w(TAG, "Error closing connection: " + e.getMessage());
+	} finally {
+	    inputStream = null;
+	    outputStream = null;
+	    clientSocket = null;
+	    evaluationQueue.clear();
+	    if (isRunning.get()) {
+		updateConnectionStatus(
+		    "Client disconnected - waiting for new connection");
 	    }
 	}
     }
 
-    public void handleBluetoothPermissionsResult(int requestCode,
-						 String[] permissions,
-						 int[] grantResults) {
-	if (requestCode == BLUETOOTH_REQUEST_CODE) {
-	    boolean allGranted = true;
-	    for (int result : grantResults) {
-		if (result != PackageManager.PERMISSION_GRANTED) {
-		    allGranted = false;
-		    break;
-		}
-	    }
-	    if (allGranted) {
-		Log.i(TAG, "Bluetooth permissions granted");
-		start();
-	    } else {
-		Log.w(TAG, "Bluetooth permissions denied");
-	    }
-	}
-    }
-
-    private void handleIncomingConnections() {
-	while (isRunning.get()) {
+    private void displayReceivedExpression(String expression) {
+	webView.post(() -> {
 	    try {
-		updateConnectionStatus("Waiting for client connection");
-		Log.i(TAG, "Waiting for Bluetooth client connection.");
+		String escapedExpression = expression.replace("\"", "\\\"");
+		String javascript = String.format(
+		    "console.log(\"Displaying received Bluetooth expression: %s\"); "
+			+ "if (typeof startEvaluation === \"function\") { "
+			+
+			"  window.currentEvalId = startEvaluation(\"%s\", \"🔗\"); "
+			+ "} else { "
+			+
+			"  console.error(\"startEvaluation function not found\"); "
+			+ "}",
+		    escapedExpression, escapedExpression);
 
-		clientSocket = serverSocket.accept();
-		Log.i(TAG, "Client connected: " +
-			       clientSocket.getRemoteDevice().getAddress());
-
-		inputStream = clientSocket.getInputStream();
-		outputStream = clientSocket.getOutputStream();
-
-		updateConnectionStatus("Client connected");
-		handleClientSession();
-
-	    } catch (IOException e) {
-		if (isRunning.get()) {
-		    Log.e(TAG, "Connection error: " + e.getMessage());
-		    updateConnectionStatus("Connection failed - " +
-					   e.getMessage());
-		}
-		closeClientConnection();
-
-		if (isRunning.get()) {
-		    try {
-			Thread.sleep(1000);
-		    } catch (InterruptedException ie) {
-			Thread.currentThread().interrupt();
-			break;
+		Log.d(
+		    TAG,
+		    "Executing JavaScript for received Bluetooth expression: " +
+			expression);
+		webView.evaluateJavascript(javascript, jsResult -> {
+		    if (jsResult != null) {
+			Log.d(TAG, "JavaScript execution result: " + jsResult);
 		    }
-		}
+		});
+	    } catch (Exception e) {
+		Log.e(TAG,
+		      "Error in displayReceivedExpression: " + e.getMessage());
 	    }
+	});
+    }
+
+    private void displayRemoteResult(String expression, String result) {
+	webView.post(() -> {
+	    try {
+		String escapedExpression = expression.replace("\"", "\\\"");
+		String escapedResult = result.replace("\"", "\\\"");
+		String javascript = String.format(
+		    "console.log(\"Displaying Bluetooth result: %s = %s\"); "
+			+
+			"if (typeof completeEvaluation === \"function\" && window.currentEvalId) { "
+			+
+			"  completeEvaluation(window.currentEvalId, \"%s\", \"%s\", \"remote\", \"🔗\"); "
+			+ "  window.currentEvalId = null; "
+			+ "} else { "
+			+
+			"  console.error(\"completeEvaluation function not found or no currentEvalId\"); "
+			+ "}",
+		    escapedExpression, escapedResult, escapedExpression,
+		    escapedResult);
+
+		Log.d(TAG, "Executing JavaScript for Bluetooth result: " +
+			       expression + " = " + result);
+		webView.evaluateJavascript(javascript, jsResult -> {
+		    if (jsResult != null) {
+			Log.d(TAG, "JavaScript execution result: " + jsResult);
+		    }
+		});
+	    } catch (Exception e) {
+		Log.e(TAG, "Error in displayRemoteResult: " + e.getMessage());
+	    }
+	});
+    }
+
+    private String getStatusType(String status) {
+	if (status.contains("connected") || status.contains("Connected")) {
+	    return "connected";
+	} else if (status.contains("Evaluating") ||
+		   status.contains("evaluating")) {
+	    return "evaluating";
+	} else if (status.contains("failed") || status.contains("error") ||
+		   status.contains("disabled")) {
+	    return "error";
+	} else {
+	    return "warning";
 	}
     }
 
@@ -366,15 +429,40 @@ public class BluetoothReplService {
 	Log.i(TAG, "Evaluation thread ended");
     }
 
-    private byte readMessageType() throws IOException {
-	int msgType = inputStream.read();
-	if (msgType == -1) {
-	    throw new IOException(
-		"Connection closed while reading message type");
-	}
+    private void handleIncomingConnections() {
+	while (isRunning.get()) {
+	    try {
+		updateConnectionStatus("Waiting for client connection");
+		Log.i(TAG, "Waiting for Bluetooth client connection.");
 
-	Log.i(TAG, "*** RECEIVED MESSAGE TYPE: " + msgType + " ***");
-	return (byte)msgType;
+		clientSocket = serverSocket.accept();
+		Log.i(TAG, "Client connected: " +
+			       clientSocket.getRemoteDevice().getAddress());
+
+		inputStream = clientSocket.getInputStream();
+		outputStream = clientSocket.getOutputStream();
+
+		updateConnectionStatus("Client connected");
+		handleClientSession();
+
+	    } catch (IOException e) {
+		if (isRunning.get()) {
+		    Log.e(TAG, "Connection error: " + e.getMessage());
+		    updateConnectionStatus("Connection failed - " +
+					   e.getMessage());
+		}
+		closeClientConnection();
+
+		if (isRunning.get()) {
+		    try {
+			Thread.sleep(1000);
+		    } catch (InterruptedException ie) {
+			Thread.currentThread().interrupt();
+			break;
+		    }
+		}
+	    }
+	}
     }
 
     private String readExpressionMessage() throws IOException {
@@ -413,6 +501,17 @@ public class BluetoothReplService {
 	return new String(messageBytes, StandardCharsets.UTF_8);
     }
 
+    private byte readMessageType() throws IOException {
+	int msgType = inputStream.read();
+	if (msgType == -1) {
+	    throw new IOException(
+		"Connection closed while reading message type");
+	}
+
+	Log.i(TAG, "*** RECEIVED MESSAGE TYPE: " + msgType + " ***");
+	return (byte)msgType;
+    }
+
     private void writeMessage(OutputStream stream, String message)
 	throws IOException {
 	byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
@@ -427,69 +526,6 @@ public class BluetoothReplService {
 	stream.write(lengthBytes);
 	stream.write(messageBytes);
 	stream.flush();
-    }
-
-    private void displayReceivedExpression(String expression) {
-	webView.post(() -> {
-	    try {
-		String escapedExpression = expression.replace("\"", "\\\"");
-		String javascript = String.format(
-		    "console.log(\"Displaying received Bluetooth expression: %s\"); "
-			+ "if (typeof startEvaluation === \"function\") { "
-			+
-			"  window.currentEvalId = startEvaluation(\"%s\", \"🔗\"); "
-			+ "} else { "
-			+
-			"  console.error(\"startEvaluation function not found\"); "
-			+ "}",
-		    escapedExpression, escapedExpression);
-
-		Log.d(
-		    TAG,
-		    "Executing JavaScript for received Bluetooth expression: " +
-			expression);
-		webView.evaluateJavascript(javascript, jsResult -> {
-		    if (jsResult != null) {
-			Log.d(TAG, "JavaScript execution result: " + jsResult);
-		    }
-		});
-	    } catch (Exception e) {
-		Log.e(TAG,
-		      "Error in displayReceivedExpression: " + e.getMessage());
-	    }
-	});
-    }
-
-    private void displayRemoteResult(String expression, String result) {
-	webView.post(() -> {
-	    try {
-		String escapedExpression = expression.replace("\"", "\\\"");
-		String escapedResult = result.replace("\"", "\\\"");
-		String javascript = String.format(
-		    "console.log(\"Displaying Bluetooth result: %s = %s\"); "
-			+
-			"if (typeof completeEvaluation === \"function\" && window.currentEvalId) { "
-			+
-			"  completeEvaluation(window.currentEvalId, \"%s\", \"%s\", \"remote\", \"🔗\"); "
-			+ "  window.currentEvalId = null; "
-			+ "} else { "
-			+
-			"  console.error(\"completeEvaluation function not found or no currentEvalId\"); "
-			+ "}",
-		    escapedExpression, escapedResult, escapedExpression,
-		    escapedResult);
-
-		Log.d(TAG, "Executing JavaScript for Bluetooth result: " +
-			       expression + " = " + result);
-		webView.evaluateJavascript(javascript, jsResult -> {
-		    if (jsResult != null) {
-			Log.d(TAG, "JavaScript execution result: " + jsResult);
-		    }
-		});
-	    } catch (Exception e) {
-		Log.e(TAG, "Error in displayRemoteResult: " + e.getMessage());
-	    }
-	});
     }
 
     private void updateConnectionStatus(String status) {
@@ -514,41 +550,5 @@ public class BluetoothReplService {
 		status.replace("\"", "\\\""), getStatusType(status));
 	    webView.evaluateJavascript(javascript, null);
 	});
-    }
-
-    private String getStatusType(String status) {
-	if (status.contains("connected") || status.contains("Connected")) {
-	    return "connected";
-	} else if (status.contains("Evaluating") ||
-		   status.contains("evaluating")) {
-	    return "evaluating";
-	} else if (status.contains("failed") || status.contains("error") ||
-		   status.contains("disabled")) {
-	    return "error";
-	} else {
-	    return "warning";
-	}
-    }
-
-    private void closeClientConnection() {
-	try {
-	    if (inputStream != null)
-		inputStream.close();
-	    if (outputStream != null)
-		outputStream.close();
-	    if (clientSocket != null)
-		clientSocket.close();
-	} catch (IOException e) {
-	    Log.w(TAG, "Error closing connection: " + e.getMessage());
-	} finally {
-	    inputStream = null;
-	    outputStream = null;
-	    clientSocket = null;
-	    evaluationQueue.clear();
-	    if (isRunning.get()) {
-		updateConnectionStatus(
-		    "Client disconnected - waiting for new connection");
-	    }
-	}
     }
 }

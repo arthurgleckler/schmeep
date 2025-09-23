@@ -193,6 +193,50 @@ public class AssetExtractor {
 	}
     }
 
+    public static void handleAssetExtraction(Context context) {
+	try {
+	    if (shouldExtractAssets(context)) {
+		Log.i(TAG, "Extracting assets based on version check.");
+		if (extractAssets(context)) {
+		    markAssetsExtracted(context);
+		} else {
+		    Log.e(
+			TAG,
+			"Asset extraction failed. Continuing with basic environment.");
+		}
+	    } else {
+		Log.i(TAG, "Skipping asset extraction - version unchanged.");
+	    }
+	} catch (Exception e) {
+	    Log.e(TAG, "Error during asset extraction: " + e.getMessage());
+	}
+    }
+
+    public static void markAssetsExtracted(Context context) {
+	try {
+	    PackageInfo packageInfo =
+		context.getPackageManager().getPackageInfo(
+		    context.getPackageName(), 0);
+	    long currentVersionCode = packageInfo.versionCode;
+
+	    File libDir = new File("/data/data/com.speechcode.repl/lib");
+	    if (!libDir.exists()) {
+		libDir.mkdirs();
+	    }
+
+	    File markerFile = new File(libDir, ".assets_timestamp");
+	    try (FileOutputStream fos = new FileOutputStream(markerFile)) {
+		fos.write(String.valueOf(currentVersionCode).getBytes());
+		fos.flush();
+	    }
+
+	    Log.i(TAG, "Asset extraction completed for version " +
+			   currentVersionCode + ".");
+	} catch (Exception e) {
+	    Log.e(TAG, "Error marking assets extracted: " + e.getMessage());
+	}
+    }
+
     public static boolean shouldExtractAssets(Context context) {
 	try {
 	    PackageInfo packageInfo =
@@ -238,50 +282,6 @@ public class AssetExtractor {
 	    Log.w(TAG,
 		  "Error checking asset extraction status: " + e.getMessage());
 	    return true;
-	}
-    }
-
-    public static void markAssetsExtracted(Context context) {
-	try {
-	    PackageInfo packageInfo =
-		context.getPackageManager().getPackageInfo(
-		    context.getPackageName(), 0);
-	    long currentVersionCode = packageInfo.versionCode;
-
-	    File libDir = new File("/data/data/com.speechcode.repl/lib");
-	    if (!libDir.exists()) {
-		libDir.mkdirs();
-	    }
-
-	    File markerFile = new File(libDir, ".assets_timestamp");
-	    try (FileOutputStream fos = new FileOutputStream(markerFile)) {
-		fos.write(String.valueOf(currentVersionCode).getBytes());
-		fos.flush();
-	    }
-
-	    Log.i(TAG, "Asset extraction completed for version " +
-			   currentVersionCode + ".");
-	} catch (Exception e) {
-	    Log.e(TAG, "Error marking assets extracted: " + e.getMessage());
-	}
-    }
-
-    public static void handleAssetExtraction(Context context) {
-	try {
-	    if (shouldExtractAssets(context)) {
-		Log.i(TAG, "Extracting assets based on version check.");
-		if (extractAssets(context)) {
-		    markAssetsExtracted(context);
-		} else {
-		    Log.e(
-			TAG,
-			"Asset extraction failed. Continuing with basic environment.");
-		}
-	    } else {
-		Log.i(TAG, "Skipping asset extraction - version unchanged.");
-	    }
-	} catch (Exception e) {
-	    Log.e(TAG, "Error during asset extraction: " + e.getMessage());
 	}
     }
 }
