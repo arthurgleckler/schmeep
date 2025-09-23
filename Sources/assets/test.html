@@ -10,6 +10,24 @@
 #screen-dimensions {
   font-weight: bold;
 }
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+#spinner {
+  animation: spin 1s linear infinite;
+  border-radius: 50%;
+  border-top: 2px solid #4CAF50;
+  border: 2px solid #f3f3f3;
+  display: none;
+  height: 12px;
+  margin-right: 6px;
+  transform-origin: center;
+  width: 12px;
+}
+#spinner.evaluating {
+  display: inline-block;
+}
 #webview-messages {
   min-height: 20px;
 }
@@ -109,7 +127,6 @@ body {
   background: #fff3e0;
   border-bottom-color: #ff9800;
   color: #F57C00;
-}
 </style>
 <script>
 const SCHEME_EXPRESSIONS = [
@@ -149,12 +166,10 @@ function completeEvaluation(expression, result, type, icon) {
 }
 
 function displayBluetoothExpression(expression) {
-  console.log("Displaying received Bluetooth expression: " + expression);
   displayResult("🔗 " + expression + " ⇒ ...", "queued");
 }
 
 function displayBluetoothResult(expression, result) {
-  console.log("Displaying Bluetooth result: " + expression + " = " + result);
   completeEvaluation(expression, result, "remote", "🔗");
 }
 
@@ -197,6 +212,11 @@ function generateSchemeButtons() {
 }
 
 function runSchemeExpression(expression) {
+  const spinner = document.querySelector("#spinner");
+
+  spinner.classList.add("evaluating");
+  displayResult("📱 " + expression + " ⇒ ...", "local");
+
   const result = evaluateScheme(expression);
 
   spinner.classList.remove("evaluating");
@@ -251,7 +271,8 @@ window.addEventListener("load", generateSchemeButtons);
 </head>
   <body>
     <div id="status-bar" class="status-bar">
-      <div id="connection-status-text">Starting.</div></div>
+      <span id="spinner">🕛</span>
+      <span id="connection-status-text">Starting.</span></div>
     <div class="main-content">
       <div class="section">
 	<div class="section-title">Scheme REPL</div>
