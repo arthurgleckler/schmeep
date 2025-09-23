@@ -32,21 +32,20 @@ public class BluetoothReplService {
     private static final byte MSG_TYPE_EXPRESSION = 0x00;
     private static final byte MSG_TYPE_INTERRUPT = 0x01;
 
-    private final MainActivity mainActivity;
     private final ChibiScheme chibiScheme;
-    private final WebView webView;
-    private final ExecutorService executorService;
-    private final ExecutorService evaluatorService;
-    private final AtomicBoolean isRunning;
     private final BlockingQueue<EvaluationRequest> evaluationQueue;
+    private final ExecutorService evaluatorService;
+    private final ExecutorService executorService;
+    private final AtomicBoolean isRunning;
+    private final MainActivity mainActivity;
+    private final WebView webView;
 
     private BluetoothAdapter bluetoothAdapter;
-    private BluetoothServerSocket serverSocket;
     private BluetoothSocket clientSocket;
+    private String connectionStatus;
     private InputStream inputStream;
     private OutputStream outputStream;
-
-    private String connectionStatus;
+    private BluetoothServerSocket serverSocket;
 
     public BluetoothReplService(MainActivity activity, ChibiScheme chibiScheme,
 				WebView webView) {
