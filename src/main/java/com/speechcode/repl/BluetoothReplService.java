@@ -250,67 +250,51 @@ public class BluetoothReplService {
 	}
     }
 
-    private void displayReceivedExpression(String expression) {
+    private void executeJavaScriptOnWebView(String javascript,
+					    String logMessage,
+					    String methodName) {
 	webView.post(() -> {
 	    try {
-		String escapedExpression = expression.replace("\"", "\\\"");
-		String javascript = String.format(
-		    "console.log(\"Displaying received Bluetooth expression: %s\"); "
-			+ "if (typeof startEvaluation === \"function\") { "
-			+
-			"  window.currentEvalId = startEvaluation(\"%s\", \"🔗\"); "
-			+ "} else { "
-			+
-			"  console.error(\"startEvaluation function not found\"); "
-			+ "}",
-		    escapedExpression, escapedExpression);
-
-		Log.d(
-		    TAG,
-		    "Executing JavaScript for received Bluetooth expression: " +
-			expression);
+		Log.d(TAG, logMessage);
 		webView.evaluateJavascript(javascript, jsResult -> {
 		    if (jsResult != null) {
 			Log.d(TAG, "JavaScript execution result: " + jsResult);
 		    }
 		});
 	    } catch (Exception e) {
-		Log.e(TAG,
-		      "Error in displayReceivedExpression: " + e.getMessage());
+		Log.e(TAG, "Error in " + methodName + ": " + e.getMessage());
 	    }
 	});
     }
 
-    private void displayRemoteResult(String expression, String result) {
-	webView.post(() -> {
-	    try {
-		String escapedExpression = expression.replace("\"", "\\\"");
-		String escapedResult = result.replace("\"", "\\\"");
-		String javascript = String.format(
-		    "console.log(\"Displaying Bluetooth result: %s = %s\"); "
-			+
-			"if (typeof completeEvaluation === \"function\" && window.currentEvalId) { "
-			+
-			"  completeEvaluation(window.currentEvalId, \"%s\", \"%s\", \"remote\", \"🔗\"); "
-			+ "  window.currentEvalId = null; "
-			+ "} else { "
-			+
-			"  console.error(\"completeEvaluation function not found or no currentEvalId\"); "
-			+ "}",
-		    escapedExpression, escapedResult, escapedExpression,
-		    escapedResult);
+    private String escapeForJavaScript(String input) {
+	return input.replace("\"", "\\\"");
+    }
 
-		Log.d(TAG, "Executing JavaScript for Bluetooth result: " +
-			       expression + " = " + result);
-		webView.evaluateJavascript(javascript, jsResult -> {
-		    if (jsResult != null) {
-			Log.d(TAG, "JavaScript execution result: " + jsResult);
-		    }
-		});
-	    } catch (Exception e) {
-		Log.e(TAG, "Error in displayRemoteResult: " + e.getMessage());
-	    }
-	});
+    private void displayReceivedExpression(String expression) {
+	String escapedExpression = escapeForJavaScript(expression);
+	String javascript = String.format(
+	    "displayReceivedBluetoothExpression(\"%s\");", escapedExpression);
+
+	executeJavaScriptOnWebView(
+	    javascript,
+	    "Executing JavaScript for received Bluetooth expression: " +
+		expression,
+	    "displayReceivedExpression");
+    }
+
+    private void displayRemoteResult(String expression, String result) {
+	String escapedExpression = escapeForJavaScript(expression);
+	String escapedResult = escapeForJavaScript(result);
+	String javascript =
+	    String.format("displayBluetoothResult(\"%s\", \"%s\");",
+			  escapedExpression, escapedResult);
+
+	executeJavaScriptOnWebView(
+	    javascript,
+	    "Executing JavaScript for Bluetooth result: " + expression + " = " +
+		result,
+	    "displayRemoteResult");
     }
 
     private String getStatusType(String status) {

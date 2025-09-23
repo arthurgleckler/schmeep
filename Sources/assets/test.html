@@ -134,10 +134,8 @@ body {
 }
 </style>
 <script>
-// Scheme evaluation using JavaScript interface.
 function evaluateScheme(expression) {
   try {
-    // Check if the Scheme interface is available.
     if (window.Scheme && window.Scheme.eval) {
       return window.Scheme.eval(expression);
     } else {
@@ -148,7 +146,6 @@ function evaluateScheme(expression) {
   }
 }
 
-// Array of expressions for buttons.
 const schemeExpressions = [
   "(lambda (x) (+ x 1))",
   "(define (factorial n) (if (<= n 1) 1 (* n (factorial (- n 1)))))",
@@ -165,7 +162,6 @@ const schemeExpressions = [
 ];
 
 
-// Update connection status display (called from Java)
 function updateConnectionStatusDisplay(status, statusType) {
   const statusBar = document.getElementById("status-bar");
   const statusText = document.getElementById("connection-status-text");
@@ -175,10 +171,7 @@ function updateConnectionStatusDisplay(status, statusType) {
   }
 
   if (statusBar) {
-    // Remove existing status classes
     statusBar.classList.remove("connected", "error", "warning");
-
-    // Add appropriate status class
     if (statusType === "connected") {
       statusBar.classList.add("connected");
     } else if (statusType === "error") {
@@ -189,17 +182,14 @@ function updateConnectionStatusDisplay(status, statusType) {
   }
 }
 
-
-// Generate buttons dynamically.
 function generateSchemeButtons() {
   const buttonGrid = document.querySelector(".button-grid");
 
   buttonGrid.innerHTML = "";
 
-  // Add Scheme expression buttons.
   schemeExpressions.forEach(expression => {
-    // Local evaluation button
     const localButton = document.createElement("button");
+
     localButton.className = "scheme-button";
     localButton.textContent = expression;
     localButton.onclick = () => runSchemeExpression(expression);
@@ -207,22 +197,17 @@ function generateSchemeButtons() {
     buttonGrid.appendChild(localButton);
   });
 
-  // Add utility buttons
   const clearButton = document.createElement("button");
+
   clearButton.className = "scheme-button";
   clearButton.textContent = "🗑️ Clear Output";
   clearButton.onclick = () => document.getElementById("scheme-content").innerHTML = "";
   buttonGrid.appendChild(clearButton);
-
-
-
 }
 
-// Interactive Scheme evaluation.
 function runSchemeExpression(expression) {
   const result = evaluateScheme(expression);
 
-  // Check if the result is an error and display it appropriately
   if (result.startsWith("Parse Error:") || result.startsWith("Error:")) {
     displayResult("📱 " + expression + " → " + result, "error");
   } else {
@@ -230,11 +215,9 @@ function runSchemeExpression(expression) {
   }
 }
 
-// Track evaluation lines for replacement
 let evaluationLines = new Map();
 let evaluationCounter = 0;
 
-// Display result with type indicator and optional replacement
 function displayResult(text, type, evaluationId) {
   const schemeContent = document.getElementById("scheme-content");
 
@@ -260,49 +243,58 @@ function displayResult(text, type, evaluationId) {
       break;
   }
 
-  // If this is a replacement (evaluationId exists and we have a tracked line)
   if (evaluationId && evaluationLines.has(evaluationId)) {
     const existingSpan = evaluationLines.get(evaluationId);
+
     existingSpan.textContent = text;
     existingSpan.className = className;
     evaluationLines.delete(evaluationId);
   } else {
-    // Create new elements
     const br = document.createElement("br");
     const span = document.createElement("span");
+
     span.className = className;
     span.textContent = text;
 
     schemeContent.appendChild(br);
     schemeContent.appendChild(span);
 
-    // If this is an evaluation message, track it for replacement
     if (type === "evaluating" && evaluationId) {
       evaluationLines.set(evaluationId, span);
     }
   }
 
-  // Auto-scroll to bottom.
   schemeContent.scrollTop = schemeContent.scrollHeight;
 }
 
-// Helper function to start an evaluation and return an ID for later replacement
 function startEvaluation(expression, icon) {
   const evalId = ++evaluationCounter;
+
   displayResult(icon + " " + expression + " ⇒ ...", "evaluating", evalId);
   return evalId;
 }
 
-// Helper function to complete an evaluation by replacing the line
 function completeEvaluation(evalId, expression, result, type, icon) {
   displayResult(icon + " " + expression + " ⇒ " + result, type, evalId);
+}
+
+function displayReceivedBluetoothExpression(expression) {
+  console.log("Displaying received Bluetooth expression: " + expression);
+  window.currentEvalId = startEvaluation(expression, "🔗");
+}
+
+function displayBluetoothResult(expression, result) {
+  console.log("Displaying Bluetooth result: " + expression + " = " + result);
+  if (window.currentEvalId) {
+    completeEvaluation(window.currentEvalId, expression, result, "remote", "🔗");
+    window.currentEvalId = null;
+  }
 }
 
 function initializePage() {
   generateSchemeButtons();
 }
 
-// Auto-initialize when page loads.
 window.addEventListener("load", initializePage);
 </script>
 </head>
