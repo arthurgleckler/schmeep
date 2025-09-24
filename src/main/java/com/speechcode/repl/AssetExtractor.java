@@ -238,12 +238,6 @@ public class AssetExtractor {
 	    long currentVersionCode = packageInfo.versionCode;
 	    File markerFile = new File(
 		"/data/data/com.speechcode.repl/lib/.assets_timestamp");
-
-	    if (!markerFile.exists()) {
-		Log.i(TAG, "Marker file doesn't exist.  Must extract assets.");
-		return true;
-	    }
-
 	    String storedVersionString;
 
 	    try (FileInputStream fis = new FileInputStream(markerFile)) {
