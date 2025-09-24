@@ -104,7 +104,7 @@ body {
   letter-spacing: 0.5px;
   margin-bottom: 8px;
 }
-.status-bar {
+#status-bar {
   background: #f5f5f5;
   border-bottom: 1px solid #ddd;
   color: #666;
@@ -113,20 +113,55 @@ body {
   padding: 8px 16px;
   text-align: center;
 }
-.status-bar.connected {
+#status-bar.connected {
   background: #e8f5e8;
   border-bottom-color: #4CAF50;
   color: #2E7D32;
 }
-.status-bar.error {
+#status-bar.evaluating {
+  background: #fff3e0;
+  border-bottom-color: #ff9800;
+  color: #F57C00;
+}
+#status-bar.waiting-for-connection {
+  background: #e3f2fd;
+  border-bottom-color: #2196f3;
+  color: #1976d2;
+}
+#status-bar.awaiting-connection {
+  background: #e3f2fd;
+  border-bottom-color: #2196f3;
+  color: #1976d2;
+}
+#status-bar.bluetooth-not-supported {
   background: #ffebee;
   border-bottom-color: #f44336;
   color: #D32F2F;
 }
-.status-bar.warning {
+#status-bar.bluetooth-disabled {
+  background: #ffebee;
+  border-bottom-color: #f44336;
+  color: #D32F2F;
+}
+#status-bar.bluetooth-permissions-required {
   background: #fff3e0;
   border-bottom-color: #ff9800;
   color: #F57C00;
+}
+#status-bar.failed-to-start {
+  background: #ffebee;
+  border-bottom-color: #f44336;
+  color: #D32F2F;
+}
+#status-bar.disconnected {
+  background: #f5f5f5;
+  border-bottom-color: #9e9e9e;
+  color: #616161;
+}
+#status-bar.connection-failed {
+  background: #ffebee;
+  border-bottom-color: #f44336;
+  color: #D32F2F;
 </style>
 <script>
 const SCHEME_EXPRESSIONS = [
@@ -215,55 +250,25 @@ function runSchemeExpression(expression) {
   const spinner = document.querySelector("#spinner");
 
   spinner.classList.add("evaluating");
+  updateConnectionStatus("evaluating", "Evaluating: " + expression);
   displayResult("📱 " + expression + " ⇒ ...", "local");
 
-  const result = evaluateScheme(expression);
+  setTimeout(() => {
+    const result = evaluateScheme(expression);
 
-  spinner.classList.remove("evaluating");
-  completeEvaluation(expression,
-                     result,
-                     (result.startsWith("Parse Error:") || result.startsWith("Error:")) ? "error" : "local",
-                     "📱");
+    spinner.classList.remove("evaluating");
+    updateConnectionStatus("connected", "Ready.");
+    completeEvaluation(
+      expression,
+      result,
+      (result.startsWith("Parse Error:") || result.startsWith("Error:")) ? "error" : "local",
+      "📱");
+  }, 10);
 }
 
-function updateConnectionStatus(status) {
-  const statusText = document.querySelector(".status-bar div");
-  if (statusText) {
-    statusText.textContent = "WebView + Bluetooth REPL: " + status;
-  }
-
-  const statusBar = document.getElementById("status-bar");
-  if (statusBar) {
-    statusBar.classList.remove("connected", "error", "warning");
-
-    if (status.includes("connected")) {
-      statusBar.classList.add("connected");
-    } else if (status.includes("Failed") || status.includes("not supported") || status.includes("disabled")) {
-      statusBar.classList.add("error");
-    } else if (status.includes("required") || status.includes("Waiting")) {
-      statusBar.classList.add("warning");
-    }
-  }
-}
-
-function updateConnectionStatusDisplay(status, statusType) {
-  const statusBar = document.getElementById("status-bar");
-  const statusText = document.getElementById("connection-status-text");
-
-  if (statusText) {
-    statusText.textContent = status;
-  }
-
-  if (statusBar) {
-    statusBar.classList.remove("connected", "error", "warning");
-    if (statusType === "connected") {
-      statusBar.classList.add("connected");
-    } else if (statusType === "error") {
-      statusBar.classList.add("error");
-    } else if (statusType === "warning") {
-      statusBar.classList.add("warning");
-    }
-  }
+function updateConnectionStatus(statusType, message) {
+  document.querySelector("#status-bar").className = statusType;
+  document.querySelector("#connection-status-text").textContent = message;
 }
 
 window.addEventListener("load", generateSchemeButtons);
