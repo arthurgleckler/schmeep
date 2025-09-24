@@ -167,18 +167,6 @@ const SCHEME_EXPRESSIONS = [
   "(random-integer 10)"
 ];
 
-function evaluateScheme(expression) {
-  try {
-    if (window.Scheme && window.Scheme.eval) {
-      return window.Scheme.eval(expression);
-    } else {
-      return "Scheme bridge not available.";
-    }
-  } catch (e) {
-    return "Error: " + e.message;
-  }
-}
-
 function completeEvaluation(expression, result, type, icon) {
   const lastSpan = document.querySelector("#scheme-content span:last-child");
 
@@ -209,6 +197,18 @@ function displayResult(text, type) {
   schemeContent.appendChild(span);
 
   schemeContent.scrollTop = schemeContent.scrollHeight;
+}
+
+function evaluateScheme(expression) {
+  try {
+    if (window.Scheme && window.Scheme.eval) {
+      return window.Scheme.eval(expression);
+    } else {
+      return "Scheme bridge not available.";
+    }
+  } catch (e) {
+    return "Error: " + e.message;
+  }
 }
 
 function generateSchemeButtons() {
