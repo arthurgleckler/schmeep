@@ -9,16 +9,12 @@
   margin: 0;
   padding: 0;
 }
-@keyframes throb {
-  0% { box-shadow: 0 0 5px rgba(76, 175, 80, 0.3); }
-  50% { box-shadow: 0 0 20px rgba(76, 175, 80, 0.8); }
-  100% { box-shadow: 0 0 5px rgba(76, 175, 80, 0.3); }
-}
 body {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   font-family: "Roboto Mono", "Courier New", monospace;
+  font-size: large;
   height: 100vh;
   margin: 0;
   overflow-y: auto;
@@ -33,6 +29,9 @@ body {
 .error {
   color: #D32F2F;
   font-weight: bold;
+}
+.icon.bluetooth::before {
+  content: "✉️";
 }
 .info {
   color: #7B1FA2;
@@ -142,6 +141,11 @@ body {
   background: #ffebee;
   border-bottom-color: #f44336;
   color: #D32F2F;
+@keyframes throb {
+  0% { box-shadow: 0 0 5px rgba(76, 175, 80, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(76, 175, 80, 0.8); }
+  100% { box-shadow: 0 0 5px rgba(76, 175, 80, 0.3); }
+}
 </style>
 <script>
 const SCHEME_EXPRESSIONS = [
@@ -159,34 +163,31 @@ const SCHEME_EXPRESSIONS = [
   "(random-integer 10)"
 ];
 
-function completeEvaluation(expression, result, type, icon) {
+function completeEvaluation(expression, result, type) {
   const lastLi = document.querySelector("#scheme-content ul li:last-child");
 
   if (lastLi) {
-    lastLi.textContent = icon + " " + expression + " ⇒ " + result;
-    lastLi.className = type;
+    lastLi.textContent = " " + expression + " ⇒ " + result;
+    lastLi.classList.add(type);
   }
 }
 
 function displayBluetoothExpression(expression) {
-  displayResult("🔗 " + expression + " ⇒ ...", "queued");
+  displayResult(" " + expression + " ⇒ ...", "bluetooth", "queued");
 }
 
 function displayBluetoothResult(expression, result) {
-  completeEvaluation(expression, result, "remote", "🔗");
+  completeEvaluation(expression, result, "remote");
 }
 
-function displayResult(text, type) {
+function displayResult(text, source, type) {
   const schemeContent = document.getElementById("scheme-content");
   const ul = schemeContent.querySelector("ul");
-
   const li = document.createElement("li");
 
-  li.className = type;
+  li.classList.add("icon", source, type);
   li.textContent = text;
-
   ul.appendChild(li);
-
   schemeContent.scrollTop = schemeContent.scrollHeight;
 }
 
@@ -227,17 +228,13 @@ function generateSchemeButtons() {
 
 function runSchemeExpression(expression) {
   updateConnectionStatus("evaluating", "Evaluating: " + expression);
-  displayResult("📱 " + expression + " ⇒ ...", "local");
+  displayResult(" " + expression + " ⇒ ...", "local", "local");
 
   setTimeout(() => {
     const result = evaluateScheme(expression);
 
     updateConnectionStatus("connected", "Ready.");
-    completeEvaluation(
-      expression,
-      result,
-      (result.startsWith("Parse Error:") || result.startsWith("Error:")) ? "error" : "local",
-      "📱");
+    completeEvaluation(expression, result, "local");
   }, 10);
 }
 
