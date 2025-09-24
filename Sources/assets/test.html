@@ -4,19 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
-#scheme-content {
-  min-height: 40px;
-}
-#screen-dimensions {
-  font-weight: bold;
+#scheme-content ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 @keyframes throb {
   0% { box-shadow: 0 0 5px rgba(76, 175, 80, 0.3); }
   50% { box-shadow: 0 0 20px rgba(76, 175, 80, 0.8); }
   100% { box-shadow: 0 0 5px rgba(76, 175, 80, 0.3); }
-}
-#webview-messages {
-  min-height: 20px;
 }
 body {
   box-sizing: border-box;
@@ -77,9 +73,6 @@ body {
 }
 .scheme-output {
   font-family: "Roboto Mono", "Courier New", monospace;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  word-wrap: break-word;
 }
 .section {
   border-left: 3px solid #4CAF50;
@@ -89,7 +82,6 @@ body {
 .section-title {
   font-variant: small-caps;
   letter-spacing: 0.5px;
-  margin-bottom: 8px;
 }
 #status-bar {
   background: #f5f5f5;
@@ -168,11 +160,11 @@ const SCHEME_EXPRESSIONS = [
 ];
 
 function completeEvaluation(expression, result, type, icon) {
-  const lastSpan = document.querySelector("#scheme-content span:last-child");
+  const lastLi = document.querySelector("#scheme-content ul li:last-child");
 
-  if (lastSpan) {
-    lastSpan.textContent = icon + " " + expression + " ⇒ " + result;
-    lastSpan.className = type;
+  if (lastLi) {
+    lastLi.textContent = icon + " " + expression + " ⇒ " + result;
+    lastLi.className = type;
   }
 }
 
@@ -186,15 +178,14 @@ function displayBluetoothResult(expression, result) {
 
 function displayResult(text, type) {
   const schemeContent = document.getElementById("scheme-content");
+  const ul = schemeContent.querySelector("ul");
 
-  const br = document.createElement("br");
-  const span = document.createElement("span");
+  const li = document.createElement("li");
 
-  span.className = type;
-  span.textContent = text;
+  li.className = type;
+  li.textContent = text;
 
-  schemeContent.appendChild(br);
-  schemeContent.appendChild(span);
+  ul.appendChild(li);
 
   schemeContent.scrollTop = schemeContent.scrollHeight;
 }
@@ -230,7 +221,7 @@ function generateSchemeButtons() {
 
   clearButton.className = "scheme-button";
   clearButton.textContent = "🗑️ Clear Output";
-  clearButton.onclick = () => document.getElementById("scheme-content").innerHTML = "";
+  clearButton.onclick = () => document.querySelector("#scheme-content ul").innerHTML = "";
   buttonGrid.appendChild(clearButton);
 }
 
@@ -264,5 +255,6 @@ window.addEventListener("load", generateSchemeButtons);
     <div class="main-content">
       <div class="section">
 	<div class="section-title">Scheme REPL</div>
-	<div id="scheme-content" class="scheme-output"></div></div>
+	<div id="scheme-content" class="scheme-output">
+          <ul></ul></div></div>
       <div class="button-grid"></div></body></html>
