@@ -10,6 +10,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 
 public class AssetExtractor {
     private static final String TAG = "repl";
@@ -161,14 +162,7 @@ public class AssetExtractor {
 	try (InputStream inputStream = assetManager.open(assetPath);
 	     FileOutputStream outputStream = new FileOutputStream(targetFile)) {
 
-	    byte[] buffer = new byte[8192];
-	    int totalBytes = 0;
-	    int bytesRead;
-
-	    while ((bytesRead = inputStream.read(buffer)) != -1) {
-		outputStream.write(buffer, 0, bytesRead);
-		totalBytes += bytesRead;
-	    }
+	    long totalBytes = inputStream.transferTo(outputStream);
 
 	    outputStream.flush();
 
@@ -227,7 +221,6 @@ public class AssetExtractor {
 	    File markerFile = new File(libDir, ".assets_timestamp");
 	    try (FileOutputStream fos = new FileOutputStream(markerFile)) {
 		fos.write(String.valueOf(currentVersionCode).getBytes());
-		fos.flush();
 	    }
 
 	    Log.i(TAG, "Asset extraction completed for version " +
@@ -243,40 +236,45 @@ public class AssetExtractor {
 		context.getPackageManager().getPackageInfo(
 		    context.getPackageName(), 0);
 	    long currentVersionCode = packageInfo.versionCode;
-
 	    File markerFile = new File(
 		"/data/data/com.speechcode.repl/lib/.assets_timestamp");
 
 	    if (!markerFile.exists()) {
-		Log.i(TAG,
-		      "Marker file doesn't exist.  Need to extract assets.");
+		Log.i(TAG, "Marker file doesn't exist.  Must extract assets.");
 		return true;
 	    }
 
+	    String storedVersionString;
+
 	    try (FileInputStream fis = new FileInputStream(markerFile)) {
-		byte[] buffer = new byte[20];
-		int bytesRead = fis.read(buffer);
+		byte[] data = new byte[(int)markerFile.length()];
+		int totalRead = 0;
+		int bytesRead;
 
-		if (bytesRead <= 0) {
-		    Log.i(TAG,
-			  "Marker file is empty.  Need to extract assets.");
-		    return true;
+		while (totalRead < data.length &&
+		       (bytesRead = fis.read(data, totalRead,
+					     data.length - totalRead)) != -1) {
+		    totalRead += bytesRead;
 		}
+		storedVersionString = new String(data, 0, totalRead).trim();
+	    }
 
-		String storedVersionString =
-		    new String(buffer, 0, bytesRead).trim();
-		long storedVersionCode = Long.parseLong(storedVersionString);
+	    if (storedVersionString.isEmpty()) {
+		Log.i(TAG, "Marker file is empty.  Must extract assets.");
+		return true;
+	    }
 
-		if (currentVersionCode != storedVersionCode) {
-		    Log.i(TAG, "Version changed from " + storedVersionCode +
-				   " to " + currentVersionCode +
-				   ".  Need to extract assets.");
-		    return true;
-		} else {
-		    Log.i(TAG, "Version unchanged (" + currentVersionCode +
-				   ").  Skipping asset extraction.");
-		    return false;
-		}
+	    long storedVersionCode = Long.parseLong(storedVersionString);
+
+	    if (currentVersionCode != storedVersionCode) {
+		Log.i(TAG, "Version changed from " + storedVersionCode +
+			       " to " + currentVersionCode +
+			       ".  Must extract assets.");
+		return true;
+	    } else {
+		Log.i(TAG, "Version unchanged (" + currentVersionCode +
+			       ").  Skipping asset extraction.");
+		return false;
 	    }
 	} catch (Exception e) {
 	    Log.w(TAG,
