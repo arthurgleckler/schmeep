@@ -10,23 +10,10 @@
 #screen-dimensions {
   font-weight: bold;
 }
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-#spinner {
-  animation: spin 1s linear infinite;
-  border-radius: 50%;
-  border-top: 2px solid #4CAF50;
-  border: 2px solid #f3f3f3;
-  display: none;
-  height: 12px;
-  margin-right: 6px;
-  transform-origin: center;
-  width: 12px;
-}
-#spinner.evaluating {
-  display: inline-block;
+@keyframes throb {
+  0% { box-shadow: 0 0 5px rgba(76, 175, 80, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(76, 175, 80, 0.8); }
+  100% { box-shadow: 0 0 5px rgba(76, 175, 80, 0.3); }
 }
 #webview-messages {
   min-height: 20px;
@@ -119,6 +106,7 @@ body {
   color: #2E7D32;
 }
 #status-bar.evaluating {
+  animation: throb 1.2s ease-in-out infinite;
   background: #fff3e0;
   border-bottom-color: #ff9800;
   color: #F57C00;
@@ -247,16 +235,12 @@ function generateSchemeButtons() {
 }
 
 function runSchemeExpression(expression) {
-  const spinner = document.querySelector("#spinner");
-
-  spinner.classList.add("evaluating");
   updateConnectionStatus("evaluating", "Evaluating: " + expression);
   displayResult("📱 " + expression + " ⇒ ...", "local");
 
   setTimeout(() => {
     const result = evaluateScheme(expression);
 
-    spinner.classList.remove("evaluating");
     updateConnectionStatus("connected", "Ready.");
     completeEvaluation(
       expression,
@@ -276,7 +260,6 @@ window.addEventListener("load", generateSchemeButtons);
 </head>
   <body>
     <div id="status-bar" class="status-bar">
-      <span id="spinner">🕛</span>
       <span id="connection-status-text">Starting.</span></div>
     <div class="main-content">
       <div class="section">
