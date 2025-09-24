@@ -202,10 +202,10 @@ public class AssetExtractor {
 		} else {
 		    Log.e(
 			TAG,
-			"Asset extraction failed. Continuing with basic environment.");
+			"Asset extraction failed.  Continuing with basic environment.");
 		}
 	    } else {
-		Log.i(TAG, "Skipping asset extraction - version unchanged.");
+		Log.i(TAG, "Version unchanged.  Skipping asset extraction.");
 	    }
 	} catch (Exception e) {
 	    Log.e(TAG, "Error during asset extraction: " + e.getMessage());
