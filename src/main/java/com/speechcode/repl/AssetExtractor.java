@@ -106,6 +106,7 @@ public class AssetExtractor {
 	String targetBase = "/data/data/com.speechcode.repl/lib";
 
 	File baseDir = new File(targetBase);
+
 	if (!baseDir.exists() && !baseDir.mkdirs()) {
 	    Log.e(TAG, "Failed to create base directory: " + targetBase);
 	    return false;
@@ -161,7 +162,6 @@ public class AssetExtractor {
 
 	try (InputStream inputStream = assetManager.open(assetPath);
 	     FileOutputStream outputStream = new FileOutputStream(targetFile)) {
-
 	    long totalBytes = inputStream.transferTo(outputStream);
 
 	    outputStream.flush();
@@ -212,13 +212,14 @@ public class AssetExtractor {
 		context.getPackageManager().getPackageInfo(
 		    context.getPackageName(), 0);
 	    long currentVersionCode = packageInfo.versionCode;
-
 	    File libDir = new File("/data/data/com.speechcode.repl/lib");
+
 	    if (!libDir.exists()) {
 		libDir.mkdirs();
 	    }
 
 	    File markerFile = new File(libDir, ".assets_timestamp");
+
 	    try (FileOutputStream fos = new FileOutputStream(markerFile)) {
 		fos.write(String.valueOf(currentVersionCode).getBytes());
 	    }

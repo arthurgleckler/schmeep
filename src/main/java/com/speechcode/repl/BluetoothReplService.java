@@ -338,6 +338,7 @@ public class BluetoothReplService {
 
 		    // Don't block the receiver thread with interrupt handling.
 		    final OutputStream currentOutputStream = outputStream;
+
 		    new Thread(() -> {
 			try {
 			    Log.i(
