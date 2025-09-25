@@ -1,4 +1,4 @@
-package com.speechcode.repl;
+package com.speechcode.schmeep;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -8,17 +8,17 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 public class MainActivity extends Activity {
-    private static final String TAG = "repl";
+    private static final String TAG = "schmeep";
     private Bluetooth bluetooth;
     private ChibiScheme chibiScheme;
     private WebView webView;
 
-    static { System.loadLibrary("repl"); }
+    static { System.loadLibrary("schmeep"); }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 	super.onCreate(savedInstanceState);
-	setTitle("CHB: Chibi Scheme REPL");
+	setTitle("Schmeep: Chibi Scheme REPL");
 	Log.i(TAG, "MainActivity onCreate started.");
 
 	chibiScheme = new ChibiScheme(this);

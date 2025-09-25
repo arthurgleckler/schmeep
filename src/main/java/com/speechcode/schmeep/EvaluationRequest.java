@@ -1,4 +1,4 @@
-package com.speechcode.repl;
+package com.speechcode.schmeep;
 
 import java.io.OutputStream;
 

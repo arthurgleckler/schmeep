@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">repl</string>
-    <string name="lib_name">repl</string>
-    <string name="package_name">com.speechcode.repl</string>
+    <string name="app_name">schmeep</string>
+    <string name="lib_name">schmeep</string>
+    <string name="package_name">com.speechcode.schmeep</string>
 </resources>
 

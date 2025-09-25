@@ -1,4 +1,4 @@
-package com.speechcode.repl;
+package com.speechcode.schmeep;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
@@ -22,12 +22,12 @@ import java.util.UUID;
 public class Bluetooth {
     private static final int BLUETOOTH_REQUEST_CODE = 1001;
     private static final int MAX_MESSAGE_LENGTH = 1048576;
-    private static final UUID SCHEME_REPL_UUID =
+    private static final UUID SCHMEEP_UUID =
 	UUID.fromString("611a1a1a-94ba-11f0-b0a8-5f754c08f133");
-    private static final String SERVICE_NAME = "CHB";
+    private static final String SERVICE_NAME = "schmeep";
     private static final UUID SPP_UUID =
 	UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    private static final String TAG = "repl";
+    private static final String TAG = "schmeep";
 
     private static final byte MSG_TYPE_EXPRESSION = 0x00;
     private static final byte MSG_TYPE_INTERRUPT = 0x01;
@@ -136,7 +136,7 @@ public class Bluetooth {
 		IOException lastException = null;
 		boolean serviceStarted = false;
 
-		for (UUID uuid : new UUID[] {SCHEME_REPL_UUID, SPP_UUID}) {
+		for (UUID uuid : new UUID[] {SCHMEEP_UUID, SPP_UUID}) {
 		    try {
 			serverSocket =
 			    bluetoothAdapter.listenUsingRfcommWithServiceRecord(

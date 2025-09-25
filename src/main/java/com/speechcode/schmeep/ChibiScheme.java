@@ -1,11 +1,11 @@
-package com.speechcode.repl;
+package com.speechcode.schmeep;
 
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
 public class ChibiScheme {
-    private static final String TAG = "repl";
+    private static final String TAG = "schmeep";
     private MainActivity mainActivity;
 
     public native void cleanupScheme();

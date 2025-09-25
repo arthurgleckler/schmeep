@@ -4,7 +4,7 @@ ADB ?= adb
 ANDROID_VERSION ?= 33
 ANDROID_SRCS := main_jni.c
 ANDROID_TARGET ?= $(ANDROID_VERSION)
-APPNAME ?= repl
+APPNAME ?= schmeep
 APKFILE ?= $(APPNAME).apk
 CHIBI_ASSETS_DIR := Sources/assets/lib
 CHIBI_SCHEME_DIR := chibi-scheme
@@ -53,7 +53,7 @@ $(CHIBI_TARGET_ARM64):
 chibi-lib-sos: $(CHIBI_LIB_SO_FILES)
 
 logs:
-	adb logcat -s repl
+	adb logcat -s schmeep
 
 makecapk/lib/arm64-v8a/%.so: chibi-scheme/lib/%.c $(CHIBI_TARGET_ARM64)
 	@mkdir -p $(dir $@)
@@ -73,12 +73,12 @@ makecapk/lib/arm64-v8a/lib$(APPNAME).so: $(ANDROID_SRCS) $(CHIBI_TARGET_ARM64)
 	-L$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/sysroot/usr/lib/aarch64-linux-android/$(ANDROID_VERSION) \
 	$(LDFLAGS) -lchibi-scheme
 
-$(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64) chibi-lib-sos lib/chb/exception-formatter.sld
+$(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64) chibi-lib-sos lib/schmeep/exception-formatter.sld
 	mkdir -p $@
 	cd $(CHIBI_SCHEME_DIR)/lib && find . \( -name "*.scm" -o -name "*.sld" \) \
 		-exec cp --parents {} ../../$@/ \;
-	mkdir -p $@/chb
-	cp lib/chb/exception-formatter.sld $@/chb/
+	mkdir -p $@/schmeep
+	cp lib/schmeep/exception-formatter.sld $@/schmeep/
 	@for so_file in $(CHIBI_LIB_SO_FILES); do \
 		rel_path=$$(echo $$so_file | sed 's|makecapk/lib/arm64-v8a/||' | sed 's|\.so$$||'); \
 		target_dir=$@/$$(dirname $$rel_path); \
@@ -87,7 +87,7 @@ $(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64) chibi-lib-sos
 		if [ -f $$so_file ]; then cp $$so_file $$target_file; fi; \
 	done
 
-all: chb makecapk.apk
+all: makecapk.apk schmeep
 
 AndroidManifest.xml:
 	rm -rf AndroidManifest.xml
@@ -100,28 +100,24 @@ AndroidManifest.xml:
 		envsubst '$$ANDROID_TARGET $$ANDROID_VERSION $$APPNAME $$PACKAGE_NAME $$BUILD_TIMESTAMP $$BUILD_VERSION' \
 		< AndroidManifest.xml.template > AndroidManifest.xml
 
-chb: chb.c
-	gcc -o chb chb.c -lbluetooth -lpthread
-
-
-classes.dex: src/main/java/com/speechcode/repl/*.java
+classes.dex: src/main/java/com/speechcode/schmeep/*.java
 	mkdir -p build/classes
-	javac -cp $(ANDROID_JAR) -d build/classes src/main/java/com/speechcode/repl/*.java
-	$(BUILD_TOOLS)/d8 --classpath $(ANDROID_JAR) --output . build/classes/com/speechcode/repl/*.class
+	javac -cp $(ANDROID_JAR) -d build/classes src/main/java/com/speechcode/schmeep/*.java
+	$(BUILD_TOOLS)/d8 --classpath $(ANDROID_JAR) --output . build/classes/com/speechcode/schmeep/*.class
 
 clean:
-	rm -rf AndroidManifest.xml $(APKFILE) chb classes.dex build/ makecapk.apk makecapk temp.apk
+	rm -rf AndroidManifest.xml $(APKFILE) schmeep classes.dex build/ makecapk.apk makecapk temp.apk
 
 format: format-c format-java
 
-format-c: chb.c main_jni.c
+format-c: schmeep.c main_jni.c
 	for file in $^; do \
 	  clang-format --style='{ColumnLimit: 80, IndentWidth: 2}' "$$file" | \
 	  unexpand -t 8 --first-only > "$$file.tmp" && \
 	  mv "$$file.tmp" "$$file"; \
 	done
 
-format-java: src/main/java/com/speechcode/repl/*.java
+format-java: src/main/java/com/speechcode/schmeep/*.java
 	for file in $^; do \
 	  clang-format --style='{ColumnLimit: 80, IndentWidth: 4}' "$$file" | \
 	  unexpand -t 8 --first-only > "$$file.tmp" && \
@@ -152,8 +148,11 @@ run: push
 		grep "launchable-activity" | cut -f 2 -d"'"))
 	$(ADB) shell am start -n $(PACKAGE_NAME)/$(ACTIVITYNAME)
 
-test: chb
-	./tests/chb.expect
+schmeep: schmeep.c
+	gcc -o schmeep schmeep.c -lbluetooth -lpthread
+
+test: schmeep
+	./tests/schmeep.expect
 
 uninstall:
 	($(ADB) uninstall $(PACKAGE_NAME))||true

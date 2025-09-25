@@ -5,10 +5,10 @@
 *.orig
 AndroidManifest.xml
 build/
-chb
 classes.dex
 makecapk/
 output.map
-repl.apk
-repl.apk.idsig
+schmeep
+schmeep.apk
+schmeep.apk.idsig
 Sources/assets/lib/

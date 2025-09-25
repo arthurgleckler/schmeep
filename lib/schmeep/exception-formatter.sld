@@ -1,4 +1,4 @@
-(define-library (chb exception-formatter)
+(define-library (schmeep exception-formatter)
   (import (chibi)
 	  (chibi ast))
   (export format-exception)

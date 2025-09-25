@@ -64,13 +64,13 @@ The application implements a complete two-way Bluetooth Serial Port Profile
   service discovery
 - **Length-Prefixed Protocol**: 4-byte big-endian length prefix + UTF-8
   message content for multi-line expression support
-- **Service Discovery**: Registers as "CHB" service in SDP for client
+- **Service Discovery**: Registers as "schmeep" service in SDP for client
   discovery
 - **Bluetooth Permissions**: Complete Android 12+ permission handling with
   runtime permission requests
 
 **Linux Client:**
-- **chb.c**: C client with UUID-based service discovery
+- **schmeep.c**: C client with UUID-based service discovery
 - **Automatic Port Discovery**: Uses SDP queries with custom UUID to find
   correct RFCOMM channel automatically
 - **Interactive REPL**: Full command-line interface for real-time Scheme
@@ -90,16 +90,16 @@ Service UUID: 611a1a1a-94ba-11f0-b0a8-5f754c08f133
 **Usage:**
 ```bash
 # Compile client
-make chb
+make schmeep
 
 # Interactive mode
-./chb AA:BB:CC:DD:EE:FF
+./schmeep AA:BB:CC:DD:EE:FF
 
 # Auto-discovery mode
-./chb
+./schmeep
 
 # Pipe expressions
-echo "(+ 2 3)" | ./chb AA:BB:CC:DD:EE:FF
+echo "(+ 2 3)" | ./schmeep AA:BB:CC:DD:EE:FF
 ```
 
 ### Build System Integration
@@ -121,24 +121,24 @@ echo "(+ 2 3)" | ./chb AA:BB:CC:DD:EE:FF
 ```bash
 # Clean build, install, and run
 adb logcat --buffer=all --clear
-make clean chb run
+make clean schmeep run
 
 # Quick rebuild, install, and run
 adb logcat --buffer=all --clear
-make chb run
+make schmeep run
 
 # Build specific targets
-make makecapk/lib/arm64-v8a/librepl.so  # ARM64 only
+make makecapk/lib/arm64-v8a/libschmeep.so  # ARM64 only
 make keystore                           # Generate signing key
 ```
 
 ### Debugging and Monitoring
 ```bash
 # Monitor app logs with timeout (always use timeout)
-timeout 10s adb logcat -s repl
+timeout 10s adb logcat -s schmeep
 
 # Monitor crashes and errors
-timeout 15s adb logcat | grep -E "(FATAL|AndroidRuntime|SIGSEGV|SIGABRT|tombstone|crashed|repl)"
+timeout 15s adb logcat | grep -E "(FATAL|AndroidRuntime|SIGSEGV|SIGABRT|tombstone|crashed|schmeep)"
 
 # Check specific errors
 adb logcat | grep UnsatisfiedLinkError
@@ -150,26 +150,26 @@ date && adb logcat --buffer=all --clear
 ### Bluetooth Testing and Debugging
 ```bash
 # Test Bluetooth client (replace with actual device address)
-./chb AA:BB:CC:DD:EE:FF
+./schmeep AA:BB:CC:DD:EE:FF
 
 # Auto-discovery mode (scans paired/connected devices)
-./chb
+./schmeep
 
 # Check Bluetooth service discovery
 python3 -c "
 import bluetooth
 services = bluetooth.find_service(address='AA:BB:CC:DD:EE:FF')
 for s in services:
-    if s.get('name') == 'CHB':
-        print('CHB found on port:', s.get('port'))
+    if s.get('name') == 'Schmeep':
+        print('Schmeep found on port:', s.get('port'))
 "
 
 # Monitor Bluetooth connections during testing
-timeout 10s adb logcat -s repl | grep -E "(Client connected|Waiting for|Bluetooth)"
+timeout 10s adb logcat -s schmeep | grep -E "(Client connected|Waiting for|Bluetooth)"
 
 # Test expressions via Bluetooth
-echo "(+ 2 3)" | ./chb AA:BB:CC:DD:EE:FF
-echo -e "(define x 42)\nx\n(* x 2)" | ./chb AA:BB:CC:DD:EE:FF
+echo "(+ 2 3)" | ./schmeep AA:BB:CC:DD:EE:FF
+echo -e "(define x 42)\nx\n(* x 2)" | ./schmeep AA:BB:CC:DD:EE:FF
 ```
 
 ### Development Workflow
@@ -234,15 +234,15 @@ echo -e "(define x 42)\nx\n(* x 2)" | ./chb AA:BB:CC:DD:EE:FF
   AssetManager
 
 ### Key Variables
-- `APPNAME`: Application name (default: "repl")
+- `APPNAME`: Application name (default: "schmeep")
 - `PACKAGENAME`: Android package identifier (default:
-  "com.speechcode.repl")
+  "com.speechcode.schmeep")
 - `ANDROIDVERSION`: Target Android API level (default: 33)
 
 ### Bluetooth Configuration
 - **Service UUID**: `611a1a1a-94ba-11f0-b0a8-5f754c08f133` (hardcoded in both
   Android server and C client)
-- **Service Name**: "CHB" (registered in SDP for discovery)
+- **Service Name**: "Schmeep" (registered in SDP for discovery)
 - **Required Permissions**: BLUETOOTH, BLUETOOTH_ADMIN, BLUETOOTH_CONNECT,
   BLUETOOTH_ADVERTISE (automatically added via AndroidManifest.xml.template)
 - **Protocol**: Length-prefixed binary (4-byte big-endian length + UTF-8 content)
@@ -251,7 +251,7 @@ echo -e "(define x 42)\nx\n(* x 2)" | ./chb AA:BB:CC:DD:EE:FF
 ### Asset Management
 **Comprehensive JNI Asset Extraction**: On first launch, the app
 extracts 38+ essential Scheme library files from the APK to
-`/data/data/com.speechcode.repl/lib/` using JNI AssetManager
+`/data/data/com.speechcode.schmeep/lib/` using JNI AssetManager
 calls. This includes:
 - **R7RS Core**: `init-7.scm` (52KB), `meta-7.scm` (17KB), complete
   `scheme/*` modules
@@ -295,7 +295,7 @@ calls. This includes:
 - **Result Display**: Use unified `displayResult()` function for both
   local and remote results with proper type indicators
 
-## Client Threading Architecture (chb.c) - Redesigned
+## Client Threading Architecture (schmeep.c) - Redesigned
 
 ### Clean Architecture Overview
 

@@ -20,14 +20,14 @@
 #include <unistd.h>
 
 #define MAX_MESSAGE_LENGTH 1048576
-#define SCHEME_REPL_UUID "611a1a1a-94ba-11f0-b0a8-5f754c08f133"
-#define CACHE_DIR ".cache/chb"
+#define SCHMEEP_UUID "611a1a1a-94ba-11f0-b0a8-5f754c08f133"
+#define CACHE_DIR ".cache/schmeep"
 #define CACHE_FILE "mac-address.txt"
 
 #define MSG_TYPE_EXPRESSION 0
 #define MSG_TYPE_INTERRUPT 1
 
-#define SERVICE_NAME "CHB"
+#define SERVICE_NAME "schmeep"
 
 typedef struct {
   char *message;
@@ -43,7 +43,7 @@ static volatile sig_atomic_t interrupt_pending = 0;
 static int signal_pipe[2] = {-1, -1};
 
 bool check_address_for_scheme_repl(const char *address);
-bool check_device_for_chb_service(const bdaddr_t *bdaddr);
+bool check_device_for_schmeep_service(const bdaddr_t *bdaddr);
 char *get_cache_file_path();
 void *input_thread(void *arg);
 char *load_cached_address();
@@ -151,7 +151,7 @@ void save_cached_address(const char *address) {
   fclose(file);
 }
 
-bool check_device_for_chb_service(const bdaddr_t *bdaddr) {
+bool check_device_for_schmeep_service(const bdaddr_t *bdaddr) {
   sdp_session_t *session = sdp_connect(BDADDR_ANY, bdaddr, SDP_RETRY_IF_BUSY);
 
   if (!session) {
@@ -170,18 +170,18 @@ bool check_device_for_chb_service(const bdaddr_t *bdaddr) {
   int result = sdp_service_search_attr_req(
       session, search_list, SDP_ATTR_REQ_RANGE, attr_list, &rsp_list);
 
-  bool found_chb = false;
+  bool found_schmeep = false;
 
   if (result == 0) {
     sdp_list_t *r = rsp_list;
 
-    for (; r && !found_chb; r = r->next) {
+    for (; r && !found_schmeep; r = r->next) {
       sdp_record_t *rec = (sdp_record_t *)r->data;
       sdp_data_t *service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
 
       if (service_name && service_name->dtd == SDP_TEXT_STR8) {
 	if (strstr(service_name->val.str, SERVICE_NAME)) {
-	  found_chb = true;
+	  found_schmeep = true;
 	}
       }
     }
@@ -195,7 +195,7 @@ bool check_device_for_chb_service(const bdaddr_t *bdaddr) {
     sdp_list_free(rsp_list, 0);
   sdp_close(session);
 
-  return found_chb;
+  return found_schmeep;
 }
 
 bool check_address_for_scheme_repl(const char *address) {
@@ -206,9 +206,9 @@ bool check_address_for_scheme_repl(const char *address) {
 
   str2ba(address, &target);
 
-  bool found = check_device_for_chb_service(&target);
+  bool found = check_device_for_schmeep_service(&target);
 
-  printf(found ? "CHB service found.\n" : "No CHB service found\n");
+  printf(found ? "Schmeep service found.\n" : "No Schmeep service found\n");
   return found;
 }
 
@@ -365,7 +365,7 @@ int find_service_channel(const char *bt_addr) {
   uint8_t uuid_bytes[16];
   unsigned int u[16];
 
-  if (sscanf(SCHEME_REPL_UUID,
+  if (sscanf(SCHMEEP_UUID,
 	     "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%"
 	     "02x",
 	     &u[0], &u[1], &u[2], &u[3], &u[4], &u[5], &u[6], &u[7], &u[8],
@@ -447,7 +447,7 @@ cleanup:
 
 char *scan_active_paired_devices() {
   printf(
-      "Scanning all paired and connected Bluetooth devices for CHB service.\n");
+      "Scanning all paired and connected Bluetooth devices for Schmeep service.\n");
 
   int dev_id = hci_get_route(NULL);
 
@@ -484,7 +484,7 @@ char *scan_active_paired_devices() {
     return NULL;
   }
 
-  printf("Found %d active connections.  Checking for CHB.\n", cl->conn_num);
+  printf("Found %d active connections.  Checking for Schmeep.\n", cl->conn_num);
 
   for (int i = 0; i < cl->conn_num; i++) {
     char addr_str[19];
@@ -493,8 +493,8 @@ char *scan_active_paired_devices() {
     printf("Checking %s.\n", addr_str);
     fflush(stdout);
 
-    if (check_device_for_chb_service(&ci[i].bdaddr)) {
-      printf("CHB service found.\n");
+    if (check_device_for_schmeep_service(&ci[i].bdaddr)) {
+      printf("Schmeep service found.\n");
 
       char *result_addr = malloc(19);
 
@@ -503,7 +503,7 @@ char *scan_active_paired_devices() {
       close(sock);
       return result_addr;
     } else {
-      printf("No CHB service.\n");
+      printf("No Schmeep service.\n");
     }
   }
 
@@ -539,7 +539,7 @@ int main(int argc, char *argv[]) {
       printf("Scanning devices.\n");
       discovered_addr = scan_active_paired_devices();
       if (!discovered_addr) {
-	fprintf(stderr, "No CHB service found.\n");
+	fprintf(stderr, "No Schmeep service found.\n");
 	usage(argv[0]);
 	return 1;
       }
@@ -555,7 +555,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  printf("Searching for service with UUID %s.\n", SCHEME_REPL_UUID);
+  printf("Searching for service with UUID %s.\n", SCHMEEP_UUID);
   int port = find_service_channel(bt_addr);
 
   if (port < 0) {

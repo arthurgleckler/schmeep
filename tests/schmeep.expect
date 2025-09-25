@@ -16,7 +16,7 @@ proc expect_or_fail {pattern} {
 
 set timeout 10
 
-spawn ./chb
+spawn ./schmeep
 expect_or_fail "scheme> "
 
 send "(+ 100 20 3)\r"
@@ -41,7 +41,7 @@ expect_or_fail "scheme> "
 send "quit\r"
 expect eof
 
-spawn ./chb
+spawn ./schmeep
 expect_or_fail "scheme> "
 
 send "(+ 300 40 5)\r"

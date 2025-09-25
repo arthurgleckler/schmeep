@@ -1,9 +1,9 @@
-#+TITLE: CHB
+#+TITLE: Schmeep
 #+SUBTITLE: Chibi Scheme Bluetooth REPL for Android
 
 * Features
 
-CHB is an Android app that combines:
+Schmeep is an Android app that combines:
 
 - *R7RS Scheme*: embedded [[https://synthcode.com/scheme/chibi/][Chibi Scheme]] interpreter
 - *Bluetooth SPP REPL*: Remote Scheme REPL (Read-Eval-Print Loop) via
@@ -24,17 +24,17 @@ The command-line client can be tested with an =expect= script.
 First, build the client:
 
 #+BEGIN_SRC sh
-make chb
+make schmeep
 #+END_SRC
 
 Then run the test script.  You will need to have the =expect= program
 installed.
 
 #+BEGIN_SRC sh
-tests/chb.expect
+tests/schmeep.expect
 #+END_SRC
 
-The script will connect to the CHB Android app, send some Scheme
+The script will connect to the Schmeep Android app, send some Scheme
 expressions, and test for correct evaluation.  It also checks that
 interrupts (Ctrl-C) are handled correctly.  It will then disconnect,
 connect again, and test for correct evaluation.  It will display "ALL

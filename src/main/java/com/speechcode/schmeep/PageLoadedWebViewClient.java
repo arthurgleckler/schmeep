@@ -1,11 +1,11 @@
-package com.speechcode.repl;
+package com.speechcode.schmeep;
 
 import android.util.Log;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 public class PageLoadedWebViewClient extends WebViewClient {
-    private static final String TAG = "repl";
+    private static final String TAG = "schmeep";
     private final MainActivity mainActivity;
 
     public PageLoadedWebViewClient(MainActivity activity) {

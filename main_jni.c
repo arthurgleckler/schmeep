@@ -12,8 +12,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "repl", __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "repl", __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "schmeep", __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "schmeep", __VA_ARGS__)
 
 #include "chibi/eval.h"
 #include "chibi/sexp.h"
@@ -93,7 +93,7 @@ int init_scheme() {
   }
 
   sexp module_path_string =
-      sexp_c_string(scheme_ctx, "/data/data/com.speechcode.repl/lib", -1);
+      sexp_c_string(scheme_ctx, "/data/data/com.speechcode.schmeep/lib", -1);
 
   sexp_global(scheme_ctx, SEXP_G_MODULE_PATH) =
       sexp_list1(scheme_ctx, module_path_string);
@@ -113,7 +113,7 @@ int init_scheme() {
   }
 
   const char *set_path_expr =
-      "(current-module-path (cons \"/data/data/com.speechcode.repl/lib\" "
+      "(current-module-path (cons \"/data/data/com.speechcode.schmeep/lib\" "
       "(current-module-path)))";
 
   sexp path_result =
@@ -126,7 +126,7 @@ int init_scheme() {
   }
 
   sexp import_result = sexp_eval_string(
-      scheme_ctx, "(import (chb exception-formatter))", -1, scheme_env);
+      scheme_ctx, "(import (schmeep exception-formatter))", -1, scheme_env);
 
   if (import_result && !sexp_exceptionp(import_result)) {
     LOGI("init_scheme: Exception formatter imported.");
@@ -166,7 +166,7 @@ char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
   return "Error: Scheme formatter failed.";
 }
 
-JNIEXPORT void JNICALL Java_com_speechcode_repl_ChibiScheme_initializeScheme(
+JNIEXPORT void JNICALL Java_com_speechcode_schmeep_ChibiScheme_initializeScheme(
     JNIEnv *env, jobject thiz) {
   LOGI("JNI: initializeScheme called.");
 
@@ -205,7 +205,7 @@ JNIEXPORT void JNICALL Java_com_speechcode_repl_ChibiScheme_initializeScheme(
   pthread_mutex_unlock(&scheme_mutex);
 }
 
-JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_interruptScheme(
+JNIEXPORT jstring JNICALL Java_com_speechcode_schmeep_ChibiScheme_interruptScheme(
     JNIEnv *env, jobject thiz) {
   LOGI("JNI: interruptScheme called.");
 
@@ -214,12 +214,12 @@ JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_interruptScheme(
 }
 
 JNIEXPORT void JNICALL
-Java_com_speechcode_repl_ChibiScheme_cleanupScheme(JNIEnv *env, jobject thiz) {
+Java_com_speechcode_schmeep_ChibiScheme_cleanupScheme(JNIEnv *env, jobject thiz) {
   LOGI("JNI: cleanupScheme called.");
   cleanup_scheme();
 }
 
-JNIEXPORT jstring JNICALL Java_com_speechcode_repl_ChibiScheme_evaluateScheme(
+JNIEXPORT jstring JNICALL Java_com_speechcode_schmeep_ChibiScheme_evaluateScheme(
     JNIEnv *env, jobject thiz, jstring expression) {
   LOGI("JNI: evaluateScheme called.");
 

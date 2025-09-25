@@ -1,4 +1,4 @@
-package com.speechcode.repl;
+package com.speechcode.schmeep;
 
 import android.content.Context;
 import android.content.pm.PackageInfo;
@@ -13,10 +13,10 @@ import java.io.InputStream;
 import java.nio.file.Files;
 
 public class Assets {
-    private static final String TAG = "repl";
+    private static final String TAG = "schmeep";
 
     private static final String[] ESSENTIAL_FILES = {
-	"chb/exception-formatter.sld",
+	"schmeep/exception-formatter.sld",
 	"chibi/ast.scm",
 	"chibi/ast.sld",
 	"chibi/ast.so",
@@ -103,7 +103,7 @@ public class Assets {
 
     public static boolean extractAssets(Context context) {
 	AssetManager assetManager = context.getAssets();
-	String targetBase = "/data/data/com.speechcode.repl/lib";
+	String targetBase = "/data/data/com.speechcode.schmeep/lib";
 
 	File baseDir = new File(targetBase);
 
@@ -212,7 +212,7 @@ public class Assets {
 		context.getPackageManager().getPackageInfo(
 		    context.getPackageName(), 0);
 	    long currentVersionCode = packageInfo.versionCode;
-	    File libDir = new File("/data/data/com.speechcode.repl/lib");
+	    File libDir = new File("/data/data/com.speechcode.schmeep/lib");
 
 	    if (!libDir.exists()) {
 		libDir.mkdirs();
@@ -238,7 +238,7 @@ public class Assets {
 		    context.getPackageName(), 0);
 	    long currentVersionCode = packageInfo.versionCode;
 	    File markerFile = new File(
-		"/data/data/com.speechcode.repl/lib/.assets_timestamp");
+		"/data/data/com.speechcode.schmeep/lib/.assets_timestamp");
 	    String storedVersionString;
 
 	    try (FileInputStream fis = new FileInputStream(markerFile)) {
