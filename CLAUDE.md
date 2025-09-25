@@ -59,8 +59,7 @@ The application implements a complete two-way Bluetooth Serial Port Profile
 
 **Android Server Components:**
 - **BluetoothReplService.java**: SPP server implementing custom UUID service
-  registration with both secure and insecure connection modes for maximum
-  compatibility
+  registration with secure connection mode only
 - **Custom UUID**: `611a1a1a-94ba-11f0-b0a8-5f754c08f133` for reliable
   service discovery
 - **Length-Prefixed Protocol**: 4-byte big-endian length prefix + UTF-8

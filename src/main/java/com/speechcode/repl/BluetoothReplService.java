@@ -137,38 +137,21 @@ public class BluetoothReplService {
 		boolean serviceStarted = false;
 
 		for (UUID uuid : new UUID[] {SCHEME_REPL_UUID, SPP_UUID}) {
-		    for (boolean secure : new boolean[] {true, false}) {
-			try {
-			    if (secure) {
-				serverSocket =
-				    bluetoothAdapter
-					.listenUsingRfcommWithServiceRecord(
-					    SERVICE_NAME, uuid);
-				Log.i(
-				    TAG,
-				    "Started Bluetooth REPL service (secure) with UUID: " +
-					uuid);
-			    } else {
-				serverSocket =
-				    bluetoothAdapter
-					.listenUsingInsecureRfcommWithServiceRecord(
-					    SERVICE_NAME, uuid);
-				Log.i(
-				    TAG,
-				    "Started Bluetooth REPL service (insecure) with UUID: " +
-					uuid);
-			    }
-			    serviceStarted = true;
-			    break;
-			} catch (IOException e) {
-			    lastException = e;
-			    Log.w(TAG, "Failed to start with UUID " + uuid +
-					   " (secure=" + secure +
-					   "): " + e.getMessage());
-			}
-		    }
-		    if (serviceStarted)
+		    try {
+			serverSocket =
+			    bluetoothAdapter.listenUsingRfcommWithServiceRecord(
+				SERVICE_NAME, uuid);
+			Log.i(
+			    TAG,
+			    "Started Bluetooth REPL service (secure) with UUID: " +
+				uuid);
+			serviceStarted = true;
 			break;
+		    } catch (IOException e) {
+			lastException = e;
+			Log.w(TAG, "Failed to start with UUID " + uuid + ": " +
+				       e.getMessage());
+		    }
 		}
 
 		if (!serviceStarted) {
