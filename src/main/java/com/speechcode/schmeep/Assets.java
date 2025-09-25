@@ -101,13 +101,39 @@ public class Assets {
 	"srfi/151/bit.so",
 	"srfi/151/bitwise.scm"};
 
+    private static boolean emptyDirectory(File dir) {
+	File[] files = dir.listFiles();
+
+	if (files != null) {
+	    for (File file : files) {
+		if (file.isDirectory()) {
+		    if (!emptyDirectory(file)) {
+			Log.e(TAG, "Failed to delete: " + file.getAbsolutePath());
+			return false;
+		    }
+		}
+		if (!file.delete()) {
+		    Log.e(TAG, "Failed to delete: " + file.getAbsolutePath());
+		    return false;
+		}
+	    }
+	}
+	return true;
+    }
+
     public static boolean extractAssets(Context context) {
 	AssetManager assetManager = context.getAssets();
 	String targetBase = "/data/data/com.speechcode.schmeep/lib";
 
 	File baseDir = new File(targetBase);
 
-	if (!baseDir.exists() && !baseDir.mkdirs()) {
+	if (baseDir.exists()) {
+	    if (!emptyDirectory(baseDir)) {
+		Log.i(TAG, "Failed to empty directory: " + baseDir.getAbsolutePath());
+		return false;
+	    }
+	    Log.i(TAG, "Emptied directory: " + baseDir.getAbsolutePath());
+	} else if (!baseDir.mkdirs()) {
 	    Log.e(TAG, "Failed to create base directory: " + targetBase);
 	    return false;
 	}
