@@ -80,7 +80,12 @@ public class BluetoothReplService {
     }
 
     public void requestBluetoothPermissions() {
-	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+	    if (hasBluetoothPermissions()) {
+		Log.i(TAG, "Bluetooth permissions already granted.");
+		start();
+	    }
+	} else {
 	    String[] permissions = {Manifest.permission.BLUETOOTH_CONNECT,
 				    Manifest.permission.BLUETOOTH_ADVERTISE};
 	    boolean needsPermission = false;
@@ -96,11 +101,6 @@ public class BluetoothReplService {
 		mainActivity.requestPermissions(permissions,
 						BLUETOOTH_REQUEST_CODE);
 	    } else {
-		Log.i(TAG, "Bluetooth permissions already granted.");
-		start();
-	    }
-	} else {
-	    if (hasBluetoothPermissions()) {
 		Log.i(TAG, "Bluetooth permissions already granted.");
 		start();
 	    }
