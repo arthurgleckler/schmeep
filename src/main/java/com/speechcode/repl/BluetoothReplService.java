@@ -20,43 +20,43 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BluetoothReplService {
-    private static final String TAG = "repl";
+    private static final int BLUETOOTH_REQUEST_CODE = 1001;
+    private static final int MAX_MESSAGE_LENGTH = 1048576;
     private static final UUID SCHEME_REPL_UUID =
 	UUID.fromString("611a1a1a-94ba-11f0-b0a8-5f754c08f133");
+    private static final String SERVICE_NAME = "CHB";
     private static final UUID SPP_UUID =
 	UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    private static final String SERVICE_NAME = "CHB";
-    private static final int MAX_MESSAGE_LENGTH = 1048576;
-    private static final int BLUETOOTH_REQUEST_CODE = 1001;
+    private static final String TAG = "repl";
 
     private static final byte MSG_TYPE_EXPRESSION = 0x00;
     private static final byte MSG_TYPE_INTERRUPT = 0x01;
 
-    private final ChibiScheme chibiScheme;
+    private final AtomicBoolean isRunning;
     private final BlockingQueue<EvaluationRequest> evaluationQueue;
+    private final ChibiScheme chibiScheme;
     private final ExecutorService evaluatorService;
     private final ExecutorService executorService;
-    private final AtomicBoolean isRunning;
     private final MainActivity mainActivity;
     private final WebView webView;
 
     private BluetoothAdapter bluetoothAdapter;
+    private BluetoothServerSocket serverSocket;
     private BluetoothSocket clientSocket;
-    private String connectionStatus;
     private InputStream inputStream;
     private OutputStream outputStream;
-    private BluetoothServerSocket serverSocket;
+    private String connectionStatus;
 
     public BluetoothReplService(MainActivity activity, ChibiScheme chibiScheme,
 				WebView webView) {
-	this.mainActivity = activity;
 	this.chibiScheme = chibiScheme;
-	this.webView = webView;
-	this.executorService = Executors.newSingleThreadExecutor();
-	this.evaluatorService = Executors.newSingleThreadExecutor();
-	this.isRunning = new AtomicBoolean(false);
-	this.evaluationQueue = new LinkedBlockingQueue<>();
 	this.connectionStatus = "Bluetooth disabled";
+	this.evaluationQueue = new LinkedBlockingQueue<>();
+	this.evaluatorService = Executors.newSingleThreadExecutor();
+	this.executorService = Executors.newSingleThreadExecutor();
+	this.isRunning = new AtomicBoolean(false);
+	this.mainActivity = activity;
+	this.webView = webView;
     }
 
     public void handleBluetoothPermissionsResult(int requestCode,
@@ -215,24 +215,6 @@ public class BluetoothReplService {
 	}
     }
 
-    private boolean hasBluetoothPermissions() {
-	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-	    return mainActivity.checkSelfPermission(
-		       Manifest.permission.BLUETOOTH_CONNECT) ==
-		PackageManager.PERMISSION_GRANTED &&
-		mainActivity.checkSelfPermission(
-		    Manifest.permission.BLUETOOTH_ADVERTISE) ==
-		    PackageManager.PERMISSION_GRANTED;
-	} else {
-	    return mainActivity.checkSelfPermission(
-		       Manifest.permission.BLUETOOTH) ==
-		PackageManager.PERMISSION_GRANTED &&
-		mainActivity.checkSelfPermission(
-		    Manifest.permission.BLUETOOTH_ADMIN) ==
-		    PackageManager.PERMISSION_GRANTED;
-	}
-    }
-
     private void closeClientConnection() {
 	try {
 	    if (inputStream != null)
@@ -256,27 +238,6 @@ public class BluetoothReplService {
 	}
     }
 
-    private void executeJavaScriptOnWebView(String javascript,
-					    String logMessage,
-					    String methodName) {
-	webView.post(() -> {
-	    try {
-		Log.d(TAG, logMessage);
-		webView.evaluateJavascript(javascript, jsResult -> {
-		    if (jsResult != null) {
-			Log.d(TAG, "JavaScript execution result: " + jsResult);
-		    }
-		});
-	    } catch (Exception e) {
-		Log.e(TAG, "Error in " + methodName + ": " + e.getMessage());
-	    }
-	});
-    }
-
-    private String escapeForJavaScript(String input) {
-	return input.replace("\"", "\\\"");
-    }
-
     private void displayExpression(String expression) {
 	executeJavaScriptOnWebView(
 	    String.format("displayBluetoothExpression(\"%s\");",
@@ -294,6 +255,27 @@ public class BluetoothReplService {
 	    "Executing JavaScript for Bluetooth result: " + expression + " = " +
 		result,
 	    "displayResult");
+    }
+
+    private String escapeForJavaScript(String input) {
+	return input.replace("\"", "\\\"");
+    }
+
+    private void executeJavaScriptOnWebView(String javascript,
+					    String logMessage,
+					    String methodName) {
+	webView.post(() -> {
+	    try {
+		Log.d(TAG, logMessage);
+		webView.evaluateJavascript(javascript, jsResult -> {
+		    if (jsResult != null) {
+			Log.d(TAG, "JavaScript execution result: " + jsResult);
+		    }
+		});
+	    } catch (Exception e) {
+		Log.e(TAG, "Error in " + methodName + ": " + e.getMessage());
+	    }
+	});
     }
 
     private void handleClientSession() throws IOException {
@@ -434,6 +416,24 @@ public class BluetoothReplService {
 		    }
 		}
 	    }
+	}
+    }
+
+    private boolean hasBluetoothPermissions() {
+	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+	    return mainActivity.checkSelfPermission(
+		       Manifest.permission.BLUETOOTH_CONNECT) ==
+		PackageManager.PERMISSION_GRANTED &&
+		mainActivity.checkSelfPermission(
+		    Manifest.permission.BLUETOOTH_ADVERTISE) ==
+		    PackageManager.PERMISSION_GRANTED;
+	} else {
+	    return mainActivity.checkSelfPermission(
+		       Manifest.permission.BLUETOOTH) ==
+		PackageManager.PERMISSION_GRANTED &&
+		mainActivity.checkSelfPermission(
+		    Manifest.permission.BLUETOOTH_ADMIN) ==
+		    PackageManager.PERMISSION_GRANTED;
 	}
     }
 
