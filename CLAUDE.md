@@ -33,7 +33,7 @@ combines:
   comprehensive asset extraction, and pthread mutex synchronization
 - **chibi-scheme/**: Full R7RS Scheme implementation with 583+ library
   files and dynamic shared library support
-- **Sources/assets/test.html**: Interactive WebView HTML interface
+- **Sources/assets/index.html**: Interactive WebView HTML interface
   with real-time local and remote Scheme evaluation
 
 ### JavaScript Bridge Architecture

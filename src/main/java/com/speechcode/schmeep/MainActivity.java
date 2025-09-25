@@ -55,7 +55,7 @@ public class MainActivity extends Activity {
 	}
 	webView.setWebChromeClient(new DebugWebChromeClient());
 	webView.setWebViewClient(new PageLoadedWebViewClient(this));
-	webView.loadUrl("file:///android_asset/test.html");
+	webView.loadUrl("file:///android_asset/index.html");
 	Log.i(TAG, "WebView setup completed.");
     }
 
