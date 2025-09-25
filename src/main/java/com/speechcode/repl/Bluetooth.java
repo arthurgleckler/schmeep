@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class BluetoothReplService {
+public class Bluetooth {
     private static final int BLUETOOTH_REQUEST_CODE = 1001;
     private static final int MAX_MESSAGE_LENGTH = 1048576;
     private static final UUID SCHEME_REPL_UUID =
@@ -47,8 +47,8 @@ public class BluetoothReplService {
     private OutputStream outputStream;
     private String connectionStatus;
 
-    public BluetoothReplService(MainActivity activity, ChibiScheme chibiScheme,
-				WebView webView) {
+    public Bluetooth(MainActivity activity, ChibiScheme chibiScheme,
+		     WebView webView) {
 	this.chibiScheme = chibiScheme;
 	this.connectionStatus = "Bluetooth disabled";
 	this.evaluationQueue = new LinkedBlockingQueue<>();

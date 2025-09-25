@@ -25,7 +25,7 @@ combines:
   JNI integration, and WebView console logging
 - **ChibiScheme.java**: Separate class providing JavaScript
   interface to avoid inner class compilation issues
-- **BluetoothReplService.java**: Background Bluetooth SPP server for
+- **Bluetooth.java**: Background Bluetooth SPP server for
   client communication and result display with thread-safe operations
 - **DebugWebChromeClient.java**: Separate WebView console logging
   implementation for JavaScript debugging
@@ -58,7 +58,7 @@ The application implements a complete two-way Bluetooth Serial Port Profile
 (SPP) communication system for remote Scheme expression evaluation:
 
 **Android Server Components:**
-- **BluetoothReplService.java**: SPP server implementing custom UUID service
+- **Bluetooth.java**: SPP server implementing custom UUID service
   registration with secure connection mode only
 - **Custom UUID**: `611a1a1a-94ba-11f0-b0a8-5f754c08f133` for reliable
   service discovery

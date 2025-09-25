@@ -9,9 +9,9 @@ import android.webkit.WebView;
 
 public class MainActivity extends Activity {
     private static final String TAG = "repl";
-    private WebView webView;
+    private Bluetooth bluetooth;
     private ChibiScheme chibiScheme;
-    private BluetoothReplService bluetoothReplService;
+    private WebView webView;
 
     static { System.loadLibrary("repl"); }
 
@@ -60,16 +60,15 @@ public class MainActivity extends Activity {
     }
 
     public void initializeBluetooth() {
-	bluetoothReplService =
-	    new BluetoothReplService(this, chibiScheme, webView);
-	bluetoothReplService.requestBluetoothPermissions();
+	bluetooth = new Bluetooth(this, chibiScheme, webView);
+	bluetooth.requestBluetoothPermissions();
     }
 
     @Override
     protected void onDestroy() {
 	super.onDestroy();
-	if (bluetoothReplService != null) {
-	    bluetoothReplService.stop();
+	if (bluetooth != null) {
+	    bluetooth.stop();
 	}
 	if (chibiScheme != null) {
 	    chibiScheme.cleanupScheme();
@@ -83,9 +82,9 @@ public class MainActivity extends Activity {
 					   int[] grantResults) {
 	super.onRequestPermissionsResult(requestCode, permissions,
 					 grantResults);
-	if (bluetoothReplService != null) {
-	    bluetoothReplService.handleBluetoothPermissionsResult(
-		requestCode, permissions, grantResults);
+	if (bluetooth != null) {
+	    bluetooth.handleBluetoothPermissionsResult(requestCode, permissions,
+						       grantResults);
 	}
     }
 }
