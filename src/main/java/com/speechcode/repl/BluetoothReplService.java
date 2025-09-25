@@ -200,24 +200,37 @@ public class BluetoothReplService {
 
     private void closeClientConnection() {
 	try {
-	    if (inputStream != null)
+	    if (inputStream != null) {
+		inputStream = null;
 		inputStream.close();
-	    if (outputStream != null)
-		outputStream.close();
-	    if (clientSocket != null)
-		clientSocket.close();
-	} catch (IOException e) {
-	    Log.w(TAG, "Error closing connection: " + e.getMessage());
-	} finally {
-	    inputStream = null;
-	    outputStream = null;
-	    clientSocket = null;
-	    evaluationQueue.clear();
-	    if (isRunning.get()) {
-		updateConnectionStatus(
-		    "awaiting-connection",
-		    "Client disconnected.  Waiting for new connection.");
 	    }
+	} catch (IOException e) {
+	    Log.w(TAG, "Error closing input stream: " + e.getMessage());
+	}
+
+	try {
+	    if (outputStream != null) {
+		outputStream = null;
+		outputStream.close();
+	    }
+	} catch (IOException e) {
+	    Log.w(TAG, "Error closing output stream: " + e.getMessage());
+	}
+
+	try {
+	    if (clientSocket != null) {
+		clientSocket = null;
+		clientSocket.close();
+	    }
+	} catch (IOException e) {
+	    Log.w(TAG, "Error closing client socket: " + e.getMessage());
+	}
+
+	evaluationQueue.clear();
+	if (isRunning.get()) {
+	    updateConnectionStatus(
+		"awaiting-connection",
+		"Client disconnected.  Waiting for new connection.");
 	}
     }
 
