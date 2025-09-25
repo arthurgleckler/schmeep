@@ -297,10 +297,10 @@ public class Bluetooth {
 			}
 		    }
 		} else if (msgType == MSG_TYPE_INTERRUPT) {
-		    Log.i(TAG, "*** INTERRUPT MESSAGE RECEIVED ***");
+		    Log.i(TAG, "Interrupt message received.");
 		    Log.i(
 			TAG,
-			"About to submit handleInterrupt() to executor (non-blocking)");
+			"About to submit handleInterrupt() to executor (non-blocking).");
 		    Log.i(TAG,
 			  "ExecutorService state: shutdown=" +
 			      executorService.isShutdown() +
@@ -315,15 +315,17 @@ public class Bluetooth {
 			try {
 			    Log.i(
 				TAG,
-				"*** EXECUTOR TASK STARTED - About to call interruptScheme() ***");
+				"Executor task started.  About to call interruptScheme.");
 			    Log.i(TAG,
-				  "*** CALLING interruptScheme() (async) ***");
+				  "Calling interruptScheme (async).");
+
 			    String result = chibiScheme.interruptScheme();
-			    Log.i(TAG, "*** interruptScheme() returned: " +
-					   result + " ***");
+
+			    Log.i(TAG, "interruptScheme() returned: " +
+					   result + "");
 			    writeMessage(currentOutputStream, result);
-			    Log.i(TAG, "*** Sent interrupt response: " +
-					   result + " ***");
+			    Log.i(TAG, "Sent interrupt response: " +
+					   result + "");
 			} catch (Exception e) {
 			    Log.e(TAG,
 				  "Exception in interrupt thread: " +
@@ -333,7 +335,7 @@ public class Bluetooth {
 		    }).start();
 		    Log.i(
 			TAG,
-			"handleInterrupt() submitted to executor, receiver thread continuing");
+			"handleInterrupt() submitted to executor.  Receiver thread continuing.");
 		}
 	    } catch (IOException e) {
 		Log.e(TAG, "Error in message handling: " + e.getMessage());
@@ -347,21 +349,23 @@ public class Bluetooth {
 	while (isRunning.get()) {
 	    try {
 		Log.i(TAG, "Waiting for evaluation request.");
+
 		EvaluationRequest request = evaluationQueue.take();
 
 		updateConnectionStatus("evaluating", "Evaluating expression.");
 		Log.i(TAG, "Evaluating expression: " +
 			       request.expression.replace("\n", "\\n"));
+
 		String result = chibiScheme.evaluateScheme(request.expression);
+
 		Log.i(TAG, "Evaluated result: " + result.replace("\n", "\\n"));
 		updateConnectionStatus("connected", "Client connected.");
 
 		writeMessage(request.responseStream, result);
-		Log.i(TAG, "Response sent successfully");
+		Log.i(TAG, "Response sent successfully.");
 		displayResult(request.expression, result);
-
 	    } catch (InterruptedException e) {
-		Log.i(TAG, "Evaluation thread interrupted");
+		Log.i(TAG, "Evaluation thread interrupted.");
 		Thread.currentThread().interrupt();
 		break;
 	    } catch (IOException e) {
@@ -384,17 +388,13 @@ public class Bluetooth {
 		updateConnectionStatus("waiting-for-connection",
 				       "Waiting for client connection.");
 		Log.i(TAG, "Waiting for Bluetooth client connection.");
-
 		clientSocket = serverSocket.accept();
 		Log.i(TAG, "Client connected: " +
 			       clientSocket.getRemoteDevice().getAddress());
-
 		inputStream = clientSocket.getInputStream();
 		outputStream = clientSocket.getOutputStream();
-
 		updateConnectionStatus("connected", "Client connected.");
 		handleClientSession();
-
 	    } catch (IOException e) {
 		if (isRunning.get()) {
 		    Log.e(TAG, "Connection error: " + e.getMessage());
@@ -402,6 +402,7 @@ public class Bluetooth {
 					   "Connection failed - " +
 					       e.getMessage());
 		}
+
 		closeClientConnection();
 
 		if (isRunning.get()) {
@@ -442,7 +443,7 @@ public class Bluetooth {
 	    int result =
 		inputStream.read(lengthBytes, bytesRead, 4 - bytesRead);
 	    if (result == -1) {
-		throw new IOException("Connection closed while reading length");
+		throw new IOException("Connection closed while reading length.");
 	    }
 	    bytesRead += result;
 	}
@@ -463,7 +464,7 @@ public class Bluetooth {
 					  messageLength - bytesRead);
 	    if (result == -1) {
 		throw new IOException(
-		    "Connection closed while reading message");
+		    "Connection closed while reading message.");
 	    }
 	    bytesRead += result;
 	}
@@ -476,10 +477,10 @@ public class Bluetooth {
 
 	if (msgType == -1) {
 	    throw new IOException(
-		"Connection closed while reading message type");
+		"Connection closed while reading message type.");
 	}
 
-	Log.i(TAG, "*** RECEIVED MESSAGE TYPE: " + msgType + " ***");
+	Log.i(TAG, "RECEIVED MESSAGE TYPE: " + msgType + "");
 	return (byte)msgType;
     }
 
