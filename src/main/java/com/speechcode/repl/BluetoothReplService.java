@@ -71,10 +71,10 @@ public class BluetoothReplService {
 		}
 	    }
 	    if (allGranted) {
-		Log.i(TAG, "Bluetooth permissions granted");
+		Log.i(TAG, "Bluetooth permissions granted.");
 		start();
 	    } else {
-		Log.w(TAG, "Bluetooth permissions denied");
+		Log.w(TAG, "Bluetooth permissions denied.");
 	    }
 	}
     }
@@ -96,12 +96,12 @@ public class BluetoothReplService {
 		mainActivity.requestPermissions(permissions,
 						BLUETOOTH_REQUEST_CODE);
 	    } else {
-		Log.i(TAG, "Bluetooth permissions already granted");
+		Log.i(TAG, "Bluetooth permissions already granted.");
 		start();
 	    }
 	} else {
 	    if (hasBluetoothPermissions()) {
-		Log.i(TAG, "Bluetooth permissions already granted");
+		Log.i(TAG, "Bluetooth permissions already granted.");
 		start();
 	    }
 	}
@@ -113,21 +113,21 @@ public class BluetoothReplService {
 
 	    if (bluetoothAdapter == null) {
 		updateConnectionStatus("bluetooth-not-supported",
-				       "Bluetooth not supported");
+				       "Bluetooth not supported.");
 		isRunning.set(false);
 		return;
 	    }
 
 	    if (!bluetoothAdapter.isEnabled()) {
 		updateConnectionStatus("bluetooth-disabled",
-				       "Bluetooth disabled");
+				       "Bluetooth disabled.");
 		isRunning.set(false);
 		return;
 	    }
 
 	    if (!hasBluetoothPermissions()) {
 		updateConnectionStatus("bluetooth-permissions-required",
-				       "Bluetooth permissions required");
+				       "Bluetooth permissions required.");
 		isRunning.set(false);
 		return;
 	    }
@@ -198,7 +198,7 @@ public class BluetoothReplService {
     public void stop() {
 	if (isRunning.compareAndSet(true, false)) {
 	    Log.i(TAG, "Stopping Bluetooth REPL service");
-	    updateConnectionStatus("disconnected", "Disconnected");
+	    updateConnectionStatus("disconnected", "Disconnected.");
 
 	    try {
 		if (serverSocket != null) {
@@ -233,7 +233,7 @@ public class BluetoothReplService {
 	    if (isRunning.get()) {
 		updateConnectionStatus(
 		    "awaiting-connection",
-		    "Client disconnected. Waiting for new connection.");
+		    "Client disconnected.  Waiting for new connection.");
 	    }
 	}
     }
@@ -357,7 +357,7 @@ public class BluetoothReplService {
 			       request.expression.replace("\n", "\\n"));
 		String result = chibiScheme.evaluateScheme(request.expression);
 		Log.i(TAG, "Evaluated result: " + result.replace("\n", "\\n"));
-		updateConnectionStatus("connected", "Client connected");
+		updateConnectionStatus("connected", "Client connected.");
 
 		writeMessage(request.responseStream, result);
 		Log.i(TAG, "Response sent successfully");
@@ -369,13 +369,13 @@ public class BluetoothReplService {
 		break;
 	    } catch (IOException e) {
 		Log.e(TAG, "Error in evaluation handling: " + e.getMessage());
-		updateConnectionStatus("connected", "Client connected");
+		updateConnectionStatus("connected", "Client connected.");
 		continue;
 	    } catch (Exception e) {
 		Log.e(TAG, "Unexpected error in evaluation handling: " +
 			       e.getMessage());
 		e.printStackTrace();
-		updateConnectionStatus("connected", "Client connected");
+		updateConnectionStatus("connected", "Client connected.");
 	    }
 	}
 	Log.i(TAG, "Evaluation thread ended");
