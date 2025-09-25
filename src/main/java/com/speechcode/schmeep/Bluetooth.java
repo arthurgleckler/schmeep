@@ -281,6 +281,7 @@ public class Bluetooth {
 
 		if (msgType == MSG_TYPE_EXPRESSION) {
 		    String expression = readExpressionMessage();
+
 		    if (expression != null && !expression.trim().isEmpty()) {
 			Log.i(TAG, "Received expression: " +
 				       expression.replace("\n", "\\n"));
@@ -436,6 +437,7 @@ public class Bluetooth {
     private String readExpressionMessage() throws IOException {
 	byte[] lengthBytes = new byte[4];
 	int bytesRead = 0;
+
 	while (bytesRead < 4) {
 	    int result =
 		inputStream.read(lengthBytes, bytesRead, 4 - bytesRead);
@@ -454,8 +456,8 @@ public class Bluetooth {
 	}
 
 	byte[] messageBytes = new byte[messageLength];
-	bytesRead = 0;
 
+	bytesRead = 0;
 	while (bytesRead < messageLength) {
 	    int result = inputStream.read(messageBytes, bytesRead,
 					  messageLength - bytesRead);
@@ -471,6 +473,7 @@ public class Bluetooth {
 
     private byte readMessageType() throws IOException {
 	int msgType = inputStream.read();
+
 	if (msgType == -1) {
 	    throw new IOException(
 		"Connection closed while reading message type");
@@ -484,8 +487,8 @@ public class Bluetooth {
 	throws IOException {
 	byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
 	int length = messageBytes.length;
-
 	byte[] lengthBytes = new byte[4];
+
 	lengthBytes[0] = (byte)((length >> 24) & 0xFF);
 	lengthBytes[1] = (byte)((length >> 16) & 0xFF);
 	lengthBytes[2] = (byte)((length >> 8) & 0xFF);
