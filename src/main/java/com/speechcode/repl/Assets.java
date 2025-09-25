@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 
-public class AssetExtractor {
+public class Assets {
     private static final String TAG = "repl";
 
     private static final String[] ESSENTIAL_FILES = {

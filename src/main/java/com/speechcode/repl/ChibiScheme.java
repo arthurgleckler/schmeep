@@ -17,7 +17,7 @@ public class ChibiScheme {
 	this.mainActivity = activity;
 
 	try {
-	    AssetExtractor.handleAssetExtraction(activity);
+	    Assets.handleAssetExtraction(activity);
 	    initializeScheme();
 	    Log.i(TAG, "Chibi Scheme initialized successfully.");
 	} catch (Exception e) {
