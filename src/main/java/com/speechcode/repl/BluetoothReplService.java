@@ -189,7 +189,7 @@ public class BluetoothReplService {
 		      "Failed to start Bluetooth server: " + e.getMessage());
 		updateConnectionStatus("failed-to-start",
 				       "Failed to start server: " +
-				       e.getMessage());
+					   e.getMessage());
 		isRunning.set(false);
 	    }
 	}
@@ -428,7 +428,7 @@ public class BluetoothReplService {
 		    Log.e(TAG, "Connection error: " + e.getMessage());
 		    updateConnectionStatus("connection-failed",
 					   "Connection failed - " +
-					   e.getMessage());
+					       e.getMessage());
 		}
 		closeClientConnection();
 
@@ -510,9 +510,10 @@ public class BluetoothReplService {
     private void updateConnectionStatus(String statusType, String message) {
 	this.connectionStatus = message;
 	webView.post(() -> {
-	    String javascript = String.format("updateConnectionStatus(\"%s\", \"%s\");",
-					      statusType.replace("\"", "\\\""),
-					      message.replace("\"", "\\\""));
+	    String javascript =
+		String.format("updateConnectionStatus(\"%s\", \"%s\");",
+			      statusType.replace("\"", "\\\""),
+			      message.replace("\"", "\\\""));
 	    webView.evaluateJavascript(javascript, null);
 	});
     }

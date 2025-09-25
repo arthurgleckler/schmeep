@@ -9,13 +9,13 @@ public class PageLoadedWebViewClient extends WebViewClient {
     private final MainActivity mainActivity;
 
     public PageLoadedWebViewClient(MainActivity activity) {
-        this.mainActivity = activity;
+	this.mainActivity = activity;
     }
 
     @Override
     public void onPageFinished(WebView view, String url) {
-        super.onPageFinished(view, url);
-        Log.i(TAG, "WebView page finished loading: " + url);
-        mainActivity.initializeBluetooth();
+	super.onPageFinished(view, url);
+	Log.i(TAG, "WebView page finished loading: " + url);
+	mainActivity.initializeBluetooth();
     }
 }
