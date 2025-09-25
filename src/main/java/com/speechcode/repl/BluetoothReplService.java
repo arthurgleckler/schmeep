@@ -162,7 +162,7 @@ public class BluetoothReplService {
 		}
 
 		updateConnectionStatus(
-		    "waiting-for-connection",
+		    "awaiting-connection",
 		    "Bluetooth server started.  Waiting for connections.");
 		executorService.execute(this::handleIncomingConnections);
 		evaluatorService.execute(this::handleEvaluations);
