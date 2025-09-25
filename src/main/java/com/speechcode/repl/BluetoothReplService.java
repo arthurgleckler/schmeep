@@ -278,26 +278,19 @@ public class BluetoothReplService {
     }
 
     private void displayExpression(String expression) {
-	String escapedExpression = escapeForJavaScript(expression);
-	String javascript = String.format("displayBluetoothExpression(\"%s\");",
-					  escapedExpression);
-
 	executeJavaScriptOnWebView(
-	    javascript,
+	    String.format("displayBluetoothExpression(\"%s\");",
+			  escapeForJavaScript(expression)),
 	    "Executing JavaScript for received Bluetooth expression: " +
 		expression,
 	    "displayExpression");
     }
 
     private void displayResult(String expression, String result) {
-	String escapedExpression = escapeForJavaScript(expression);
-	String escapedResult = escapeForJavaScript(result);
-	String javascript =
-	    String.format("displayBluetoothResult(\"%s\", \"%s\");",
-			  escapedExpression, escapedResult);
-
 	executeJavaScriptOnWebView(
-	    javascript,
+	    String.format("displayBluetoothResult(\"%s\", \"%s\");",
+			  escapeForJavaScript(expression),
+			  escapeForJavaScript(result)),
 	    "Executing JavaScript for Bluetooth result: " + expression + " = " +
 		result,
 	    "displayResult");
