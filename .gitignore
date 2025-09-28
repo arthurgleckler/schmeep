@@ -4,11 +4,10 @@
 *.keystore
 *.orig
 AndroidManifest.xml
-build/
+/build/
 classes.dex
-makecapk/
-output.map
-schmeep
-schmeep.apk
-schmeep.apk.idsig
+/makecapk/
+/output.map
+/schmeep
+/schmeep.apk.idsig
 Sources/assets/lib/
