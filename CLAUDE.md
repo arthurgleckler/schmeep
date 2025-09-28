@@ -332,7 +332,7 @@ proper interrupt handling.
 ```c
 typedef struct {
     char* message;
-    enum { MSG_EXPRESSION, MSG_INTERRUPT, MSG_QUIT } type;
+    enum { MSG_EXPRESSION, MSG_INTERRUPT } type;
 } message_t;
 ```
 

@@ -31,7 +31,7 @@
 
 typedef struct {
   char *message;
-  enum { MSG_EXPRESSION, MSG_INTERRUPT, MSG_QUIT } type;
+  enum { MSG_EXPRESSION, MSG_INTERRUPT } type;
 } message_t;
 
 static pthread_t input_thread_id;
@@ -584,7 +584,7 @@ int main(int argc, char *argv[]) {
   }
 
   printf("Connected! Starting REPL session.\n");
-  printf("Type Scheme expressions (or 'quit' to exit).");
+  printf("Type Scheme expressions.");
   printf("  Press Ctrl-C to interrupt long-running evaluations.\n\n");
 
   if (pipe(signal_pipe) < 0) {
@@ -618,11 +618,6 @@ int main(int argc, char *argv[]) {
 
     pending_message = NULL;
     pthread_mutex_unlock(&queue_mutex);
-    if (msg->type == MSG_QUIT) {
-      free(msg->message);
-      free(msg);
-      break;
-    }
     if (msg->type == MSG_EXPRESSION) {
       if (send_expression_message(sock, msg->message) < 0) {
 	fprintf(stderr, "Failed to send expression.  Exiting.\n");
@@ -683,11 +678,6 @@ void *input_thread(void *arg) {
     if (nread > 0 && line[nread - 1] == '\n') {
       line[nread - 1] = '\0';
     }
-    if (strcmp(line, "quit") == 0 || strcmp(line, "exit") == 0 ||
-	strcmp(line, ":q") == 0) {
-      free(line);
-      break;
-    }
     if (strlen(line) == 0) {
       free(line);
       continue;
@@ -707,13 +697,5 @@ void *input_thread(void *arg) {
     }
   }
 
-  message_t *quit_msg = malloc(sizeof(message_t));
-
-  quit_msg->message = NULL;
-  quit_msg->type = MSG_QUIT;
-  pthread_mutex_lock(&queue_mutex);
-  pending_message = quit_msg;
-  pthread_cond_signal(&queue_cond);
-  pthread_mutex_unlock(&queue_mutex);
   return NULL;
 }
