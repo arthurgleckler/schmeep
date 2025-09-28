@@ -201,8 +201,8 @@ public class Bluetooth {
     private void closeClientConnection() {
 	try {
 	    if (inputStream != null) {
-		inputStream = null;
 		inputStream.close();
+		inputStream = null;
 	    }
 	} catch (IOException e) {
 	    Log.w(TAG, "Error closing input stream: " + e.getMessage());
@@ -210,8 +210,8 @@ public class Bluetooth {
 
 	try {
 	    if (outputStream != null) {
-		outputStream = null;
 		outputStream.close();
+		outputStream = null;
 	    }
 	} catch (IOException e) {
 	    Log.w(TAG, "Error closing output stream: " + e.getMessage());
@@ -219,8 +219,8 @@ public class Bluetooth {
 
 	try {
 	    if (clientSocket != null) {
-		clientSocket = null;
 		clientSocket.close();
+		clientSocket = null;
 	    }
 	} catch (IOException e) {
 	    Log.w(TAG, "Error closing client socket: " + e.getMessage());
