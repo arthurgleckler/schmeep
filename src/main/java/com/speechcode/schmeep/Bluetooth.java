@@ -277,7 +277,12 @@ public class Bluetooth {
     private void handleClientSession() throws IOException {
 	while (isRunning.get()) {
 	    try {
-		byte msgType = readMessageType();
+		int msgType = readMessageType();
+
+		if (msgType == -1) {
+		    Log.i(TAG, "Client disconnected normally.");
+		    break;
+		}
 
 		if (msgType == MSG_TYPE_EXPRESSION) {
 		    String expression = readExpressionMessage();
@@ -472,16 +477,14 @@ public class Bluetooth {
 	return new String(messageBytes, StandardCharsets.UTF_8);
     }
 
-    private byte readMessageType() throws IOException {
+    private int readMessageType() throws IOException {
 	int msgType = inputStream.read();
 
-	if (msgType == -1) {
-	    throw new IOException(
-		"Connection closed while reading message type.");
+	if (msgType != -1) {
+	    Log.i(TAG, "RECEIVED MESSAGE TYPE: " + msgType + "");
 	}
 
-	Log.i(TAG, "RECEIVED MESSAGE TYPE: " + msgType + "");
-	return (byte)msgType;
+	return msgType;
     }
 
     private void writeMessage(OutputStream stream, String message)
