@@ -31,7 +31,6 @@ public class Bluetooth {
 
     private static final byte CMD_EVALUATE = (byte) 254;
     private static final byte CMD_INTERRUPT = (byte) 255;
-    private static final byte CMD_DISCONNECT = (byte) 253;
     private static final byte CMD_EVALUATION_COMPLETE = (byte) 255;
 
     private final AtomicBoolean isRunning;
@@ -281,8 +280,6 @@ public class Bluetooth {
 		    handleEvaluateCommand();
 		} else if (lengthByte == 255) {
 		    handleInterruptCommand();
-		} else if (lengthByte == 252) {
-		    handleDisconnectCommand();
 		} else if (lengthByte >= 1 && lengthByte <= 251) {
 		    handleDataBlock(lengthByte);
 		} else {
@@ -409,18 +406,6 @@ public class Bluetooth {
 	}).start();
     }
 
-    private void handleDisconnectCommand() {
-	Log.i(TAG, "Clean disconnect command received from client.");
-	expressionBuffer.setLength(0);
-	try {
-	    if (outputStream != null) {
-		outputStream.flush();
-	    }
-	} catch (IOException e) {
-	    Log.w(TAG, "Error flushing output during disconnect: " + e.getMessage());
-	}
-	closeClientConnection();
-    }
 
     private void sendDataBlockToClient(byte[] data, int length) throws IOException {
 	if (outputStream != null) {

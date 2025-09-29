@@ -26,7 +26,6 @@
 
 #define CMD_EVALUATE 254
 #define CMD_INTERRUPT 255
-#define CMD_DISCONNECT 253
 #define CMD_EVALUATION_COMPLETE 255
 
 #define SERVICE_NAME "schmeep"
@@ -252,14 +251,6 @@ int send_interrupt_command(int sock) {
   return 0;
 }
 
-int send_disconnect_command(int sock) {
-  uint8_t cmd = CMD_DISCONNECT;
-  if (send(sock, &cmd, 1, 0) != 1) {
-    perror("Failed to send disconnect command.");
-    return -1;
-  }
-  return 0;
-}
 
 int receive_data_block(int sock, char *buffer, int max_size) {
   unsigned char length_byte;
@@ -651,8 +642,6 @@ void *input_thread(void *arg) {
     if (nread == -1) {
       if (line)
 	free(line);
-      printf("Sending disconnect signal...\n");
-      send_disconnect_command(sock);
       break;
     }
 

@@ -80,7 +80,6 @@ Bidirectional Block-Oriented Protocol:
 
 Client → Server:
   - Data blocks: [1-byte length 1-252][UTF-8 data]
-  - DISCONNECT command: [253] (triggered by EOF/Ctrl-D for clean shutdown)
   - EVALUATE command: [254] (triggered by ENTER key)
   - INTERRUPT command: [255] (triggered by Ctrl-C)
 
@@ -97,11 +96,9 @@ Content Encoding: UTF-8 text (supports multi-line expressions)
 - **Interactive Mode**: Displays initial "scheme> " prompt on connection, then after receiving EVALUATION_COMPLETE (255) command from server
 - **Block-based Input**: Automatically splits large expressions into 252-byte blocks
 - **Real-time Results**: Displays evaluation results as they stream from server
-- **Clean Disconnect**: Sends DISCONNECT command on EOF to enable immediate connection reuse
 - **Connection Retry**: Implements EBUSY-specific retry logic with exponential backoff for robust reconnection
 
 **Server Behavior:**
-- **Clean Disconnect Handling**: Processes DISCONNECT command (253) by flushing output and cleanly closing client connection
 - **RFCOMM Cleanup Delay**: Waits 3 seconds after connection close before accepting new connections to allow BlueZ cleanup
 - **Connection State Management**: Properly manages RFCOMM connection state to prevent "Device or resource busy" errors on reconnection
 
