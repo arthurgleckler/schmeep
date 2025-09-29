@@ -29,13 +29,13 @@ public class Bluetooth {
 	UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private static final String TAG = "schmeep";
 
-    private static final byte MSG_TYPE_EXPRESSION = 0x00;
-    private static final byte MSG_TYPE_INTERRUPT = 0x01;
+    private static final byte CMD_EVALUATE = (byte) 254;
+    private static final byte CMD_INTERRUPT = (byte) 255;
+    private static final byte CMD_DISCONNECT = (byte) 253;
+    private static final byte CMD_EVALUATION_COMPLETE = (byte) 255;
 
     private final AtomicBoolean isRunning;
-    private final BlockingQueue<EvaluationRequest> evaluationQueue;
     private final ChibiScheme chibiScheme;
-    private final ExecutorService evaluatorService;
     private final ExecutorService executorService;
     private final MainActivity mainActivity;
     private final WebView webView;
@@ -46,17 +46,17 @@ public class Bluetooth {
     private InputStream inputStream;
     private OutputStream outputStream;
     private String connectionStatus;
+    private StringBuilder expressionBuffer;
 
     public Bluetooth(MainActivity activity, ChibiScheme chibiScheme,
 		     WebView webView) {
 	this.chibiScheme = chibiScheme;
 	this.connectionStatus = "Bluetooth disabled";
-	this.evaluationQueue = new LinkedBlockingQueue<>();
-	this.evaluatorService = Executors.newSingleThreadExecutor();
 	this.executorService = Executors.newSingleThreadExecutor();
 	this.isRunning = new AtomicBoolean(false);
 	this.mainActivity = activity;
 	this.webView = webView;
+	this.expressionBuffer = new StringBuilder();
     }
 
     public void handleBluetoothPermissionsResult(int requestCode,
@@ -165,7 +165,6 @@ public class Bluetooth {
 		    "awaiting-connection",
 		    "Bluetooth server started.  Waiting for connections.");
 		executorService.execute(this::handleIncomingConnections);
-		evaluatorService.execute(this::handleEvaluations);
 
 	    } catch (IOException e) {
 		Log.e(TAG,
@@ -192,9 +191,7 @@ public class Bluetooth {
 	    }
 
 	    closeClientConnection();
-	    evaluationQueue.clear();
 	    executorService.shutdown();
-	    evaluatorService.shutdown();
 	}
     }
 
@@ -226,7 +223,7 @@ public class Bluetooth {
 	    Log.w(TAG, "Error closing client socket: " + e.getMessage());
 	}
 
-	evaluationQueue.clear();
+	expressionBuffer.setLength(0);
 	if (isRunning.get()) {
 	    updateConnectionStatus(
 		"awaiting-connection",
@@ -263,11 +260,7 @@ public class Bluetooth {
 	webView.post(() -> {
 	    try {
 		Log.d(TAG, logMessage);
-		webView.evaluateJavascript(javascript, jsResult -> {
-		    if (jsResult != null) {
-			Log.d(TAG, "JavaScript execution result: " + jsResult);
-		    }
-		});
+		webView.evaluateJavascript(javascript, null);
 	    } catch (Exception e) {
 		Log.e(TAG, "Error in " + methodName + ": " + e.getMessage());
 	    }
@@ -277,70 +270,23 @@ public class Bluetooth {
     private void handleClientSession() throws IOException {
 	while (isRunning.get()) {
 	    try {
-		int msgType = readMessageType();
+		int lengthByte = inputStream.read();
 
-		if (msgType == -1) {
+		if (lengthByte == -1) {
 		    Log.i(TAG, "Client disconnected normally.");
 		    break;
 		}
 
-		if (msgType == MSG_TYPE_EXPRESSION) {
-		    String expression = readExpressionMessage();
-
-		    if (expression != null && !expression.trim().isEmpty()) {
-			Log.i(TAG, "Received expression: " +
-				       expression.replace("\n", "\\n"));
-
-			displayExpression(expression.trim());
-
-			try {
-			    evaluationQueue.put(new EvaluationRequest(
-				expression.trim(), outputStream));
-			} catch (InterruptedException e) {
-			    Thread.currentThread().interrupt();
-			    break;
-			}
-		    }
-		} else if (msgType == MSG_TYPE_INTERRUPT) {
-		    Log.i(TAG, "Interrupt message received.");
-		    Log.i(
-			TAG,
-			"About to submit handleInterrupt() to executor (non-blocking).");
-		    Log.i(TAG,
-			  "ExecutorService state: shutdown=" +
-			      executorService.isShutdown() +
-			      " terminated=" + executorService.isTerminated());
-		    Log.i(TAG, "MainActivity reference: " +
-				   (mainActivity != null ? "VALID" : "NULL"));
-
-		    // Don't block the receiver thread with interrupt handling.
-		    final OutputStream currentOutputStream = outputStream;
-
-		    new Thread(() -> {
-			try {
-			    Log.i(
-				TAG,
-				"Executor task started.  About to call interruptScheme.");
-			    Log.i(TAG,
-				  "Calling interruptScheme (async).");
-
-			    String result = chibiScheme.interruptScheme();
-
-			    Log.i(TAG, "interruptScheme() returned: " +
-					   result + "");
-			    writeMessage(currentOutputStream, result);
-			    Log.i(TAG, "Sent interrupt response: " +
-					   result + "");
-			} catch (Exception e) {
-			    Log.e(TAG,
-				  "Exception in interrupt thread: " +
-				      e.getMessage(),
-				  e);
-			}
-		    }).start();
-		    Log.i(
-			TAG,
-			"handleInterrupt() submitted to executor.  Receiver thread continuing.");
+		if (lengthByte == 254) {
+		    handleEvaluateCommand();
+		} else if (lengthByte == 255) {
+		    handleInterruptCommand();
+		} else if (lengthByte == 252) {
+		    handleDisconnectCommand();
+		} else if (lengthByte >= 1 && lengthByte <= 251) {
+		    handleDataBlock(lengthByte);
+		} else {
+		    Log.w(TAG, "Invalid length byte: " + lengthByte);
 		}
 	    } catch (IOException e) {
 		Log.e(TAG, "Error in message handling: " + e.getMessage());
@@ -349,43 +295,6 @@ public class Bluetooth {
 	}
     }
 
-    private void handleEvaluations() {
-	Log.i(TAG, "Evaluation thread started");
-	while (isRunning.get()) {
-	    try {
-		Log.i(TAG, "Waiting for evaluation request.");
-
-		EvaluationRequest request = evaluationQueue.take();
-
-		updateConnectionStatus("evaluating", "Evaluating expression.");
-		Log.i(TAG, "Evaluating expression: " +
-			       request.expression.replace("\n", "\\n"));
-
-		String result = chibiScheme.evaluateScheme(request.expression);
-
-		Log.i(TAG, "Evaluated result: " + result.replace("\n", "\\n"));
-		updateConnectionStatus("connected", "Client connected.");
-
-		writeMessage(request.responseStream, result);
-		Log.i(TAG, "Response sent successfully.");
-		displayResult(request.expression, result);
-	    } catch (InterruptedException e) {
-		Log.i(TAG, "Evaluation thread interrupted.");
-		Thread.currentThread().interrupt();
-		break;
-	    } catch (IOException e) {
-		Log.e(TAG, "Error in evaluation handling: " + e.getMessage());
-		updateConnectionStatus("connected", "Client connected.");
-		continue;
-	    } catch (Exception e) {
-		Log.e(TAG, "Unexpected error in evaluation handling: " +
-			       e.getMessage());
-		e.printStackTrace();
-		updateConnectionStatus("connected", "Client connected.");
-	    }
-	}
-	Log.i(TAG, "Evaluation thread ended");
-    }
 
     private void handleIncomingConnections() {
 	while (isRunning.get()) {
@@ -412,7 +321,8 @@ public class Bluetooth {
 
 		if (isRunning.get()) {
 		    try {
-			Thread.sleep(1000);
+			Log.i(TAG, "Waiting for RFCOMM cleanup before accepting new connections...");
+			Thread.sleep(3000);
 		    } catch (InterruptedException ie) {
 			Thread.currentThread().interrupt();
 			break;
@@ -440,67 +350,113 @@ public class Bluetooth {
 	}
     }
 
-    private String readExpressionMessage() throws IOException {
-	byte[] lengthBytes = new byte[4];
+    private void handleDataBlock(int length) throws IOException {
+	byte[] buffer = new byte[length];
 	int bytesRead = 0;
 
-	while (bytesRead < 4) {
-	    int result =
-		inputStream.read(lengthBytes, bytesRead, 4 - bytesRead);
+	while (bytesRead < length) {
+	    int result = inputStream.read(buffer, bytesRead, length - bytesRead);
 	    if (result == -1) {
-		throw new IOException("Connection closed while reading length.");
+		throw new IOException("Connection closed while reading data block.");
 	    }
 	    bytesRead += result;
 	}
 
-	int messageLength =
-	    ((lengthBytes[0] & 0xFF) << 24) | ((lengthBytes[1] & 0xFF) << 16) |
-	    ((lengthBytes[2] & 0xFF) << 8) | (lengthBytes[3] & 0xFF);
+	String data = new String(buffer, StandardCharsets.UTF_8);
+	expressionBuffer.append(data);
+	Log.d(TAG, "Received data block: " + data.replace("\n", "\\n"));
+    }
 
-	if (messageLength < 0 || messageLength > MAX_MESSAGE_LENGTH) {
-	    throw new IOException("Invalid message length: " + messageLength);
+    private void handleEvaluateCommand() {
+	String expression = expressionBuffer.toString().trim();
+	expressionBuffer.setLength(0);
+
+	if (expression.isEmpty()) {
+	    streamToClient("");
+	    return;
 	}
 
-	byte[] messageBytes = new byte[messageLength];
+	Log.i(TAG, "Executing expression: " + expression.replace("\n", "\\n"));
+	displayExpression(expression);
 
-	bytesRead = 0;
-	while (bytesRead < messageLength) {
-	    int result = inputStream.read(messageBytes, bytesRead,
-					  messageLength - bytesRead);
-	    if (result == -1) {
-		throw new IOException(
-		    "Connection closed while reading message.");
+	new Thread(() -> {
+	    try {
+		updateConnectionStatus("evaluating", "Evaluating expression.");
+		String result = chibiScheme.evaluateScheme(expression);
+		Log.i(TAG, "Evaluation result: " + result.replace("\n", "\\n"));
+		updateConnectionStatus("connected", "Client connected.");
+		streamToClient(result);
+		displayResult(expression, result);
+	    } catch (Exception e) {
+		Log.e(TAG, "Error during evaluation: " + e.getMessage());
+		streamToClient("Error: " + e.getMessage());
+		updateConnectionStatus("connected", "Client connected.");
 	    }
-	    bytesRead += result;
-	}
-
-	return new String(messageBytes, StandardCharsets.UTF_8);
+	}).start();
     }
 
-    private int readMessageType() throws IOException {
-	int msgType = inputStream.read();
+    private void handleInterruptCommand() {
+	Log.i(TAG, "Interrupt command received.");
+	expressionBuffer.setLength(0);
 
-	if (msgType != -1) {
-	    Log.i(TAG, "RECEIVED MESSAGE TYPE: " + msgType + "");
-	}
-
-	return msgType;
+	new Thread(() -> {
+	    try {
+		String result = chibiScheme.interruptScheme();
+		Log.i(TAG, "Interrupt result: " + result);
+	    } catch (Exception e) {
+		Log.e(TAG, "Error during interrupt: " + e.getMessage());
+	    }
+	}).start();
     }
 
-    private void writeMessage(OutputStream stream, String message)
-	throws IOException {
-	byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
-	int length = messageBytes.length;
-	byte[] lengthBytes = new byte[4];
+    private void handleDisconnectCommand() {
+	Log.i(TAG, "Clean disconnect command received from client.");
+	expressionBuffer.setLength(0);
+	try {
+	    if (outputStream != null) {
+		outputStream.flush();
+	    }
+	} catch (IOException e) {
+	    Log.w(TAG, "Error flushing output during disconnect: " + e.getMessage());
+	}
+	closeClientConnection();
+    }
 
-	lengthBytes[0] = (byte)((length >> 24) & 0xFF);
-	lengthBytes[1] = (byte)((length >> 16) & 0xFF);
-	lengthBytes[2] = (byte)((length >> 8) & 0xFF);
-	lengthBytes[3] = (byte)(length & 0xFF);
+    private void sendDataBlockToClient(byte[] data, int length) throws IOException {
+	if (outputStream != null) {
+	    outputStream.write(length);
+	    outputStream.write(data, 0, length);
+	    outputStream.flush();
+	}
+    }
 
-	stream.write(lengthBytes);
-	stream.write(messageBytes);
-	stream.flush();
+    private void sendEvaluationCompleteToClient() throws IOException {
+	if (outputStream != null) {
+	    outputStream.write(CMD_EVALUATION_COMPLETE);
+	    outputStream.flush();
+	}
+    }
+
+    private void streamToClient(String message) {
+	try {
+	    if (outputStream != null) {
+		String messageWithNewline = message + "\n";
+		byte[] messageBytes = messageWithNewline.getBytes(StandardCharsets.UTF_8);
+
+		int sent = 0;
+		while (sent < messageBytes.length) {
+		    int blockSize = Math.min(254, messageBytes.length - sent);
+		    outputStream.write(blockSize);
+		    outputStream.write(messageBytes, sent, blockSize);
+		    outputStream.flush();
+		    sent += blockSize;
+		}
+
+		sendEvaluationCompleteToClient();
+	    }
+	} catch (IOException e) {
+	    Log.e(TAG, "Error streaming to client: " + e.getMessage());
+	}
     }
 
     private void updateConnectionStatus(String statusType, String message) {

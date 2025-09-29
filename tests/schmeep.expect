@@ -38,8 +38,7 @@ send "(+ 200 30 4)\r"
 expect_or_fail "234"
 expect_or_fail "scheme> "
 
-send "\004"
-expect eof
+close
 
 spawn ./schmeep
 expect_or_fail "scheme> "
@@ -48,7 +47,6 @@ send "(+ 300 40 5)\r"
 expect_or_fail "345"
 expect_or_fail "scheme> "
 
-send "\004"
-expect eof
+close
 
 puts "ALL PASSED."

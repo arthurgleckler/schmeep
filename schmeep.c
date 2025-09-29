@@ -24,34 +24,26 @@
 #define CACHE_DIR ".cache/schmeep"
 #define CACHE_FILE "mac-address.txt"
 
-#define MSG_TYPE_EXPRESSION 0
-#define MSG_TYPE_INTERRUPT 1
+#define CMD_EVALUATE 254
+#define CMD_INTERRUPT 255
+#define CMD_DISCONNECT 253
+#define CMD_EVALUATION_COMPLETE 255
 
 #define SERVICE_NAME "schmeep"
 
-typedef struct {
-  char *message;
-  enum { MSG_EXPRESSION, MSG_INTERRUPT } type;
-} message_t;
-
 static pthread_t input_thread_id;
-static message_t *pending_message = NULL;
-static pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
-static pthread_cond_t response_cond = PTHREAD_COND_INITIALIZER;
-static volatile sig_atomic_t interrupt_pending = 0;
-static int signal_pipe[2] = {-1, -1};
+static pthread_t stream_thread_id;
 
 bool check_address_for_scheme_repl(const char *address);
 bool check_device_for_schmeep_service(const bdaddr_t *bdaddr);
 char *get_cache_file_path();
 void *input_thread(void *arg);
 char *load_cached_address();
-char *receive_message(int sock);
-char *receive_message_with_signal_check(int sock);
 void save_cached_address(const char *address);
-int send_expression_message(int sock, const char *message);
-int send_interrupt_message(int sock);
+int send_data_block(int sock, const char *data, size_t len);
+int send_evaluate_command(int sock);
+int send_interrupt_command(int sock);
+void protocol_handler_thread(void *arg);
 void sigint_handler(int sig);
 
 char *get_cache_file_path() {
@@ -212,142 +204,112 @@ bool check_address_for_scheme_repl(const char *address) {
   return found;
 }
 
+static int global_sock = -1;
+
 void sigint_handler(int sig) {
-  if (sig == SIGINT) {
-    char byte = 1;
-
-    write(signal_pipe[1], &byte, 1);
-    interrupt_pending = 1;
+  if (sig == SIGINT && global_sock != -1) {
+    send_interrupt_command(global_sock);
+    printf("\n");
+    fflush(stdout);
   }
 }
 
-int send_expression_message(int sock, const char *message) {
-  size_t len = strlen(message);
-  uint32_t network_len = htonl(len);
-  uint8_t msg_type = MSG_TYPE_EXPRESSION;
-
-  if (send(sock, &msg_type, 1, 0) != 1) {
-    perror("Failed to send message type.");
+int send_data_block(int sock, const char *data, size_t len) {
+  if (len > 253) {
+    fprintf(stderr, "Data block too large: %zu bytes\n", len);
     return -1;
   }
 
-  if (send(sock, &network_len, 4, 0) != 4) {
-    perror("Failed to send length.");
+  uint8_t length_byte = (uint8_t)len;
+  if (send(sock, &length_byte, 1, 0) != 1) {
+    perror("Failed to send length byte.");
     return -1;
   }
 
-  if (send(sock, message, len, 0) != (ssize_t)len) {
-    perror("Failed to send message.");
+  if (send(sock, data, len, 0) != (ssize_t)len) {
+    perror("Failed to send data block.");
     return -1;
   }
 
-  printf("%s\n", message);
   return 0;
 }
 
-int send_interrupt_message(int sock) {
-  uint8_t msg_type = MSG_TYPE_INTERRUPT;
-
-  if (send(sock, &msg_type, 1, 0) != 1) {
-    perror("Failed to send interrupt.");
+int send_evaluate_command(int sock) {
+  uint8_t cmd = CMD_EVALUATE;
+  if (send(sock, &cmd, 1, 0) != 1) {
+    perror("Failed to send evaluate command.");
     return -1;
   }
   return 0;
 }
 
-char *receive_message_with_interrupt_check(int sock) {
+int send_interrupt_command(int sock) {
+  uint8_t cmd = CMD_INTERRUPT;
+  if (send(sock, &cmd, 1, 0) != 1) {
+    perror("Failed to send interrupt command.");
+    return -1;
+  }
+  return 0;
+}
+
+int send_disconnect_command(int sock) {
+  uint8_t cmd = CMD_DISCONNECT;
+  if (send(sock, &cmd, 1, 0) != 1) {
+    perror("Failed to send disconnect command.");
+    return -1;
+  }
+  return 0;
+}
+
+int receive_data_block(int sock, char *buffer, int max_size) {
+  unsigned char length_byte;
+  ssize_t result = recv(sock, &length_byte, 1, 0);
+  if (result <= 0) {
+    return -1;
+  }
+
+  if (length_byte == CMD_EVALUATION_COMPLETE) {
+    return 0;
+  }
+
+  if (length_byte > max_size) {
+    fprintf(stderr, "Data block too large: %d bytes\n", length_byte);
+    return -1;
+  }
+
+  int bytes_read = 0;
+  while (bytes_read < length_byte) {
+    result = recv(sock, buffer + bytes_read, length_byte - bytes_read, 0);
+    if (result <= 0) {
+      return -1;
+    }
+    bytes_read += result;
+  }
+
+  return length_byte;
+}
+
+void protocol_handler_thread(void *arg) {
+  int sock = *(int *)arg;
+  char buffer[255];
+
   while (1) {
-    fd_set readfds;
+    int block_size = receive_data_block(sock, buffer, sizeof(buffer) - 1);
 
-    FD_ZERO(&readfds);
-    FD_SET(sock, &readfds);
-    FD_SET(signal_pipe[0], &readfds);
-
-    int max_fd = (sock > signal_pipe[0]) ? sock : signal_pipe[0];
-    int select_result = select(max_fd + 1, &readfds, NULL, NULL, NULL);
-
-    if (select_result < 0) {
-      if (errno == EINTR)
-	continue;
-      perror("Select failed.");
-      return NULL;
+    if (block_size < 0) {
+      break;
     }
 
-    if (FD_ISSET(signal_pipe[0], &readfds)) {
-      char byte;
-
-      read(signal_pipe[0], &byte, 1);
-      if (send_interrupt_message(sock) < 0) {
-	fprintf(stderr, "Failed to send interrupt message.\n");
-	return NULL;
-      }
-      interrupt_pending = 0;
-
-      char *interrupt_response = receive_message(sock);
-
-      if (interrupt_response) {
-	printf("⇒ %s\n", interrupt_response);
-	free(interrupt_response);
-      }
+    if (block_size == 0) {
       printf("scheme> ");
       fflush(stdout);
-
       continue;
     }
 
-    if (FD_ISSET(sock, &readfds)) {
-      return receive_message(sock);
-    }
+    buffer[block_size] = '\0';
+    printf("%s", buffer);
+    fflush(stdout);
   }
-}
-
-char *receive_message(int sock) {
-  uint32_t network_len;
-
-  ssize_t bytes_received = 0;
-
-  while (bytes_received < 4) {
-    ssize_t result = recv(sock, ((char *)&network_len) + bytes_received,
-			  4 - bytes_received, 0);
-
-    if (result <= 0) {
-      if (result < 0)
-	perror("Failed to receive length.");
-      return NULL;
-    }
-    bytes_received += result;
-  }
-
-  uint32_t len = ntohl(network_len);
-
-  if (len > MAX_MESSAGE_LENGTH) {
-    fprintf(stderr, "Message too long: %u bytes\n", len);
-    return NULL;
-  }
-
-  char *buffer = malloc(len + 1);
-
-  if (!buffer) {
-    perror("Failed to allocate buffer.");
-    return NULL;
-  }
-
-  bytes_received = 0;
-  while (bytes_received < (ssize_t)len) {
-    ssize_t result =
-	recv(sock, buffer + bytes_received, len - bytes_received, 0);
-
-    if (result <= 0) {
-      if (result < 0)
-	perror("Failed to receive message.");
-      free(buffer);
-      return NULL;
-    }
-    bytes_received += result;
-  }
-
-  buffer[len] = '\0';
-  return buffer;
 }
 
 int find_service_channel(const char *bt_addr) {
@@ -563,35 +525,65 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  int sock = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
-
-  if (sock < 0) {
-    perror("Failed to create socket.");
-    return 1;
-  }
-  // No socket timeout.
-
   struct sockaddr_rc addr = {0};
   addr.rc_family = AF_BLUETOOTH;
   addr.rc_channel = port;
   str2ba(bt_addr, &addr.rc_bdaddr);
 
-  printf("Connecting to %s on channel %d.\n", bt_addr, port);
-  if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-    perror("Failed to connect.");
+  int sock = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+  if (sock < 0) {
+    perror("Failed to create socket.");
+    return 1;
+  }
+
+  int reuse = 1;
+  if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+    perror("Failed to set SO_REUSEADDR.");
     close(sock);
     return 1;
+  }
+
+  printf("Connecting to %s on channel %d.\n", bt_addr, port);
+
+  int connect_attempts = 0;
+  int max_attempts = 4;
+
+  while (connect_attempts < max_attempts) {
+    if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
+      break;
+    }
+
+    if (errno == EBUSY && connect_attempts < max_attempts - 1) {
+      printf("Connection busy, waiting for BlueZ cleanup (attempt %d/%d)...\n",
+             connect_attempts + 1, max_attempts);
+      close(sock);
+      sleep(4);
+
+      sock = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+      if (sock < 0) {
+        perror("Failed to recreate socket.");
+        return 1;
+      }
+
+      int reuse = 1;
+      if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+        perror("Failed to set SO_REUSEADDR on retry.");
+        close(sock);
+        return 1;
+      }
+
+      connect_attempts++;
+    } else {
+      perror("Failed to connect.");
+      close(sock);
+      return 1;
+    }
   }
 
   printf("Connected! Starting REPL session.\n");
   printf("Type Scheme expressions.");
   printf("  Press Ctrl-C to interrupt long-running evaluations.\n\n");
 
-  if (pipe(signal_pipe) < 0) {
-    perror("Failed to create signal pipe.");
-    close(sock);
-    return 1;
-  }
 
   struct sigaction sa;
 
@@ -603,51 +595,27 @@ int main(int argc, char *argv[]) {
     close(sock);
     return 1;
   }
+  global_sock = sock;
+
+  if (pthread_create(&stream_thread_id, NULL, (void *(*)(void *))protocol_handler_thread, &sock) != 0) {
+    perror("Failed to create protocol handler thread.");
+    close(sock);
+    return 1;
+  }
+
+  printf("scheme> ");
+  fflush(stdout);
+
   if (pthread_create(&input_thread_id, NULL, input_thread, &sock) != 0) {
     perror("Failed to create input thread.");
     close(sock);
     return 1;
   }
-  while (1) {
-    pthread_mutex_lock(&queue_mutex);
-    while (!pending_message) {
-      pthread_cond_wait(&queue_cond, &queue_mutex);
-    }
-
-    message_t *msg = pending_message;
-
-    pending_message = NULL;
-    pthread_mutex_unlock(&queue_mutex);
-    if (msg->type == MSG_EXPRESSION) {
-      if (send_expression_message(sock, msg->message) < 0) {
-	fprintf(stderr, "Failed to send expression.  Exiting.\n");
-	free(msg->message);
-	free(msg);
-	break;
-      }
-    }
-
-    char *result = receive_message_with_interrupt_check(sock);
-
-    if (!result) {
-      free(msg->message);
-      free(msg);
-      break;
-    }
-    printf("⇒ %s\n\n", result);
-    fflush(stdout);
-    free(result);
-    free(msg->message);
-    free(msg);
-    pthread_mutex_lock(&queue_mutex);
-    pthread_cond_signal(&response_cond);
-    pthread_mutex_unlock(&queue_mutex);
-  }
 
   pthread_join(input_thread_id, NULL);
+  pthread_join(stream_thread_id, NULL);
+  shutdown(sock, SHUT_RDWR);
   close(sock);
-  close(signal_pipe[0]);
-  close(signal_pipe[1]);
   printf("Connection closed.\n");
   if (argc == 1 && bt_addr) {
     free((char *)bt_addr);
@@ -655,15 +623,26 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
+int send_expression_in_blocks(int sock, const char *expression) {
+  size_t len = strlen(expression);
+  size_t sent = 0;
+
+  while (sent < len) {
+    size_t block_size = (len - sent > 253) ? 253 : (len - sent);
+    if (send_data_block(sock, expression + sent, block_size) < 0) {
+      return -1;
+    }
+    sent += block_size;
+  }
+
+  return send_evaluate_command(sock);
+}
+
 void *input_thread(void *arg) {
   int sock = *(int *)arg;
   bool stdin_is_terminal = isatty(STDIN_FILENO);
 
   while (1) {
-    if (stdin_is_terminal) {
-      printf("scheme> ");
-      fflush(stdout);
-    }
 
     char *line = NULL;
     size_t len = 0;
@@ -672,26 +651,28 @@ void *input_thread(void *arg) {
     if (nread == -1) {
       if (line)
 	free(line);
+      printf("Sending disconnect signal...\n");
+      send_disconnect_command(sock);
       break;
     }
 
     if (nread > 0 && line[nread - 1] == '\n') {
       line[nread - 1] = '\0';
     }
+
     if (strlen(line) == 0) {
       free(line);
       continue;
     }
 
-    message_t *msg = malloc(sizeof(message_t));
+    if (send_expression_in_blocks(sock, line) < 0) {
+      fprintf(stderr, "Failed to send expression.\n");
+      free(line);
+      break;
+    }
 
-    msg->message = line;
-    msg->type = MSG_EXPRESSION;
-    pthread_mutex_lock(&queue_mutex);
-    pending_message = msg;
-    pthread_cond_signal(&queue_cond);
-    pthread_cond_wait(&response_cond, &queue_mutex);
-    pthread_mutex_unlock(&queue_mutex);
+    free(line);
+
     if (!stdin_is_terminal) {
       break;
     }

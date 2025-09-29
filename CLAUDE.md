@@ -62,8 +62,6 @@ The application implements a complete two-way Bluetooth Serial Port Profile
   registration with secure connection mode only
 - **Custom UUID**: `611a1a1a-94ba-11f0-b0a8-5f754c08f133` for reliable
   service discovery
-- **Length-Prefixed Protocol**: 4-byte big-endian length prefix + UTF-8
-  message content for multi-line expression support
 - **Service Discovery**: Registers as "schmeep" service in SDP for client
   discovery
 - **Bluetooth Permissions**: Complete Android 12+ permission handling with
@@ -75,17 +73,37 @@ The application implements a complete two-way Bluetooth Serial Port Profile
   correct RFCOMM channel automatically
 - **Interactive REPL**: Full command-line interface for real-time Scheme
   evaluation
-- **Robust Protocol**: Implements same length-prefixed binary protocol as
-  Android server
 
 **Protocol Specification:**
 ```
-Message Format: [4-byte length][UTF-8 content]
-Length Encoding: Big-endian 32-bit unsigned integer
-Content Encoding: UTF-8 text (supports multi-line expressions)
+Bidirectional Block-Oriented Protocol:
+
+Client → Server:
+  - Data blocks: [1-byte length 1-252][UTF-8 data]
+  - DISCONNECT command: [253] (triggered by EOF/Ctrl-D for clean shutdown)
+  - EVALUATE command: [254] (triggered by ENTER key)
+  - INTERRUPT command: [255] (triggered by Ctrl-C)
+
+Server → Client:
+  - Data blocks: [1-byte length 1-254][UTF-8 data]
+  - EVALUATION_COMPLETE command: [255] (sent after evaluation result)
+
 Connection Type: RFCOMM (Bluetooth SPP)
 Service UUID: 611a1a1a-94ba-11f0-b0a8-5f754c08f133
+Content Encoding: UTF-8 text (supports multi-line expressions)
 ```
+
+**Client Behavior:**
+- **Interactive Mode**: Displays initial "scheme> " prompt on connection, then after receiving EVALUATION_COMPLETE (255) command from server
+- **Block-based Input**: Automatically splits large expressions into 252-byte blocks
+- **Real-time Results**: Displays evaluation results as they stream from server
+- **Clean Disconnect**: Sends DISCONNECT command on EOF to enable immediate connection reuse
+- **Connection Retry**: Implements EBUSY-specific retry logic with exponential backoff for robust reconnection
+
+**Server Behavior:**
+- **Clean Disconnect Handling**: Processes DISCONNECT command (253) by flushing output and cleanly closing client connection
+- **RFCOMM Cleanup Delay**: Waits 3 seconds after connection close before accepting new connections to allow BlueZ cleanup
+- **Connection State Management**: Properly manages RFCOMM connection state to prevent "Device or resource busy" errors on reconnection
 
 **Usage:**
 ```bash
@@ -245,7 +263,7 @@ echo -e "(define x 42)\nx\n(* x 2)" | ./schmeep AA:BB:CC:DD:EE:FF
 - **Service Name**: "Schmeep" (registered in SDP for discovery)
 - **Required Permissions**: BLUETOOTH, BLUETOOTH_ADMIN, BLUETOOTH_CONNECT,
   BLUETOOTH_ADVERTISE (automatically added via AndroidManifest.xml.template)
-- **Protocol**: Length-prefixed binary (4-byte big-endian length + UTF-8 content)
+- **Protocol**: Bidirectional streaming with block-based client commands
 - **Client Dependencies**: libbluetooth-dev package on Linux
 
 ### Asset Management
@@ -446,3 +464,90 @@ The new design removes:
 
 **Result:** Simpler, more reliable, and easier to maintain threading
 architecture.
+
+## Bluetooth Protocol Overhaul Plan
+
+### Revised Protocol Design
+
+**Server → Client (Asynchronous Stream):**
+- Server can send bytes to client at any time
+- No length prefixes or synchronization required
+- Pure byte stream for real-time output/logging during evaluation
+
+**Client → Server (Command-Based Blocks):**
+- **Data Blocks**: 1-byte length (1-253) + data bytes
+- **Commands**: Special length values with no data
+  - `254` (0xFE) = **EVALUATE** - evaluate buffered data (triggered by ENTER key)
+  - `255` (0xFF) = **INTERRUPT** - interrupt current evaluation (triggered by Ctrl-C)
+- **Buffering Strategy**:
+  - Accumulate keystrokes in blocks up to 253 bytes as user types
+  - When user presses ENTER: flush any buffered data first, then send EVALUATE command
+  - When user presses Ctrl-C: send INTERRUPT command immediately
+  - Large expressions automatically split into multiple blocks before EVALUATE
+
+### Implementation Plan
+
+#### Phase 1: Protocol Design & Data Structures
+1. **Define new protocol constants and structures**:
+   - New length encoding (1-byte, 1-253 for data, 254/255 for commands)
+   - EVALUATE (254) command triggered by ENTER key
+   - INTERRUPT (255) command triggered by Ctrl-C
+   - Client-side buffering mechanism for data blocks
+
+#### Phase 2: Server-Side Changes (Android - Bluetooth.java)
+1. **Remove synchronous request-response model**:
+   - Eliminate EvaluationRequest queue system
+   - Remove length-prefixed message reading (readExpressionMessage)
+   - Remove writeMessage() method with 4-byte length headers
+
+2. **Implement new block-based client message parser**:
+   - Read 1-byte length headers in handleClientSession()
+   - Handle data blocks (1-253) with accumulation buffer
+   - Handle EVALUATE (254) command to trigger evaluation of buffered data
+   - Handle INTERRUPT (255) command for immediate interruption
+   - Flush buffer on EVALUATE, clear on INTERRUPT
+
+3. **Add asynchronous server-to-client streaming**:
+   - Direct byte streaming without length prefixes
+   - Thread-safe output stream for evaluation results
+   - Real-time output capability during long evaluations
+
+#### Phase 3: Client-Side Changes (C - schmeep.c)
+1. **Remove old synchronous protocol**:
+   - Eliminate send_expression_message() with 4-byte length headers
+   - Remove receive_message() length-prefix parsing
+   - Simplify message structures
+
+2. **Implement new block-based sender**:
+   - Data buffering with 253-byte block limits as user types
+   - EVALUATE (254) command sent when user presses ENTER
+   - INTERRUPT (255) command sent when user presses Ctrl-C
+   - Automatic block splitting for large expressions
+   - Buffer flushing before sending commands
+
+3. **Add asynchronous server stream reader**:
+   - Continuous byte stream reading from server
+   - Real-time display of server output without length parsing
+   - Separate thread for server-to-client data streaming
+
+#### Phase 4: Threading Architecture Updates
+1. **Server threading** (simplified):
+   - Single client handler thread for reading blocks
+   - Separate evaluation thread (async from communication)
+   - Asynchronous output streaming capability
+
+2. **Client threading** (redesigned):
+   - Input thread: character-by-character stdin → block buffer → EVALUATE on ENTER
+   - Output thread: server byte stream → stdout display
+   - Main thread: coordination and Ctrl-C → INTERRUPT handling
+
+#### Phase 5: Testing & Integration
+1. **ENTER key triggering EVALUATE command**
+2. **Ctrl-C triggering INTERRUPT during evaluations**
+3. **Real-time streaming during long evaluations**
+4. **Large expression block splitting before EVALUATE**
+5. **Protocol compatibility testing**
+
+This overhaul enables immediate evaluation on ENTER, real-time
+interruption via Ctrl-C, and bidirectional streaming with no
+synchronous blocking.
