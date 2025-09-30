@@ -5,7 +5,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 public class PageLoadedWebViewClient extends WebViewClient {
-    private static final String TAG = "schmeep";
+    private static final String LOG_TAG = "schmeep";
+
     private final MainActivity mainActivity;
 
     public PageLoadedWebViewClient(MainActivity activity) {
@@ -15,7 +16,7 @@ public class PageLoadedWebViewClient extends WebViewClient {
     @Override
     public void onPageFinished(WebView view, String url) {
 	super.onPageFinished(view, url);
-	Log.i(TAG, "WebView page finished loading: " + url);
+	Log.i(LOG_TAG, "WebView page finished loading: " + url);
 	mainActivity.initializeBluetooth();
     }
 }

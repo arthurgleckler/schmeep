@@ -8,7 +8,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 public class MainActivity extends Activity {
-    private static final String TAG = "schmeep";
+    private static final String LOG_TAG = "schmeep";
+
     private Bluetooth bluetooth;
     private ChibiScheme chibiScheme;
     private WebView webView;
@@ -19,11 +20,11 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
 	super.onCreate(savedInstanceState);
 	setTitle("Schmeep: Chibi Scheme REPL");
-	Log.i(TAG, "MainActivity onCreate started.");
+	Log.i(LOG_TAG, "MainActivity onCreate started.");
 
 	chibiScheme = new ChibiScheme(this);
 	setupWebView();
-	Log.i(TAG, "MainActivity onCreate completed.");
+	Log.i(LOG_TAG, "MainActivity onCreate completed.");
     }
 
     @SuppressLint({"AddJavascriptInterface", "SetJavaScriptEnabled"})
@@ -37,26 +38,26 @@ public class MainActivity extends Activity {
 	webSettings.setAllowFileAccess(true);
 	webSettings.setAllowContentAccess(true);
 	try {
-	    Log.i(TAG, "Direct JNI test result: " +
+	    Log.i(LOG_TAG, "Direct JNI test result: " +
 			   chibiScheme.evaluateScheme("(+ 2 3)"));
-	    Log.i(TAG, "Direct JNI test result: " +
+	    Log.i(LOG_TAG, "Direct JNI test result: " +
 			   chibiScheme.evaluateScheme("(* 4 5)"));
-	    Log.i(TAG, "Direct JNI test result: " +
+	    Log.i(LOG_TAG, "Direct JNI test result: " +
 			   chibiScheme.evaluateScheme("(list 1 2 3)"));
 	} catch (Exception e) {
-	    Log.e(TAG, "JNI test failed: " + e.getMessage());
+	    Log.e(LOG_TAG, "JNI test failed: " + e.getMessage());
 	}
 	setContentView(webView);
 	try {
 	    webView.addJavascriptInterface(chibiScheme, "Scheme");
-	    Log.i(TAG, "JavaScript interface added successfully.");
+	    Log.i(LOG_TAG, "JavaScript interface added successfully.");
 	} catch (Exception e) {
-	    Log.e(TAG, "Failed to add JavaScript interface: " + e.getMessage());
+	    Log.e(LOG_TAG, "Failed to add JavaScript interface: " + e.getMessage());
 	}
 	webView.setWebChromeClient(new DebugWebChromeClient());
 	webView.setWebViewClient(new PageLoadedWebViewClient(this));
 	webView.loadUrl("file:///android_asset/index.html");
-	Log.i(TAG, "WebView setup completed.");
+	Log.i(LOG_TAG, "WebView setup completed.");
     }
 
     public void initializeBluetooth() {
@@ -73,7 +74,7 @@ public class MainActivity extends Activity {
 	if (chibiScheme != null) {
 	    chibiScheme.cleanupScheme();
 	}
-	Log.i(TAG, "MainActivity destroyed");
+	Log.i(LOG_TAG, "MainActivity destroyed");
     }
 
     @Override

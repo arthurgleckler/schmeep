@@ -5,7 +5,8 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
 public class ChibiScheme {
-    private static final String TAG = "schmeep";
+    private static final String LOG_TAG = "schmeep";
+
     private MainActivity mainActivity;
 
     public native void cleanupScheme();
@@ -19,9 +20,9 @@ public class ChibiScheme {
 	try {
 	    Assets.handleAssetExtraction(activity);
 	    initializeScheme();
-	    Log.i(TAG, "Chibi Scheme initialized successfully.");
+	    Log.i(LOG_TAG, "Chibi Scheme initialized successfully.");
 	} catch (Exception e) {
-	    Log.e(TAG, "Failed to initialize Chibi Scheme: " + e.getMessage());
+	    Log.e(LOG_TAG, "Failed to initialize Chibi Scheme: " + e.getMessage());
 	    cleanupScheme();
 	    throw e;
 	}
@@ -29,7 +30,7 @@ public class ChibiScheme {
 
     @JavascriptInterface
     public String eval(String expression) {
-	Log.i(TAG, "Chibi Scheme: local evaluation: " + expression);
+	Log.i(LOG_TAG, "Chibi Scheme: local evaluation: " + expression);
 	return evaluateScheme(expression);
     }
 }

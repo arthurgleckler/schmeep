@@ -27,11 +27,11 @@ public class Bluetooth {
     private static final String SERVICE_NAME = "schmeep";
     private static final UUID SPP_UUID =
 	UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    private static final String TAG = "schmeep";
 
     private static final byte CMD_EVALUATE = (byte) 254;
     private static final byte CMD_INTERRUPT = (byte) 255;
     private static final byte CMD_EVALUATION_COMPLETE = (byte) 255;
+    private static final String LOG_TAG = "schmeep";
 
     private final AtomicBoolean isRunning;
     private final ChibiScheme chibiScheme;
@@ -70,10 +70,10 @@ public class Bluetooth {
 		}
 	    }
 	    if (allGranted) {
-		Log.i(TAG, "Bluetooth permissions granted.");
+		Log.i(LOG_TAG, "Bluetooth permissions granted.");
 		start();
 	    } else {
-		Log.w(TAG, "Bluetooth permissions denied.");
+		Log.w(LOG_TAG, "Bluetooth permissions denied.");
 	    }
 	}
     }
@@ -81,7 +81,7 @@ public class Bluetooth {
     public void requestBluetoothPermissions() {
 	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
 	    if (hasBluetoothPermissions()) {
-		Log.i(TAG, "Bluetooth permissions already granted.");
+		Log.i(LOG_TAG, "Bluetooth permissions already granted.");
 		start();
 	    }
 	} else {
@@ -100,7 +100,7 @@ public class Bluetooth {
 		mainActivity.requestPermissions(permissions,
 						BLUETOOTH_REQUEST_CODE);
 	    } else {
-		Log.i(TAG, "Bluetooth permissions already granted.");
+		Log.i(LOG_TAG, "Bluetooth permissions already granted.");
 		start();
 	    }
 	}
@@ -141,14 +141,14 @@ public class Bluetooth {
 			    bluetoothAdapter.listenUsingRfcommWithServiceRecord(
 				SERVICE_NAME, uuid);
 			Log.i(
-			    TAG,
+			    LOG_TAG,
 			    "Started Bluetooth REPL service (secure) with UUID: " +
 				uuid);
 			serviceStarted = true;
 			break;
 		    } catch (IOException e) {
 			lastException = e;
-			Log.w(TAG, "Failed to start with UUID " + uuid + ": " +
+			Log.w(LOG_TAG, "Failed to start with UUID " + uuid + ": " +
 				       e.getMessage());
 		    }
 		}
@@ -166,7 +166,7 @@ public class Bluetooth {
 		executorService.execute(this::handleIncomingConnections);
 
 	    } catch (IOException e) {
-		Log.e(TAG,
+		Log.e(LOG_TAG,
 		      "Failed to start Bluetooth server: " + e.getMessage());
 		updateConnectionStatus("failed-to-start",
 				       "Failed to start server: " +
@@ -178,7 +178,7 @@ public class Bluetooth {
 
     public void stop() {
 	if (isRunning.compareAndSet(true, false)) {
-	    Log.i(TAG, "Stopping Bluetooth REPL service");
+	    Log.i(LOG_TAG, "Stopping Bluetooth REPL service");
 	    updateConnectionStatus("disconnected", "Disconnected.");
 
 	    try {
@@ -186,7 +186,7 @@ public class Bluetooth {
 		    serverSocket.close();
 		}
 	    } catch (IOException e) {
-		Log.w(TAG, "Error closing server socket: " + e.getMessage());
+		Log.w(LOG_TAG, "Error closing server socket: " + e.getMessage());
 	    }
 
 	    closeClientConnection();
@@ -201,7 +201,7 @@ public class Bluetooth {
 		inputStream = null;
 	    }
 	} catch (IOException e) {
-	    Log.w(TAG, "Error closing input stream: " + e.getMessage());
+	    Log.w(LOG_TAG, "Error closing input stream: " + e.getMessage());
 	}
 
 	try {
@@ -210,7 +210,7 @@ public class Bluetooth {
 		outputStream = null;
 	    }
 	} catch (IOException e) {
-	    Log.w(TAG, "Error closing output stream: " + e.getMessage());
+	    Log.w(LOG_TAG, "Error closing output stream: " + e.getMessage());
 	}
 
 	try {
@@ -219,7 +219,7 @@ public class Bluetooth {
 		clientSocket = null;
 	    }
 	} catch (IOException e) {
-	    Log.w(TAG, "Error closing client socket: " + e.getMessage());
+	    Log.w(LOG_TAG, "Error closing client socket: " + e.getMessage());
 	}
 
 	expressionBuffer.setLength(0);
@@ -258,10 +258,10 @@ public class Bluetooth {
 					    String methodName) {
 	webView.post(() -> {
 	    try {
-		Log.d(TAG, logMessage);
+		Log.d(LOG_TAG, logMessage);
 		webView.evaluateJavascript(javascript, null);
 	    } catch (Exception e) {
-		Log.e(TAG, "Error in " + methodName + ": " + e.getMessage());
+		Log.e(LOG_TAG, "Error in " + methodName + ": " + e.getMessage());
 	    }
 	});
     }
@@ -272,7 +272,7 @@ public class Bluetooth {
 		int lengthByte = inputStream.read();
 
 		if (lengthByte == -1) {
-		    Log.i(TAG, "Client disconnected normally.");
+		    Log.i(LOG_TAG, "Client disconnected normally.");
 		    break;
 		}
 
@@ -282,11 +282,9 @@ public class Bluetooth {
 		    handleInterruptCommand();
 		} else if (lengthByte >= 1 && lengthByte <= 251) {
 		    handleDataBlock(lengthByte);
-		} else {
-		    Log.w(TAG, "Invalid length byte: " + lengthByte);
 		}
 	    } catch (IOException e) {
-		Log.e(TAG, "Error in message handling: " + e.getMessage());
+		Log.e(LOG_TAG, "Error in message handling: " + e.getMessage());
 		throw e;
 	    }
 	}
@@ -298,9 +296,9 @@ public class Bluetooth {
 	    try {
 		updateConnectionStatus("waiting-for-connection",
 				       "Waiting for client connection.");
-		Log.i(TAG, "Waiting for Bluetooth client connection.");
+		Log.i(LOG_TAG, "Waiting for Bluetooth client connection.");
 		clientSocket = serverSocket.accept();
-		Log.i(TAG, "Client connected: " +
+		Log.i(LOG_TAG, "Client connected: " +
 			       clientSocket.getRemoteDevice().getAddress());
 		inputStream = clientSocket.getInputStream();
 		outputStream = clientSocket.getOutputStream();
@@ -308,7 +306,7 @@ public class Bluetooth {
 		handleClientSession();
 	    } catch (IOException e) {
 		if (isRunning.get()) {
-		    Log.e(TAG, "Connection error: " + e.getMessage());
+		    Log.e(LOG_TAG, "Connection error: " + e.getMessage());
 		    updateConnectionStatus("connection-failed",
 					   "Connection failed - " +
 					       e.getMessage());
@@ -318,7 +316,7 @@ public class Bluetooth {
 
 		if (isRunning.get()) {
 		    try {
-			Log.i(TAG, "Waiting for RFCOMM cleanup before accepting new connections...");
+			Log.i(LOG_TAG, "Waiting for RFCOMM cleanup before accepting new connections...");
 			Thread.sleep(3000);
 		    } catch (InterruptedException ie) {
 			Thread.currentThread().interrupt();
@@ -361,7 +359,7 @@ public class Bluetooth {
 
 	String data = new String(buffer, StandardCharsets.UTF_8);
 	expressionBuffer.append(data);
-	Log.d(TAG, "Received data block: " + data.replace("\n", "\\n"));
+	Log.d(LOG_TAG, "Received data block: " + data.replace("\n", "\\n"));
     }
 
     private void handleEvaluateCommand() {
@@ -373,19 +371,19 @@ public class Bluetooth {
 	    return;
 	}
 
-	Log.i(TAG, "Executing expression: " + expression.replace("\n", "\\n"));
+	Log.i(LOG_TAG, "Executing expression: " + expression.replace("\n", "\\n"));
 	displayExpression(expression);
 
 	new Thread(() -> {
 	    try {
 		updateConnectionStatus("evaluating", "Evaluating expression.");
 		String result = chibiScheme.evaluateScheme(expression);
-		Log.i(TAG, "Evaluation result: " + result.replace("\n", "\\n"));
+		Log.i(LOG_TAG, "Evaluation result: " + result.replace("\n", "\\n"));
 		updateConnectionStatus("connected", "Client connected.");
 		streamToClient(result);
 		displayResult(expression, result);
 	    } catch (Exception e) {
-		Log.e(TAG, "Error during evaluation: " + e.getMessage());
+		Log.e(LOG_TAG, "Error during evaluation: " + e.getMessage());
 		streamToClient("Error: " + e.getMessage());
 		updateConnectionStatus("connected", "Client connected.");
 	    }
@@ -393,15 +391,15 @@ public class Bluetooth {
     }
 
     private void handleInterruptCommand() {
-	Log.i(TAG, "Interrupt command received.");
+	Log.i(LOG_TAG, "Interrupt command received.");
 	expressionBuffer.setLength(0);
 
 	new Thread(() -> {
 	    try {
 		String result = chibiScheme.interruptScheme();
-		Log.i(TAG, "Interrupt result: " + result);
+		Log.i(LOG_TAG, "Interrupt result: " + result);
 	    } catch (Exception e) {
-		Log.e(TAG, "Error during interrupt: " + e.getMessage());
+		Log.e(LOG_TAG, "Error during interrupt: " + e.getMessage());
 	    }
 	}).start();
     }
@@ -440,7 +438,7 @@ public class Bluetooth {
 		sendEvaluationCompleteToClient();
 	    }
 	} catch (IOException e) {
-	    Log.e(TAG, "Error streaming to client: " + e.getMessage());
+	    Log.e(LOG_TAG, "Error streaming to client: " + e.getMessage());
 	}
     }
 
