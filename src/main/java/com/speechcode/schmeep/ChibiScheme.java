@@ -22,7 +22,8 @@ public class ChibiScheme {
 	    initializeScheme();
 	    Log.i(LOG_TAG, "Chibi Scheme initialized successfully.");
 	} catch (Exception e) {
-	    Log.e(LOG_TAG, "Failed to initialize Chibi Scheme: " + e.getMessage());
+	    Log.e(LOG_TAG,
+		  "Failed to initialize Chibi Scheme: " + e.getMessage());
 	    cleanupScheme();
 	    throw e;
 	}

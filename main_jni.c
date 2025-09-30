@@ -205,22 +205,25 @@ JNIEXPORT void JNICALL Java_com_speechcode_schmeep_ChibiScheme_initializeScheme(
   pthread_mutex_unlock(&scheme_mutex);
 }
 
-JNIEXPORT jstring JNICALL Java_com_speechcode_schmeep_ChibiScheme_interruptScheme(
-    JNIEnv *env, jobject thiz) {
+JNIEXPORT jstring JNICALL
+Java_com_speechcode_schmeep_ChibiScheme_interruptScheme(JNIEnv *env,
+							jobject thiz) {
   LOGI("JNI: interruptScheme called.");
 
   sexp_context_interruptp(sexp_context_child(scheme_ctx)) = 1;
   return (*env)->NewStringUTF(env, "Interrupted.");
 }
 
-JNIEXPORT void JNICALL
-Java_com_speechcode_schmeep_ChibiScheme_cleanupScheme(JNIEnv *env, jobject thiz) {
+JNIEXPORT void JNICALL Java_com_speechcode_schmeep_ChibiScheme_cleanupScheme(
+    JNIEnv *env, jobject thiz) {
   LOGI("JNI: cleanupScheme called.");
   cleanup_scheme();
 }
 
-JNIEXPORT jstring JNICALL Java_com_speechcode_schmeep_ChibiScheme_evaluateScheme(
-    JNIEnv *env, jobject thiz, jstring expression) {
+JNIEXPORT jstring JNICALL
+Java_com_speechcode_schmeep_ChibiScheme_evaluateScheme(JNIEnv *env,
+						       jobject thiz,
+						       jstring expression) {
   LOGI("JNI: evaluateScheme called.");
 
   pthread_mutex_lock(&scheme_mutex);

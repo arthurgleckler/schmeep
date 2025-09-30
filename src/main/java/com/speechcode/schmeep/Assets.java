@@ -108,12 +108,14 @@ public class Assets {
 	    for (File file : files) {
 		if (file.isDirectory()) {
 		    if (!emptyDirectory(file)) {
-			Log.e(LOG_TAG, "Failed to delete: " + file.getAbsolutePath());
+			Log.e(LOG_TAG,
+			      "Failed to delete: " + file.getAbsolutePath());
 			return false;
 		    }
 		}
 		if (!file.delete()) {
-		    Log.e(LOG_TAG, "Failed to delete: " + file.getAbsolutePath());
+		    Log.e(LOG_TAG,
+			  "Failed to delete: " + file.getAbsolutePath());
 		    return false;
 		}
 	    }
@@ -129,7 +131,8 @@ public class Assets {
 
 	if (baseDir.exists()) {
 	    if (!emptyDirectory(baseDir)) {
-		Log.i(LOG_TAG, "Failed to empty directory: " + baseDir.getAbsolutePath());
+		Log.i(LOG_TAG, "Failed to empty directory: " +
+				   baseDir.getAbsolutePath());
 		return false;
 	    }
 	    Log.i(LOG_TAG, "Emptied directory: " + baseDir.getAbsolutePath());
@@ -149,9 +152,11 @@ public class Assets {
 				     targetPath)) {
 		    count++;
 		    if (assetPath.endsWith(".so")) {
-			Log.i(LOG_TAG, "Extracted shared library: " + assetPath);
+			Log.i(LOG_TAG,
+			      "Extracted shared library: " + assetPath);
 		    } else {
-			Log.i(LOG_TAG, "Extracted essential file: " + assetPath);
+			Log.i(LOG_TAG,
+			      "Extracted essential file: " + assetPath);
 		    }
 		} else {
 		    Log.e(LOG_TAG, "Failed to extract: " + assetPath);
@@ -166,7 +171,7 @@ public class Assets {
 
 	if (count > 0) {
 	    Log.i(LOG_TAG, "Essential file extraction complete: " + count +
-			   " files extracted.");
+			       " files extracted.");
 	    return true;
 	} else {
 	    Log.e(LOG_TAG, "No essential files extracted.");
@@ -182,7 +187,7 @@ public class Assets {
 
 	if (parentDir != null && !parentDir.exists() && !parentDir.mkdirs()) {
 	    Log.e(LOG_TAG, "Failed to create parent directory: " +
-			   parentDir.getAbsolutePath());
+			       parentDir.getAbsolutePath());
 	    return false;
 	}
 
@@ -195,7 +200,7 @@ public class Assets {
 	    if (targetPath.endsWith(".so")) {
 		if (!targetFile.setExecutable(true)) {
 		    Log.w(LOG_TAG, "Failed to set executable permissions on: " +
-				   targetPath);
+				       targetPath);
 		}
 	    }
 
@@ -205,7 +210,7 @@ public class Assets {
 
 	} catch (IOException e) {
 	    Log.e(LOG_TAG, "IOException extracting " + assetPath + ": " +
-			   e.getMessage());
+			       e.getMessage());
 	    if (targetFile.exists()) {
 		targetFile.delete();
 	    }
@@ -225,7 +230,8 @@ public class Assets {
 			"Asset extraction failed.  Continuing with basic environment.");
 		}
 	    } else {
-		Log.i(LOG_TAG, "Version unchanged.  Skipping asset extraction.");
+		Log.i(LOG_TAG,
+		      "Version unchanged.  Skipping asset extraction.");
 	    }
 	} catch (Exception e) {
 	    Log.e(LOG_TAG, "Error during asset extraction: " + e.getMessage());
@@ -251,7 +257,7 @@ public class Assets {
 	    }
 
 	    Log.i(LOG_TAG, "Asset extraction completed for version " +
-			   currentVersionCode + ".");
+			       currentVersionCode + ".");
 	} catch (Exception e) {
 	    Log.e(LOG_TAG, "Error marking assets extracted: " + e.getMessage());
 	}
@@ -289,12 +295,12 @@ public class Assets {
 
 	    if (currentVersionCode != storedVersionCode) {
 		Log.i(LOG_TAG, "Version changed from " + storedVersionCode +
-			       " to " + currentVersionCode +
-			       ".  Must extract assets.");
+				   " to " + currentVersionCode +
+				   ".  Must extract assets.");
 		return true;
 	    } else {
 		Log.i(LOG_TAG, "Version unchanged (" + currentVersionCode +
-			       ").  Skipping asset extraction.");
+				   ").  Skipping asset extraction.");
 		return false;
 	    }
 	} catch (Exception e) {

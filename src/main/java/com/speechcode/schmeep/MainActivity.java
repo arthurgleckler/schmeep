@@ -39,11 +39,11 @@ public class MainActivity extends Activity {
 	webSettings.setAllowContentAccess(true);
 	try {
 	    Log.i(LOG_TAG, "Direct JNI test result: " +
-			   chibiScheme.evaluateScheme("(+ 2 3)"));
+			       chibiScheme.evaluateScheme("(+ 2 3)"));
 	    Log.i(LOG_TAG, "Direct JNI test result: " +
-			   chibiScheme.evaluateScheme("(* 4 5)"));
+			       chibiScheme.evaluateScheme("(* 4 5)"));
 	    Log.i(LOG_TAG, "Direct JNI test result: " +
-			   chibiScheme.evaluateScheme("(list 1 2 3)"));
+			       chibiScheme.evaluateScheme("(list 1 2 3)"));
 	} catch (Exception e) {
 	    Log.e(LOG_TAG, "JNI test failed: " + e.getMessage());
 	}
@@ -52,7 +52,8 @@ public class MainActivity extends Activity {
 	    webView.addJavascriptInterface(chibiScheme, "Scheme");
 	    Log.i(LOG_TAG, "JavaScript interface added successfully.");
 	} catch (Exception e) {
-	    Log.e(LOG_TAG, "Failed to add JavaScript interface: " + e.getMessage());
+	    Log.e(LOG_TAG,
+		  "Failed to add JavaScript interface: " + e.getMessage());
 	}
 	webView.setWebChromeClient(new DebugWebChromeClient());
 	webView.setWebViewClient(new PageLoadedWebViewClient(this));

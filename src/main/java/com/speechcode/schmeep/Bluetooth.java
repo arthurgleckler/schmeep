@@ -1,30 +1,30 @@
 package com.speechcode.schmeep;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.pm.PackageManager;
-import android.Manifest;
 import android.os.Build;
 import android.util.Log;
 import android.webkit.WebView;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Bluetooth {
     private static final int BLUETOOTH_REQUEST_CODE = 1001;
     private static final int CMD_C2A_EVALUATE = 254;
     private static final int CMD_C2A_INTERRUPT = 255;
     private static final int CMD_C2A_MIN_COMMAND = CMD_C2A_EVALUATE;
-    private static final byte CMD_A2C_EVALUATION_COMPLETE = (byte) 255;
+    private static final byte CMD_A2C_EVALUATION_COMPLETE = (byte)255;
     private static final int MAX_MESSAGE_LENGTH = 1048576;
     private static final UUID SCHMEEP_UUID =
 	UUID.fromString("611a1a1a-94ba-11f0-b0a8-5f754c08f133");
@@ -148,8 +148,8 @@ public class Bluetooth {
 			break;
 		    } catch (IOException e) {
 			lastException = e;
-			Log.w(LOG_TAG, "Failed to start with UUID " + uuid + ": " +
-				       e.getMessage());
+			Log.w(LOG_TAG, "Failed to start with UUID " + uuid +
+					   ": " + e.getMessage());
 		    }
 		}
 
@@ -186,7 +186,8 @@ public class Bluetooth {
 		    serverSocket.close();
 		}
 	    } catch (IOException e) {
-		Log.w(LOG_TAG, "Error closing server socket: " + e.getMessage());
+		Log.w(LOG_TAG,
+		      "Error closing server socket: " + e.getMessage());
 	    }
 
 	    closeClientConnection();
@@ -261,7 +262,8 @@ public class Bluetooth {
 		Log.d(LOG_TAG, logMessage);
 		webView.evaluateJavascript(javascript, null);
 	    } catch (Exception e) {
-		Log.e(LOG_TAG, "Error in " + methodName + ": " + e.getMessage());
+		Log.e(LOG_TAG,
+		      "Error in " + methodName + ": " + e.getMessage());
 	    }
 	});
     }
@@ -298,7 +300,7 @@ public class Bluetooth {
 		Log.i(LOG_TAG, "Waiting for Bluetooth client connection.");
 		clientSocket = serverSocket.accept();
 		Log.i(LOG_TAG, "Client connected: " +
-			       clientSocket.getRemoteDevice().getAddress());
+				   clientSocket.getRemoteDevice().getAddress());
 		inputStream = clientSocket.getInputStream();
 		outputStream = clientSocket.getOutputStream();
 		updateConnectionStatus("connected", "Client connected.");
@@ -315,7 +317,9 @@ public class Bluetooth {
 
 		if (isRunning.get()) {
 		    try {
-			Log.i(LOG_TAG, "Waiting for RFCOMM cleanup before accepting new connections...");
+			Log.i(
+			    LOG_TAG,
+			    "Waiting for RFCOMM cleanup before accepting new connections...");
 			Thread.sleep(3000);
 		    } catch (InterruptedException ie) {
 			Thread.currentThread().interrupt();
@@ -345,15 +349,18 @@ public class Bluetooth {
     }
 
     private void handleDataBlock(int length) throws IOException {
-	if (length == 0) return;
+	if (length == 0)
+	    return;
 
 	byte[] buffer = new byte[length];
 	int bytesRead = 0;
 
 	while (bytesRead < length) {
-	    int result = inputStream.read(buffer, bytesRead, length - bytesRead);
+	    int result =
+		inputStream.read(buffer, bytesRead, length - bytesRead);
 	    if (result == -1) {
-		throw new IOException("Connection closed while reading data block.");
+		throw new IOException(
+		    "Connection closed while reading data block.");
 	    }
 	    bytesRead += result;
 	}
@@ -373,7 +380,8 @@ public class Bluetooth {
 	    return;
 	}
 
-	Log.i(LOG_TAG, "Executing expression: " + expression.replace("\n", "\\n"));
+	Log.i(LOG_TAG,
+	      "Executing expression: " + expression.replace("\n", "\\n"));
 	displayExpression(expression);
 
 	new Thread(() -> {
@@ -381,7 +389,8 @@ public class Bluetooth {
 		updateConnectionStatus("evaluating", "Evaluating expression.");
 		String result = chibiScheme.evaluateScheme(expression);
 
-		Log.i(LOG_TAG, "Evaluation result: " + result.replace("\n", "\\n"));
+		Log.i(LOG_TAG,
+		      "Evaluation result: " + result.replace("\n", "\\n"));
 		updateConnectionStatus("connected", "Client connected.");
 		streamToClient(result);
 		displayResult(expression, result);
@@ -408,8 +417,8 @@ public class Bluetooth {
 	}).start();
     }
 
-
-    private void sendDataBlockToClient(byte[] data, int length) throws IOException {
+    private void sendDataBlockToClient(byte[] data, int length)
+	throws IOException {
 	if (outputStream != null) {
 	    outputStream.write(length);
 	    outputStream.write(data, 0, length);
@@ -428,12 +437,14 @@ public class Bluetooth {
 	try {
 	    if (outputStream != null) {
 		String messageWithNewline = message + "\n";
-		byte[] messageBytes = messageWithNewline.getBytes(StandardCharsets.UTF_8);
+		byte[] messageBytes =
+		    messageWithNewline.getBytes(StandardCharsets.UTF_8);
 
 		int sent = 0;
 
 		while (sent < messageBytes.length) {
-		    int blockSize = Math.min(CMD_C2A_MIN_COMMAND - 1, messageBytes.length - sent);
+		    int blockSize = Math.min(CMD_C2A_MIN_COMMAND - 1,
+					     messageBytes.length - sent);
 
 		    outputStream.write(blockSize);
 		    outputStream.write(messageBytes, sent, blockSize);
