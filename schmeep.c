@@ -19,15 +19,14 @@
 #include <termios.h>
 #include <unistd.h>
 
-#define MAX_MESSAGE_LENGTH 1048576
-#define SCHMEEP_UUID "611a1a1a-94ba-11f0-b0a8-5f754c08f133"
 #define CACHE_DIR ".cache/schmeep"
 #define CACHE_FILE "mac-address.txt"
-
-#define CMD_EVALUATE 254
-#define CMD_INTERRUPT 255
-#define CMD_EVALUATION_COMPLETE 255
-
+#define CMD_A2C_EVALUATION_COMPLETE 255
+#define CMD_C2A_EVALUATE 254
+#define CMD_C2A_INTERRUPT 255
+#define CMD_C2A_MIN_COMMAND CMD_C2A_EVALUATE
+#define MAX_MESSAGE_LENGTH 1048576
+#define SCHMEEP_UUID "611a1a1a-94ba-11f0-b0a8-5f754c08f133"
 #define SERVICE_NAME "schmeep"
 
 static pthread_t input_thread_id;
@@ -39,7 +38,7 @@ char *get_cache_file_path();
 void *input_thread(void *arg);
 char *load_cached_address();
 void save_cached_address(const char *address);
-int send_data_block(int sock, const char *data, size_t len);
+int send_data_block(int sock, const char *data, size_t length);
 int send_evaluate_command(int sock);
 int send_interrupt_command(int sock);
 void protocol_handler_thread(void *arg);
@@ -167,7 +166,7 @@ bool check_device_for_schmeep_service(const bdaddr_t *bdaddr) {
     sdp_list_t *r = rsp_list;
 
     for (; r && !found_schmeep; r = r->next) {
-      sdp_record_t *rec = (sdp_record_t *)r->data;
+      sdp_record_t *rec = (sdp_record_t *) r->data;
       sdp_data_t *service_name = sdp_data_get(rec, SDP_ATTR_SVCNAME_PRIMARY);
 
       if (service_name && service_name->dtd == SDP_TEXT_STR8) {
@@ -213,19 +212,20 @@ void sigint_handler(int sig) {
   }
 }
 
-int send_data_block(int sock, const char *data, size_t len) {
-  if (len > 253) {
-    fprintf(stderr, "Data block too large: %zu bytes\n", len);
+int send_data_block(int sock, const char *data, size_t length) {
+  if (length >= CMD_C2A_MIN_COMMAND) {
+    fprintf(stderr, "Data block too large: %zu bytes\n", length);
     return -1;
   }
 
-  uint8_t length_byte = (uint8_t)len;
+  uint8_t length_byte = (uint8_t) length;
+
   if (send(sock, &length_byte, 1, 0) != 1) {
     perror("Failed to send length byte.");
     return -1;
   }
 
-  if (send(sock, data, len, 0) != (ssize_t)len) {
+  if (send(sock, data, length, 0) != (ssize_t) length) {
     perror("Failed to send data block.");
     return -1;
   }
@@ -233,55 +233,56 @@ int send_data_block(int sock, const char *data, size_t len) {
   return 0;
 }
 
-int send_evaluate_command(int sock) {
-  uint8_t cmd = CMD_EVALUATE;
-  if (send(sock, &cmd, 1, 0) != 1) {
-    perror("Failed to send evaluate command.");
+int send_command(uint8_t command, char *message, int sock) {
+  if (send(sock, &command, 1, 0) != 1) {
+    perror(message);
     return -1;
   }
   return 0;
+}
+
+int send_evaluate_command(int sock) {
+  send_command(CMD_C2A_EVALUATE, "Failed to send evaluate command.", sock);
 }
 
 int send_interrupt_command(int sock) {
-  uint8_t cmd = CMD_INTERRUPT;
-  if (send(sock, &cmd, 1, 0) != 1) {
-    perror("Failed to send interrupt command.");
-    return -1;
-  }
-  return 0;
+  send_command(CMD_C2A_INTERRUPT, "Failed to send interrupt command.", sock);
 }
 
-
 int receive_data_block(int sock, char *buffer, int max_size) {
-  unsigned char length_byte;
-  ssize_t result = recv(sock, &length_byte, 1, 0);
+  unsigned char length_or_command;
+  ssize_t result = recv(sock, &length_or_command, 1, 0);
+
   if (result <= 0) {
     return -1;
   }
 
-  if (length_byte == CMD_EVALUATION_COMPLETE) {
+  if (length_or_command == CMD_A2C_EVALUATION_COMPLETE) {
+    printf("scheme> ");
+    fflush(stdout);
     return 0;
   }
 
-  if (length_byte > max_size) {
-    fprintf(stderr, "Data block too large: %d bytes\n", length_byte);
+  if (length_or_command > max_size) {
+    fprintf(stderr, "Data block too large: %d bytes\n", length_or_command);
     return -1;
   }
 
   int bytes_read = 0;
-  while (bytes_read < length_byte) {
-    result = recv(sock, buffer + bytes_read, length_byte - bytes_read, 0);
+
+  while (bytes_read < length_or_command) {
+    result = recv(sock, buffer + bytes_read, length_or_command - bytes_read, 0);
     if (result <= 0) {
       return -1;
     }
     bytes_read += result;
   }
 
-  return length_byte;
+  return length_or_command;
 }
 
 void protocol_handler_thread(void *arg) {
-  int sock = *(int *)arg;
+  int sock = *(int *) arg;
   char buffer[255];
 
   while (1) {
@@ -292,8 +293,6 @@ void protocol_handler_thread(void *arg) {
     }
 
     if (block_size == 0) {
-      printf("scheme> ");
-      fflush(stdout);
       continue;
     }
 
@@ -327,7 +326,7 @@ int find_service_channel(const char *bt_addr) {
     return -1;
   }
   for (int i = 0; i < 16; i++) {
-    uuid_bytes[i] = (uint8_t)u[i];
+    uuid_bytes[i] = (uint8_t) u[i];
   }
   sdp_uuid128_create(&uuid, uuid_bytes);
 
@@ -349,17 +348,17 @@ int find_service_channel(const char *bt_addr) {
     sdp_list_t *r = rsp_list;
 
     for (; r; r = r->next) {
-      sdp_record_t *rec = (sdp_record_t *)r->data;
+      sdp_record_t *rec = (sdp_record_t *) r->data;
       sdp_list_t *proto_list;
 
       if (sdp_get_access_protos(rec, &proto_list) == 0) {
 	sdp_list_t *p = proto_list;
 
 	for (; p; p = p->next) {
-	  sdp_list_t *pds = (sdp_list_t *)p->data;
+	  sdp_list_t *pds = (sdp_list_t *) p->data;
 
 	  for (; pds; pds = pds->next) {
-	    sdp_data_t *d = (sdp_data_t *)pds->data;
+	    sdp_data_t *d = (sdp_data_t *) pds->data;
 	    int proto = 0;
 
 	    for (; d; d = d->next) {
@@ -430,7 +429,7 @@ char *scan_active_paired_devices() {
   cl->conn_num = max_conn;
   ci = cl->conn_info;
 
-  if (ioctl(sock, HCIGETCONNLIST, (void *)cl) < 0) {
+  if (ioctl(sock, HCIGETCONNLIST, (void *) cl) < 0) {
     printf("Could not get active connections.\n");
     free(cl);
     close(sock);
@@ -517,17 +516,20 @@ int main(int argc, char *argv[]) {
   }
 
   struct sockaddr_rc addr = {0};
+
   addr.rc_family = AF_BLUETOOTH;
   addr.rc_channel = port;
   str2ba(bt_addr, &addr.rc_bdaddr);
 
   int sock = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+
   if (sock < 0) {
     perror("Failed to create socket.");
     return 1;
   }
 
   int reuse = 1;
+
   if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
     perror("Failed to set SO_REUSEADDR.");
     close(sock);
@@ -540,12 +542,12 @@ int main(int argc, char *argv[]) {
   int max_attempts = 4;
 
   while (connect_attempts < max_attempts) {
-    if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
+    if (connect(sock, (struct sockaddr *) &addr, sizeof(addr)) == 0) {
       break;
     }
 
     if (errno == EBUSY && connect_attempts < max_attempts - 1) {
-      printf("Connection busy, waiting for BlueZ cleanup (attempt %d/%d)...\n",
+      printf("Connection busy.  Waiting for BlueZ cleanup (attempt %d/%d).\n",
              connect_attempts + 1, max_attempts);
       close(sock);
       sleep(4);
@@ -588,7 +590,7 @@ int main(int argc, char *argv[]) {
   }
   global_sock = sock;
 
-  if (pthread_create(&stream_thread_id, NULL, (void *(*)(void *))protocol_handler_thread, &sock) != 0) {
+  if (pthread_create(&stream_thread_id, NULL, (void *(*)(void *)) protocol_handler_thread, &sock) != 0) {
     perror("Failed to create protocol handler thread.");
     close(sock);
     return 1;
@@ -609,17 +611,21 @@ int main(int argc, char *argv[]) {
   close(sock);
   printf("Connection closed.\n");
   if (argc == 1 && bt_addr) {
-    free((char *)bt_addr);
+    free((char *) bt_addr);
   }
   return 0;
 }
 
 int send_expression_in_blocks(int sock, const char *expression) {
-  size_t len = strlen(expression);
+  size_t length = strlen(expression);
   size_t sent = 0;
 
-  while (sent < len) {
-    size_t block_size = (len - sent > 253) ? 253 : (len - sent);
+  while (sent < length) {
+    size_t remaining = length - sent;
+    size_t block_size = (remaining >= CMD_C2A_MIN_COMMAND)
+      ? CMD_C2A_MIN_COMMAND - 1
+      : remaining;
+
     if (send_data_block(sock, expression + sent, block_size) < 0) {
       return -1;
     }
@@ -630,14 +636,14 @@ int send_expression_in_blocks(int sock, const char *expression) {
 }
 
 void *input_thread(void *arg) {
-  int sock = *(int *)arg;
+  int sock = *(int *) arg;
   bool stdin_is_terminal = isatty(STDIN_FILENO);
 
   while (1) {
 
     char *line = NULL;
-    size_t len = 0;
-    ssize_t nread = getline(&line, &len, stdin);
+    size_t length = 0;
+    ssize_t nread = getline(&line, &length, stdin);
 
     if (nread == -1) {
       if (line)

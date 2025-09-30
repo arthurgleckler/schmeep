@@ -21,16 +21,16 @@ import java.util.UUID;
 
 public class Bluetooth {
     private static final int BLUETOOTH_REQUEST_CODE = 1001;
+    private static final int CMD_C2A_EVALUATE = 254;
+    private static final int CMD_C2A_INTERRUPT = 255;
+    private static final int CMD_C2A_MIN_COMMAND = CMD_C2A_EVALUATE;
+    private static final byte CMD_A2C_EVALUATION_COMPLETE = (byte) 255;
     private static final int MAX_MESSAGE_LENGTH = 1048576;
     private static final UUID SCHMEEP_UUID =
 	UUID.fromString("611a1a1a-94ba-11f0-b0a8-5f754c08f133");
     private static final String SERVICE_NAME = "schmeep";
     private static final UUID SPP_UUID =
 	UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-
-    private static final byte CMD_EVALUATE = (byte) 254;
-    private static final byte CMD_INTERRUPT = (byte) 255;
-    private static final byte CMD_EVALUATION_COMPLETE = (byte) 255;
     private static final String LOG_TAG = "schmeep";
 
     private final AtomicBoolean isRunning;
@@ -269,19 +269,19 @@ public class Bluetooth {
     private void handleClientSession() throws IOException {
 	while (isRunning.get()) {
 	    try {
-		int lengthByte = inputStream.read();
+		int commandOrLength = inputStream.read();
 
-		if (lengthByte == -1) {
+		if (commandOrLength == -1) {
 		    Log.i(LOG_TAG, "Client disconnected normally.");
 		    break;
 		}
 
-		if (lengthByte == 254) {
+		if (commandOrLength == CMD_C2A_EVALUATE) {
 		    handleEvaluateCommand();
-		} else if (lengthByte == 255) {
+		} else if (commandOrLength == CMD_C2A_INTERRUPT) {
 		    handleInterruptCommand();
-		} else if (lengthByte >= 1 && lengthByte <= 251) {
-		    handleDataBlock(lengthByte);
+		} else {
+		    handleDataBlock(commandOrLength);
 		}
 	    } catch (IOException e) {
 		Log.e(LOG_TAG, "Error in message handling: " + e.getMessage());
@@ -289,7 +289,6 @@ public class Bluetooth {
 	    }
 	}
     }
-
 
     private void handleIncomingConnections() {
 	while (isRunning.get()) {
@@ -346,6 +345,8 @@ public class Bluetooth {
     }
 
     private void handleDataBlock(int length) throws IOException {
+	if (length == 0) return;
+
 	byte[] buffer = new byte[length];
 	int bytesRead = 0;
 
@@ -358,6 +359,7 @@ public class Bluetooth {
 	}
 
 	String data = new String(buffer, StandardCharsets.UTF_8);
+
 	expressionBuffer.append(data);
 	Log.d(LOG_TAG, "Received data block: " + data.replace("\n", "\\n"));
     }
@@ -378,6 +380,7 @@ public class Bluetooth {
 	    try {
 		updateConnectionStatus("evaluating", "Evaluating expression.");
 		String result = chibiScheme.evaluateScheme(expression);
+
 		Log.i(LOG_TAG, "Evaluation result: " + result.replace("\n", "\\n"));
 		updateConnectionStatus("connected", "Client connected.");
 		streamToClient(result);
@@ -397,6 +400,7 @@ public class Bluetooth {
 	new Thread(() -> {
 	    try {
 		String result = chibiScheme.interruptScheme();
+
 		Log.i(LOG_TAG, "Interrupt result: " + result);
 	    } catch (Exception e) {
 		Log.e(LOG_TAG, "Error during interrupt: " + e.getMessage());
@@ -415,7 +419,7 @@ public class Bluetooth {
 
     private void sendEvaluationCompleteToClient() throws IOException {
 	if (outputStream != null) {
-	    outputStream.write(CMD_EVALUATION_COMPLETE);
+	    outputStream.write(CMD_A2C_EVALUATION_COMPLETE);
 	    outputStream.flush();
 	}
     }
@@ -427,8 +431,10 @@ public class Bluetooth {
 		byte[] messageBytes = messageWithNewline.getBytes(StandardCharsets.UTF_8);
 
 		int sent = 0;
+
 		while (sent < messageBytes.length) {
-		    int blockSize = Math.min(254, messageBytes.length - sent);
+		    int blockSize = Math.min(CMD_C2A_MIN_COMMAND - 1, messageBytes.length - sent);
+
 		    outputStream.write(blockSize);
 		    outputStream.write(messageBytes, sent, blockSize);
 		    outputStream.flush();
