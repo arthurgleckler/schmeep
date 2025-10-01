@@ -178,13 +178,18 @@ function completeEvaluation(expression, result, type) {
   const li = document.querySelector("#scheme-content ul li:last-child");
 
   if (li) {
-    li.textContent = " " + expression + " ⇒ " + result;
-    li.classList.add(type);
+    const span = li.querySelector(".value");
+
+    if (span) {
+      span.textContent = result;
+      li.classList.remove("queued");
+      li.classList.add(type);
+    }
   }
 }
 
 function displayBluetoothExpression(expression) {
-  displayResult(" " + expression + " ⇒ ...", "bluetooth", "queued");
+  displayExpressionWithSpans(" " + expression, "bluetooth", "queued");
 }
 
 function displayBluetoothResult(expression, result) {
@@ -192,7 +197,7 @@ function displayBluetoothResult(expression, result) {
 }
 
 window.nativeDisplayExpression = function(expression) {
-  displayResult(" " + expression + " ⇒ ...", "local", "local");
+  displayExpressionWithSpans(" " + expression, "local", "local");
 };
 
 window.nativeDisplayResult = function(text, source, type) {
@@ -200,16 +205,44 @@ window.nativeDisplayResult = function(text, source, type) {
 };
 
 window.nativeDisplayCapturedOutput = function(output) {
-  const li = document.querySelector("#scheme-content ul li:last-child");
+  if (output && output.trim()) {
+    const li = document.querySelector("#scheme-content ul li:last-child");
 
-  if (li && li.textContent.includes(" ⇒ ")) {
-    const parts = li.textContent.split(" ⇒ ");
+    if (li) {
+      const outputSpan = li.querySelector(".output");
 
-    if (parts.length === 2) {
-      li.textContent = parts[0] + " ⇒ " + output + parts[1];
+      if (outputSpan) {
+        outputSpan.textContent = output;
+      }
     }
   }
 };
+
+function displayExpressionWithSpans(expression, source, type) {
+  const schemeContent = document.getElementById("scheme-content");
+  const ul = schemeContent.querySelector("ul");
+  const li = document.createElement("li");
+
+  li.classList.add("icon", source, type);
+
+  const outputSpan = document.createElement("span");
+
+  outputSpan.className = "output";
+
+  const arrow = document.createTextNode(" ⇒ ");
+  const span = document.createElement("span");
+
+  span.className = "value";
+  span.textContent = "...";
+
+  li.textContent = expression;
+  li.appendChild(outputSpan);
+  li.appendChild(arrow);
+  li.appendChild(span);
+
+  ul.appendChild(li);
+  schemeContent.scrollTop = schemeContent.scrollHeight;
+}
 
 function displayResult(text, source, type) {
   const schemeContent = document.getElementById("scheme-content");
@@ -259,7 +292,7 @@ function generateSchemeButtons() {
 
 function runSchemeExpression(expression) {
   updateConnectionStatus("evaluating", "Evaluating: " + expression);
-  displayResult(" " + expression + " ⇒ ...", "local", "local");
+  displayExpressionWithSpans(" " + expression, "local", "local");
 
   setTimeout(() => {
     const result = evaluateScheme(expression);
