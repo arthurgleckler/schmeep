@@ -366,7 +366,31 @@ Java_com_speechcode_schmeep_ChibiScheme_evaluateScheme(JNIEnv *env,
 
   sexp_set_parameter(scheme_ctx, scheme_env, param_symbol, output_port);
 
-  sexp result = sexp_eval_string(scheme_ctx, expr_cstr, -1, scheme_env);
+  sexp_gc_var3(input_port, expr_obj, result);
+  sexp_gc_preserve3(scheme_ctx, input_port, expr_obj, result);
+
+  sexp expr_string = sexp_c_string(scheme_ctx, expr_cstr, -1);
+  input_port = sexp_open_input_string(scheme_ctx, expr_string);
+  result = SEXP_VOID;
+
+  if (!sexp_exceptionp(input_port)) {
+    while ((expr_obj = sexp_read(scheme_ctx, input_port)) != SEXP_EOF) {
+      if (sexp_exceptionp(expr_obj)) {
+        result = expr_obj;
+        break;
+      }
+      result = sexp_eval(scheme_ctx, expr_obj, scheme_env);
+      if (sexp_exceptionp(result)) {
+        break;
+      }
+    }
+    sexp_close_port(scheme_ctx, input_port);
+  } else {
+    result = input_port;
+  }
+
+  sexp_gc_release3(scheme_ctx);
+
   sexp output_str = sexp_get_output_string(scheme_ctx, output_port);
   const char *captured_output = NULL;
 
