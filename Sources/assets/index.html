@@ -170,7 +170,8 @@ const SCHEME_EXPRESSIONS = [
   "(/ 1 0)",
   "(factorial 10)",
   "(import (srfi 27))",
-  "(random-integer 10)"
+  "(random-integer 10)",
+  "(begin (display \"foxtrot golf hotel\\n\") 42)"
 ];
 
 function completeEvaluation(expression, result, type) {
@@ -188,6 +189,18 @@ function displayBluetoothExpression(expression) {
 
 function displayBluetoothResult(expression, result) {
   completeEvaluation(expression, result, "remote");
+}
+
+function displayCapturedOutput(output) {
+  const lastLi = document.querySelector("#scheme-content ul li:last-child");
+
+  if (lastLi && lastLi.textContent.includes(" ⇒ ")) {
+    const parts = lastLi.textContent.split(" ⇒ ");
+
+    if (parts.length === 2) {
+      lastLi.textContent = parts[0] + " ⇒ " + output + parts[1];
+    }
+  }
 }
 
 function displayResult(text, source, type) {

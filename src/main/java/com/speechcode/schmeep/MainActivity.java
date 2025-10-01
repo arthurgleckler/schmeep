@@ -48,6 +48,7 @@ public class MainActivity extends Activity {
 	    Log.e(LOG_TAG, "JNI test failed: " + e.getMessage());
 	}
 	setContentView(webView);
+	chibiScheme.setWebView(webView);
 	try {
 	    webView.addJavascriptInterface(chibiScheme, "Scheme");
 	    Log.i(LOG_TAG, "JavaScript interface added successfully.");

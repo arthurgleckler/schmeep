@@ -8,6 +8,7 @@ public class ChibiScheme {
     private static final String LOG_TAG = "schmeep";
 
     private MainActivity mainActivity;
+    private WebView webView;
 
     public native void cleanupScheme();
     public native String evaluateScheme(String expression);
@@ -27,6 +28,29 @@ public class ChibiScheme {
 	    cleanupScheme();
 	    throw e;
 	}
+    }
+
+    public void setWebView(WebView webView) {
+	this.webView = webView;
+    }
+
+    public void displayCapturedOutput(String output) {
+	if (webView == null) {
+	    return;
+	}
+
+	mainActivity.runOnUiThread(() -> {
+	    String escapedOutput = output.replace("\\", "\\\\")
+					 .replace("\"", "\\\"")
+					 .replace("\n", "\\n")
+					 .replace("\r", "\\r")
+					 .replace("\t", "\\t");
+	    String jsCode = "if (window.displayCapturedOutput) { " +
+			    "window.displayCapturedOutput(\"" + escapedOutput +
+			    "\"); }";
+
+	    webView.evaluateJavascript(jsCode, null);
+	});
     }
 
     @JavascriptInterface

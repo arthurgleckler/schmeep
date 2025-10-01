@@ -19,6 +19,7 @@
 #include "chibi/sexp.h"
 
 static jobject bluetooth_instance = NULL;
+static jobject chibi_scheme_instance = NULL;
 static JavaVM *cached_jvm = NULL;
 sexp scheme_ctx = NULL;
 sexp scheme_env = NULL;
@@ -36,9 +37,8 @@ void bluetooth_output_write(const char *data, size_t length) {
        "length=%zu",
        bluetooth_instance, cached_jvm, length);
 
-  if (!bluetooth_instance || !cached_jvm) {
-    LOGE("bluetooth_output_write: bluetooth_instance or cached_jvm is NULL, "
-	 "returning");
+  if (!cached_jvm) {
+    LOGE("bluetooth_output_write: cached_jvm is NULL, returning");
     return;
   }
 
@@ -55,20 +55,39 @@ void bluetooth_output_write(const char *data, size_t length) {
     detach_needed = true;
   }
 
-  jclass bluetooth_class = (*env)->GetObjectClass(env, bluetooth_instance);
-  jmethodID streamPartialOutput = (*env)->GetMethodID(
-      env, bluetooth_class, "streamPartialOutput", "(Ljava/lang/String;)V");
+  if (bluetooth_instance) {
+    jclass bluetooth_class = (*env)->GetObjectClass(env, bluetooth_instance);
+    jmethodID streamPartialOutput = (*env)->GetMethodID(
+	env, bluetooth_class, "streamPartialOutput", "(Ljava/lang/String;)V");
 
-  if (streamPartialOutput) {
-    jstring jdata = (*env)->NewStringUTF(env, data);
+    if (streamPartialOutput) {
+      jstring jdata = (*env)->NewStringUTF(env, data);
 
-    (*env)->CallVoidMethod(env, bluetooth_instance, streamPartialOutput, jdata);
-    (*env)->DeleteLocalRef(env, jdata);
-  } else {
-    LOGE("bluetooth_output_write: Method streamPartialOutput not found.");
+      (*env)->CallVoidMethod(env, bluetooth_instance, streamPartialOutput, jdata);
+      (*env)->DeleteLocalRef(env, jdata);
+    } else {
+      LOGE("bluetooth_output_write: Method streamPartialOutput not found.");
+    }
+
+    (*env)->DeleteLocalRef(env, bluetooth_class);
   }
 
-  (*env)->DeleteLocalRef(env, bluetooth_class);
+  if (chibi_scheme_instance) {
+    jclass chibi_class = (*env)->GetObjectClass(env, chibi_scheme_instance);
+    jmethodID displayCapturedOutput = (*env)->GetMethodID(
+	env, chibi_class, "displayCapturedOutput", "(Ljava/lang/String;)V");
+
+    if (displayCapturedOutput) {
+      jstring jdata = (*env)->NewStringUTF(env, data);
+
+      (*env)->CallVoidMethod(env, chibi_scheme_instance, displayCapturedOutput, jdata);
+      (*env)->DeleteLocalRef(env, jdata);
+    } else {
+      LOGE("bluetooth_output_write: Method displayCapturedOutput not found.");
+    }
+
+    (*env)->DeleteLocalRef(env, chibi_class);
+  }
 
   if (detach_needed) {
     (*cached_jvm)->DetachCurrentThread(cached_jvm);
@@ -115,14 +134,20 @@ void cleanup_scheme() {
     scheme_env = NULL;
   }
 
-  if (bluetooth_instance && cached_jvm) {
+  if (cached_jvm) {
     JNIEnv *env;
     int attach_status =
 	(*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_6);
 
     if (attach_status == JNI_OK) {
-      (*env)->DeleteGlobalRef(env, bluetooth_instance);
-      bluetooth_instance = NULL;
+      if (bluetooth_instance) {
+	(*env)->DeleteGlobalRef(env, bluetooth_instance);
+	bluetooth_instance = NULL;
+      }
+      if (chibi_scheme_instance) {
+	(*env)->DeleteGlobalRef(env, chibi_scheme_instance);
+	chibi_scheme_instance = NULL;
+      }
     }
   }
 }
@@ -263,6 +288,18 @@ char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
 JNIEXPORT void JNICALL Java_com_speechcode_schmeep_ChibiScheme_initializeScheme(
     JNIEnv *env, jobject object) {
   LOGI("JNI: initializeScheme called.");
+
+  if (chibi_scheme_instance) {
+    (*env)->DeleteGlobalRef(env, chibi_scheme_instance);
+  }
+
+  chibi_scheme_instance = (*env)->NewGlobalRef(env, object);
+
+  if (chibi_scheme_instance) {
+    LOGI("JNI: ChibiScheme instance registered for output capture.");
+  } else {
+    LOGE("JNI: Failed to create global reference to ChibiScheme instance.");
+  }
 
   struct sigaction sa;
 
