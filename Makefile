@@ -42,6 +42,8 @@ CHIBI_LIB_SO_FILES := $(patsubst chibi-scheme/lib/%.c,makecapk/lib/arm64-v8a/%.s
 
 $(CHIBI_TARGET_ARM64):
 	mkdir -p makecapk/lib/arm64-v8a
+	mkdir -p $(CHIBI_SCHEME_DIR)/lib/chibi/io
+	cp io-stub.c $(CHIBI_SCHEME_DIR)/lib/chibi/io/io-stub.c
 	$(MAKE) -C $(CHIBI_SCHEME_DIR) libchibi-scheme.so \
 		CC='$(CC_ARM64)' \
 		CFLAGS='$(CHIBI_CFLAGS) $(CFLAGS_ARM64)' \
@@ -107,6 +109,8 @@ classes.dex: src/main/java/com/speechcode/schmeep/*.java
 
 clean:
 	rm -rf AndroidManifest.xml $(APKFILE) schmeep classes.dex build/ makecapk.apk makecapk temp.apk
+	rm -f $(CHIBI_SCHEME_DIR)/libchibi-scheme.so*
+	rm -f $(CHIBI_SCHEME_DIR)/*.o
 
 format: format-c format-java
 

@@ -27,6 +27,16 @@ send "(/ 1 0)\r"
 expect_or_fail "Exception: divide by zero"
 expect_or_fail "scheme> "
 
+send "(begin (display \"alpha bravo charlie\\n\") 234)\r"
+expect_or_fail "alpha bravo charlie"
+expect_or_fail 234
+expect_or_fail "scheme> "
+
+send "(begin (write \"delta echo\") (newline) 345)\r"
+expect_or_fail "delta echo"
+expect_or_fail 345
+expect_or_fail "scheme> "
+
 send "(let loop () (loop))\r"
 sleep 5
 
@@ -34,8 +44,8 @@ send "\003"
 expect_or_fail "Interrupted"
 expect_or_fail "scheme> "
 
-send "(+ 200 30 4)\r"
-expect_or_fail "234"
+send "(+ 400 50 6)\r"
+expect_or_fail "456"
 expect_or_fail "scheme> "
 
 close
@@ -43,8 +53,8 @@ close
 spawn ./schmeep
 expect_or_fail "scheme> "
 
-send "(+ 300 40 5)\r"
-expect_or_fail "345"
+send "(+ 500 60 7)\r"
+expect_or_fail "567"
 expect_or_fail "scheme> "
 
 close

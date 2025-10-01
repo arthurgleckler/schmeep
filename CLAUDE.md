@@ -101,6 +101,7 @@ Content Encoding: UTF-8 text (supports multi-line expressions)
 **Server Behavior:**
 - **RFCOMM Cleanup Delay**: Waits 3 seconds after connection close before accepting new connections to allow BlueZ cleanup
 - **Connection State Management**: Properly manages RFCOMM connection state to prevent "Device or resource busy" errors on reconnection
+- **Output Capture**: Intercepts `(display)` and `(write)` output to `(current-output-port)` and streams it to client in blocks
 
 **Usage:**
 ```bash
@@ -223,6 +224,9 @@ echo -e "(define x 42)\nx\n(* x 2)" | ./schmeep AA:BB:CC:DD:EE:FF
   mutex protection and proper context management
 - **SRFI 27 Support**: Random number generation with `(random-integer
   n)` fully functional through dynamic loading
+- **Output Capture**: `(current-output-port)` output captured using
+  `sexp_open_output_string` and `sexp_set_parameter`, streamed to
+  Bluetooth clients in real-time via `streamPartialOutput()`
 
 ### JavaScript/Native Communication
 - **JavaScript to Native**: `window.Scheme.eval(expression)` using
@@ -237,6 +241,8 @@ echo -e "(define x 42)\nx\n(* x 2)" | ./schmeep AA:BB:CC:DD:EE:FF
   with proper result display using `displayResult()`
 - **IIFE Scope Isolation**: JavaScript variable declarations wrapped
   in immediately invoked function expressions to prevent conflicts
+- **Output Streaming**: Captured `(current-output-port)` output
+  automatically streamed to Bluetooth clients during evaluation
 
 ## Project Structure Notes
 
@@ -271,12 +277,15 @@ calls. This includes:
 - **R7RS Core**: `init-7.scm` (52KB), `meta-7.scm` (17KB), complete
   `scheme/*` modules
 - **Chibi Extensions**: `chibi/equiv.sld`, `chibi/string.sld`,
-  `chibi/io.sld`, `chibi/ast.sld`
+  `chibi/io.sld`, `chibi/io/io.so`, `chibi/ast.sld`
 - **SRFI Libraries**: `srfi/9.sld`, `srfi/11.sld`, `srfi/27.sld`,
   `srfi/39.sld` for record types, parameter objects, and random
   numbers
 - **Dynamic Libraries**: `srfi/27/rand.so` (28KB) shared library for
   random number generation with proper executable permissions
+- **Custom I/O Port Implementation**: `io-stub.c` in top-level
+  directory is copied to `chibi-scheme/lib/chibi/io/` during build
+  for custom port support
 - **Full APK Integration**: All 583 Scheme files packaged and
   available for extraction with automatic directory structure creation
 

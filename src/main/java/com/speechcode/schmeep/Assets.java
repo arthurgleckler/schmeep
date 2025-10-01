@@ -28,6 +28,7 @@ public class Assets {
 	"chibi/heap-stats.so",
 	"chibi/io.sld",
 	"chibi/io/io.scm",
+	"chibi/io/io.so",
 	"chibi/io/port.so",
 	"chibi/json.scm",
 	"chibi/json.sld",

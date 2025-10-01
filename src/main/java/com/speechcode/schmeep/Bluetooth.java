@@ -56,7 +56,10 @@ public class Bluetooth {
 	this.mainActivity = activity;
 	this.webView = webView;
 	this.expressionBuffer = new StringBuilder();
+	setNativeOutputCallback();
     }
+
+    private native void setNativeOutputCallback();
 
     public void handleBluetoothPermissionsResult(int requestCode,
 						 String[] permissions,
@@ -430,6 +433,32 @@ public class Bluetooth {
 	if (outputStream != null) {
 	    outputStream.write(CMD_A2C_EVALUATION_COMPLETE);
 	    outputStream.flush();
+	}
+    }
+
+    public void streamPartialOutput(String output) {
+	try {
+	    if (outputStream != null && output != null && !output.isEmpty()) {
+		byte[] outputBytes = output.getBytes(StandardCharsets.UTF_8);
+		int sent = 0;
+
+		while (sent < outputBytes.length) {
+		    int blockSize = Math.min(CMD_C2A_MIN_COMMAND - 1,
+					     outputBytes.length - sent);
+
+		    synchronized (this) {
+			if (outputStream != null) {
+			    outputStream.write(blockSize);
+			    outputStream.write(outputBytes, sent, blockSize);
+			    outputStream.flush();
+			}
+		    }
+		    sent += blockSize;
+		}
+	    }
+	} catch (IOException e) {
+	    Log.e(LOG_TAG, "Error streaming partial output to client: " +
+			       e.getMessage());
 	}
     }
 

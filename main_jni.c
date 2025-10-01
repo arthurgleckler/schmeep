@@ -21,9 +21,106 @@
 sexp scheme_ctx = NULL;
 sexp scheme_env = NULL;
 static pthread_mutex_t scheme_mutex = PTHREAD_MUTEX_INITIALIZER;
+static jobject bluetooth_instance = NULL;
+static JavaVM *cached_jvm = NULL;
 
 char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
 		       const char *original_expression);
+
+void bluetooth_output_write(const char *data, size_t length);
+sexp bluetooth_port_writer(sexp ctx, sexp self, sexp_sint_t n, sexp str,
+			   sexp start, sexp end);
+
+void bluetooth_output_write(const char *data, size_t length) {
+  LOGI("bluetooth_output_write called: bluetooth_instance=%p cached_jvm=%p "
+       "length=%zu",
+       bluetooth_instance, cached_jvm, length);
+
+  if (!bluetooth_instance || !cached_jvm) {
+    LOGE("bluetooth_output_write: bluetooth_instance or cached_jvm is NULL, "
+	 "returning");
+    return;
+  }
+
+  JNIEnv *env;
+  int attach_status =
+      (*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_6);
+  bool detach_needed = false;
+
+  LOGI("bluetooth_output_write: attach_status=%d", attach_status);
+
+  if (attach_status == JNI_EDETACHED) {
+    LOGI("bluetooth_output_write: Thread detached, attaching...");
+    if ((*cached_jvm)->AttachCurrentThread(cached_jvm, &env, NULL) != 0) {
+      LOGE("bluetooth_output_write: Failed to attach thread.");
+      return;
+    }
+    detach_needed = true;
+    LOGI("bluetooth_output_write: Thread attached successfully");
+  }
+
+  LOGI("bluetooth_output_write: Getting Bluetooth class...");
+  jclass bluetooth_class = (*env)->GetObjectClass(env, bluetooth_instance);
+  LOGI("bluetooth_output_write: Got class %p, getting method...",
+       bluetooth_class);
+
+  jmethodID method_id = (*env)->GetMethodID(
+      env, bluetooth_class, "streamPartialOutput", "(Ljava/lang/String;)V");
+
+  LOGI("bluetooth_output_write: method_id=%p", method_id);
+
+  if (method_id) {
+    LOGI("bluetooth_output_write: Creating string and calling method...");
+    jstring jdata = (*env)->NewStringUTF(env, data);
+    (*env)->CallVoidMethod(env, bluetooth_instance, method_id, jdata);
+    LOGI("bluetooth_output_write: Method called, deleting local ref...");
+    (*env)->DeleteLocalRef(env, jdata);
+    LOGI("bluetooth_output_write: Success!");
+  } else {
+    LOGE("bluetooth_output_write: Method streamPartialOutput not found.");
+  }
+
+  (*env)->DeleteLocalRef(env, bluetooth_class);
+
+  if (detach_needed) {
+    LOGI("bluetooth_output_write: Detaching thread...");
+    (*cached_jvm)->DetachCurrentThread(cached_jvm);
+  }
+
+  LOGI("bluetooth_output_write: Completed");
+}
+
+sexp bluetooth_port_writer(sexp ctx, sexp self, sexp_sint_t n, sexp str,
+			   sexp start, sexp end) {
+  sexp_sint_t start_idx = sexp_unbox_fixnum(start);
+  sexp_sint_t end_idx = sexp_unbox_fixnum(end);
+  sexp_sint_t length = end_idx - start_idx;
+
+  LOGI("bluetooth_port_writer called: start=%ld end=%ld length=%ld", start_idx,
+       end_idx, length);
+
+  if (length <= 0) {
+    return sexp_make_fixnum(0);
+  }
+
+  const char *str_data = sexp_string_data(str);
+  char *buffer = malloc(length + 1);
+
+  if (!buffer) {
+    LOGE("bluetooth_port_writer: malloc failed");
+    return sexp_make_fixnum(0);
+  }
+
+  memcpy(buffer, str_data + start_idx, length);
+  buffer[length] = '\0';
+
+  LOGI("bluetooth_port_writer: calling bluetooth_output_write with \"%s\"",
+       buffer);
+  bluetooth_output_write(buffer, length);
+
+  free(buffer);
+  return sexp_make_fixnum(length);
+}
 
 void cleanup_scheme() {
   if (scheme_ctx) {
@@ -31,6 +128,16 @@ void cleanup_scheme() {
     sexp_destroy_context(scheme_ctx);
     scheme_ctx = NULL;
     scheme_env = NULL;
+  }
+
+  if (bluetooth_instance && cached_jvm) {
+    JNIEnv *env;
+    int attach_status =
+	(*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_6);
+    if (attach_status == JNI_OK) {
+      (*env)->DeleteGlobalRef(env, bluetooth_instance);
+      bluetooth_instance = NULL;
+    }
   }
 }
 
@@ -133,6 +240,11 @@ int init_scheme() {
   } else {
     LOGE("init_scheme: Failed to import exception formatter.");
   }
+
+  /* Note: Output capture is now handled in evaluateScheme using
+   * sexp_open_output_string and sexp_set_parameter.  The custom port approach
+   * didn't work on Android since Chibi Scheme doesn't use STRING_STREAMS. */
+
   LOGI("init_scheme: Scheme context initialized successfully.");
   return 0;
 }
@@ -241,7 +353,40 @@ Java_com_speechcode_schmeep_ChibiScheme_evaluateScheme(JNIEnv *env,
     return (*env)->NewStringUTF(env, "Error: Invalid expression string.");
   }
 
+  /* Create output string port to capture display output */
+  sexp output_port = sexp_open_output_string(scheme_ctx);
+  sexp old_output_port = sexp_current_output_port(scheme_ctx);
+
+  LOGI("JNI: output_port=%p old_output_port=%p", output_port, old_output_port);
+
+  /* Set current-output-port parameter to capture output */
+  sexp param_symbol = sexp_global(scheme_ctx, SEXP_G_CUR_OUT_SYMBOL);
+  sexp_set_parameter(scheme_ctx, scheme_env, param_symbol, output_port);
+  LOGI("JNI: Set output port parameter");
+
   sexp result = sexp_eval_string(scheme_ctx, expr_cstr, -1, scheme_env);
+
+  /* Get captured output */
+  sexp output_str = sexp_get_output_string(scheme_ctx, output_port);
+
+  LOGI("JNI: output_str=%p is_string=%d", output_str,
+       output_str ? sexp_stringp(output_str) : -1);
+
+  const char *captured_output = NULL;
+  if (output_str && sexp_stringp(output_str)) {
+    captured_output = sexp_string_data(output_str);
+    size_t len = captured_output ? strlen(captured_output) : 0;
+    LOGI("JNI: captured_output=\"%s\" len=%zu",
+	 captured_output ? captured_output : "(null)", len);
+    if (captured_output && len > 0) {
+      LOGI("JNI: Sending captured output to Bluetooth");
+      bluetooth_output_write(captured_output, len);
+    }
+  }
+
+  /* Restore original output port */
+  sexp_set_parameter(scheme_ctx, scheme_env, param_symbol, old_output_port);
+  LOGI("JNI: Restored output port");
 
   (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
 
@@ -292,7 +437,31 @@ Java_com_speechcode_schmeep_ChibiScheme_evaluateScheme(JNIEnv *env,
   return java_result;
 }
 
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
+  cached_jvm = vm;
+  LOGI("JNI: Library loaded, JavaVM cached.");
+  return JNI_VERSION_1_6;
+}
+
 JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
   LOGI("JNI: Library unloading, cleaning up Scheme context.");
   cleanup_scheme();
+}
+
+JNIEXPORT void JNICALL
+Java_com_speechcode_schmeep_Bluetooth_setNativeOutputCallback(JNIEnv *env,
+							      jobject thiz) {
+  LOGI("JNI: setNativeOutputCallback called.");
+
+  if (bluetooth_instance) {
+    (*env)->DeleteGlobalRef(env, bluetooth_instance);
+  }
+
+  bluetooth_instance = (*env)->NewGlobalRef(env, thiz);
+
+  if (bluetooth_instance) {
+    LOGI("JNI: Bluetooth instance registered for output capture.");
+  } else {
+    LOGE("JNI: Failed to create global reference to Bluetooth instance.");
+  }
 }
