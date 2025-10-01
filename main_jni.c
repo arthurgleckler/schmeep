@@ -19,7 +19,7 @@
 #include "chibi/sexp.h"
 
 static jobject bluetooth_instance = NULL;
-static jobject chibi_scheme_instance = NULL;
+static jobject main_activity_instance = NULL;
 static JavaVM *cached_jvm = NULL;
 sexp scheme_ctx = NULL;
 sexp scheme_env = NULL;
@@ -72,21 +72,21 @@ void bluetooth_output_write(const char *data, size_t length) {
     (*env)->DeleteLocalRef(env, bluetooth_class);
   }
 
-  if (chibi_scheme_instance) {
-    jclass chibi_class = (*env)->GetObjectClass(env, chibi_scheme_instance);
+  if (main_activity_instance) {
+    jclass activity_class = (*env)->GetObjectClass(env, main_activity_instance);
     jmethodID displayCapturedOutput = (*env)->GetMethodID(
-	env, chibi_class, "displayCapturedOutput", "(Ljava/lang/String;)V");
+	env, activity_class, "displayCapturedOutput", "(Ljava/lang/String;)V");
 
     if (displayCapturedOutput) {
       jstring jdata = (*env)->NewStringUTF(env, data);
 
-      (*env)->CallVoidMethod(env, chibi_scheme_instance, displayCapturedOutput, jdata);
+      (*env)->CallVoidMethod(env, main_activity_instance, displayCapturedOutput, jdata);
       (*env)->DeleteLocalRef(env, jdata);
     } else {
       LOGE("bluetooth_output_write: Method displayCapturedOutput not found.");
     }
 
-    (*env)->DeleteLocalRef(env, chibi_class);
+    (*env)->DeleteLocalRef(env, activity_class);
   }
 
   if (detach_needed) {
@@ -144,9 +144,9 @@ void cleanup_scheme() {
 	(*env)->DeleteGlobalRef(env, bluetooth_instance);
 	bluetooth_instance = NULL;
       }
-      if (chibi_scheme_instance) {
-	(*env)->DeleteGlobalRef(env, chibi_scheme_instance);
-	chibi_scheme_instance = NULL;
+      if (main_activity_instance) {
+	(*env)->DeleteGlobalRef(env, main_activity_instance);
+	main_activity_instance = NULL;
       }
     }
   }
@@ -288,18 +288,6 @@ char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
 JNIEXPORT void JNICALL Java_com_speechcode_schmeep_ChibiScheme_initializeScheme(
     JNIEnv *env, jobject object) {
   LOGI("JNI: initializeScheme called.");
-
-  if (chibi_scheme_instance) {
-    (*env)->DeleteGlobalRef(env, chibi_scheme_instance);
-  }
-
-  chibi_scheme_instance = (*env)->NewGlobalRef(env, object);
-
-  if (chibi_scheme_instance) {
-    LOGI("JNI: ChibiScheme instance registered for output capture.");
-  } else {
-    LOGE("JNI: Failed to create global reference to ChibiScheme instance.");
-  }
 
   struct sigaction sa;
 
@@ -470,5 +458,23 @@ Java_com_speechcode_schmeep_Bluetooth_setNativeOutputCallback(JNIEnv *env,
     LOGI("JNI: Bluetooth instance registered for output capture.");
   } else {
     LOGE("JNI: Failed to create global reference to Bluetooth instance.");
+  }
+}
+
+JNIEXPORT void JNICALL
+Java_com_speechcode_schmeep_MainActivity_registerForOutputCapture(JNIEnv *env,
+								  jobject object) {
+  LOGI("JNI: registerForOutputCapture called.");
+
+  if (main_activity_instance) {
+    (*env)->DeleteGlobalRef(env, main_activity_instance);
+  }
+
+  main_activity_instance = (*env)->NewGlobalRef(env, object);
+
+  if (main_activity_instance) {
+    LOGI("JNI: MainActivity instance registered for output capture.");
+  } else {
+    LOGE("JNI: Failed to create global reference to MainActivity instance.");
   }
 }

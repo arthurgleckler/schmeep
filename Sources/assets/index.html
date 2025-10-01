@@ -175,11 +175,11 @@ const SCHEME_EXPRESSIONS = [
 ];
 
 function completeEvaluation(expression, result, type) {
-  const lastLi = document.querySelector("#scheme-content ul li:last-child");
+  const li = document.querySelector("#scheme-content ul li:last-child");
 
-  if (lastLi) {
-    lastLi.textContent = " " + expression + " ⇒ " + result;
-    lastLi.classList.add(type);
+  if (li) {
+    li.textContent = " " + expression + " ⇒ " + result;
+    li.classList.add(type);
   }
 }
 
@@ -191,17 +191,25 @@ function displayBluetoothResult(expression, result) {
   completeEvaluation(expression, result, "remote");
 }
 
-function displayCapturedOutput(output) {
-  const lastLi = document.querySelector("#scheme-content ul li:last-child");
+window.nativeDisplayExpression = function(expression) {
+  displayResult(" " + expression + " ⇒ ...", "local", "local");
+};
 
-  if (lastLi && lastLi.textContent.includes(" ⇒ ")) {
-    const parts = lastLi.textContent.split(" ⇒ ");
+window.nativeDisplayResult = function(text, source, type) {
+  displayResult(text, source, type);
+};
+
+window.nativeDisplayCapturedOutput = function(output) {
+  const li = document.querySelector("#scheme-content ul li:last-child");
+
+  if (li && li.textContent.includes(" ⇒ ")) {
+    const parts = li.textContent.split(" ⇒ ");
 
     if (parts.length === 2) {
-      lastLi.textContent = parts[0] + " ⇒ " + output + parts[1];
+      li.textContent = parts[0] + " ⇒ " + output + parts[1];
     }
   }
-}
+};
 
 function displayResult(text, source, type) {
   const schemeContent = document.getElementById("scheme-content");

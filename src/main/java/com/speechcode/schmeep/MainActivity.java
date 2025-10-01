@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
@@ -16,12 +17,15 @@ public class MainActivity extends Activity {
 
     static { System.loadLibrary("schmeep"); }
 
+    private native void registerForOutputCapture();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 	super.onCreate(savedInstanceState);
 	setTitle("Schmeep: Chibi Scheme REPL");
 	Log.i(LOG_TAG, "MainActivity onCreate started.");
 
+	registerForOutputCapture();
 	chibiScheme = new ChibiScheme(this);
 	setupWebView();
 	Log.i(LOG_TAG, "MainActivity onCreate completed.");
@@ -48,9 +52,9 @@ public class MainActivity extends Activity {
 	    Log.e(LOG_TAG, "JNI test failed: " + e.getMessage());
 	}
 	setContentView(webView);
-	chibiScheme.setWebView(webView);
 	try {
 	    webView.addJavascriptInterface(chibiScheme, "Scheme");
+	    webView.addJavascriptInterface(this, "Display");
 	    Log.i(LOG_TAG, "JavaScript interface added successfully.");
 	} catch (Exception e) {
 	    Log.e(LOG_TAG,
@@ -60,6 +64,51 @@ public class MainActivity extends Activity {
 	webView.setWebViewClient(new PageLoadedWebViewClient(this));
 	webView.loadUrl("file:///android_asset/index.html");
 	Log.i(LOG_TAG, "WebView setup completed.");
+    }
+
+    @JavascriptInterface
+    public void displayExpression(String expression) {
+	runOnUiThread(() -> {
+	    String escapedExpr = expression.replace("\\", "\\\\")
+					   .replace("\"", "\\\"")
+					   .replace("\n", "\\n")
+					   .replace("\r", "\\r")
+					   .replace("\t", "\\t");
+	    String jsCode = "if (window.nativeDisplayExpression) { " +
+			    "window.nativeDisplayExpression(\"" + escapedExpr +
+			    "\"); }";
+	    webView.evaluateJavascript(jsCode, null);
+	});
+    }
+
+    @JavascriptInterface
+    public void displayResult(String text, String source, String type) {
+	runOnUiThread(() -> {
+	    String escapedText = text.replace("\\", "\\\\")
+				     .replace("\"", "\\\"")
+				     .replace("\n", "\\n")
+				     .replace("\r", "\\r")
+				     .replace("\t", "\\t");
+	    String jsCode = "if (window.nativeDisplayResult) { " +
+			    "window.nativeDisplayResult(\"" + escapedText +
+			    "\", \"" + source + "\", \"" + type + "\"); }";
+	    webView.evaluateJavascript(jsCode, null);
+	});
+    }
+
+    @JavascriptInterface
+    public void displayCapturedOutput(String output) {
+	runOnUiThread(() -> {
+	    String escapedOutput = output.replace("\\", "\\\\")
+					 .replace("\"", "\\\"")
+					 .replace("\n", "\\n")
+					 .replace("\r", "\\r")
+					 .replace("\t", "\\t");
+	    String jsCode = "if (window.nativeDisplayCapturedOutput) { " +
+			    "window.nativeDisplayCapturedOutput(\"" +
+			    escapedOutput + "\"); }";
+	    webView.evaluateJavascript(jsCode, null);
+	});
     }
 
     public void initializeBluetooth() {
