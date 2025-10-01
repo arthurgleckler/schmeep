@@ -307,7 +307,28 @@ function updateConnectionStatus(statusType, message) {
   document.querySelector("#connection-status-text").textContent = message;
 }
 
-window.addEventListener("load", generateSchemeButtons);
+function runSchemeScripts() {
+  for (const s of document.querySelectorAll('script[type="application/x-scheme"]')) {
+    runSchemeExpression(s.textContent);
+  }
+}
+
+function initializePage() {
+  generateSchemeButtons();
+  runSchemeScripts();
+}
+
+window.addEventListener("load", initializePage);
+</script>
+<script type="application/x-scheme">
+(define (fibonacci n)
+  (let loop ((i 1)
+	     (x 1)
+	     (y 1))
+    (if (= i n)
+	x
+	(loop (+ i 1) y (+ x y)))))
+(fibonacci 10)
 </script>
 </head>
   <body>
