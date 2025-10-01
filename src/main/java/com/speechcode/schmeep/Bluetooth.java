@@ -438,23 +438,10 @@ public class Bluetooth {
 
     public void streamPartialOutput(String output) {
 	try {
-	    if (outputStream != null && output != null && !output.isEmpty()) {
+	    if (output != null && !output.isEmpty()) {
 		byte[] outputBytes = output.getBytes(StandardCharsets.UTF_8);
-		int sent = 0;
 
-		while (sent < outputBytes.length) {
-		    int blockSize = Math.min(CMD_C2A_MIN_COMMAND - 1,
-					     outputBytes.length - sent);
-
-		    synchronized (this) {
-			if (outputStream != null) {
-			    outputStream.write(blockSize);
-			    outputStream.write(outputBytes, sent, blockSize);
-			    outputStream.flush();
-			}
-		    }
-		    sent += blockSize;
-		}
+		writeBlocks(outputBytes, true);
 	    }
 	} catch (IOException e) {
 	    Log.e(LOG_TAG, "Error streaming partial output to client: " +
@@ -469,18 +456,7 @@ public class Bluetooth {
 		byte[] messageBytes =
 		    messageWithNewline.getBytes(StandardCharsets.UTF_8);
 
-		int sent = 0;
-
-		while (sent < messageBytes.length) {
-		    int blockSize = Math.min(CMD_C2A_MIN_COMMAND - 1,
-					     messageBytes.length - sent);
-
-		    outputStream.write(blockSize);
-		    outputStream.write(messageBytes, sent, blockSize);
-		    outputStream.flush();
-		    sent += blockSize;
-		}
-
+		writeBlocks(messageBytes, false);
 		sendEvaluationCompleteToClient();
 	    }
 	} catch (IOException e) {
@@ -495,7 +471,37 @@ public class Bluetooth {
 		String.format("updateConnectionStatus(\"%s\", \"%s\");",
 			      statusType.replace("\"", "\\\""),
 			      message.replace("\"", "\\\""));
+
 	    webView.evaluateJavascript(javascript, null);
 	});
+    }
+
+    private void writeBlocks(byte[] data, boolean useSynchronization)
+	throws IOException {
+	if (outputStream == null || data == null || data.length == 0) {
+	    return;
+	}
+
+	int sent = 0;
+
+	while (sent < data.length) {
+	    int blockSize =
+		Math.min(CMD_C2A_MIN_COMMAND - 1, data.length - sent);
+
+	    if (useSynchronization) {
+		synchronized (this) {
+		    if (outputStream != null) {
+			outputStream.write(blockSize);
+			outputStream.write(data, sent, blockSize);
+			outputStream.flush();
+		    }
+		}
+	    } else {
+		outputStream.write(blockSize);
+		outputStream.write(data, sent, blockSize);
+		outputStream.flush();
+	    }
+	    sent += blockSize;
+	}
     }
 }
