@@ -576,6 +576,8 @@ Java_com_speechcode_schmeep_ChibiScheme_isCompleteExpression(
 
   jboolean result;
 
+  // <> Do we need to distinguish errors about incomplete input from other
+  // errors?
   if (sexp_exceptionp(expr_obj)) {
     LOGI("JNI: Expression is incomplete (read error).");
     result = JNI_FALSE;
