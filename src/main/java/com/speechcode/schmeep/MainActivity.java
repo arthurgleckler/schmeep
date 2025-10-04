@@ -70,13 +70,13 @@ public class MainActivity extends Activity {
     public void displayExpression(String expression) {
 	runOnUiThread(() -> {
 	    String escapedExpr = expression.replace("\\", "\\\\")
-					   .replace("\"", "\\\"")
-					   .replace("\n", "\\n")
-					   .replace("\r", "\\r")
-					   .replace("\t", "\\t");
-	    String jsCode = "if (window.nativeDisplayExpression) { " +
-			    "window.nativeDisplayExpression(\"" + escapedExpr +
-			    "\"); }";
+				     .replace("\"", "\\\"")
+				     .replace("\n", "\\n")
+				     .replace("\r", "\\r")
+				     .replace("\t", "\\t");
+	    String jsCode = "if (window.nativeDisplayExpression) { "
+			    + "window.nativeDisplayExpression(\"" +
+			    escapedExpr + "\"); }";
 	    webView.evaluateJavascript(jsCode, null);
 	});
     }
@@ -89,8 +89,8 @@ public class MainActivity extends Activity {
 				     .replace("\n", "\\n")
 				     .replace("\r", "\\r")
 				     .replace("\t", "\\t");
-	    String jsCode = "if (window.nativeDisplayResult) { " +
-			    "window.nativeDisplayResult(\"" + escapedText +
+	    String jsCode = "if (window.nativeDisplayResult) { "
+			    + "window.nativeDisplayResult(\"" + escapedText +
 			    "\", \"" + source + "\", \"" + type + "\"); }";
 	    webView.evaluateJavascript(jsCode, null);
 	});
@@ -100,12 +100,12 @@ public class MainActivity extends Activity {
     public void displayCapturedOutput(String output) {
 	runOnUiThread(() -> {
 	    String escapedOutput = output.replace("\\", "\\\\")
-					 .replace("\"", "\\\"")
-					 .replace("\n", "\\n")
-					 .replace("\r", "\\r")
-					 .replace("\t", "\\t");
-	    String jsCode = "if (window.nativeDisplayCapturedOutput) { " +
-			    "window.nativeDisplayCapturedOutput(\"" +
+				       .replace("\"", "\\\"")
+				       .replace("\n", "\\n")
+				       .replace("\r", "\\r")
+				       .replace("\t", "\\t");
+	    String jsCode = "if (window.nativeDisplayCapturedOutput) { "
+			    + "window.nativeDisplayCapturedOutput(\"" +
 			    escapedOutput + "\"); }";
 	    webView.evaluateJavascript(jsCode, null);
 	});
@@ -115,22 +115,27 @@ public class MainActivity extends Activity {
     public void replaceElementHTML(String selector, String html) {
 	runOnUiThread(() -> {
 	    String escapedSelector = selector.replace("\\", "\\\\")
-					     .replace("\"", "\\\"")
-					     .replace("\n", "\\n")
-					     .replace("\r", "\\r")
-					     .replace("\t", "\\t");
+					 .replace("\"", "\\\"")
+					 .replace("\n", "\\n")
+					 .replace("\r", "\\r")
+					 .replace("\t", "\\t");
 	    String escapedHtml = html.replace("\\", "\\\\")
 				     .replace("\"", "\\\"")
 				     .replace("\n", "\\n")
 				     .replace("\r", "\\r")
 				     .replace("\t", "\\t");
-	    String jsCode = "(function() { " +
-			    "try { " +
-			    "var el = document.querySelector(\"" + escapedSelector + "\"); " +
-			    "if (el) { el.outerHTML = \"" + escapedHtml + "\"; } " +
-			    "else { console.error('Element not found: " + escapedSelector + "'); } " +
-			    "} catch (e) { console.error('replaceElementHTML error:', e); } " +
-			    "})();";
+	    String jsCode =
+		"(function() { "
+		+ "try { "
+		+ "var el = document.querySelector(\"" + escapedSelector +
+		"\"); "
+		+ "if (el) { el.outerHTML = \"" + escapedHtml + "\"; } "
+		+
+		"else { console.error('Element not found: " + escapedSelector +
+		"'); } "
+		+
+		"} catch (e) { console.error('replaceElementHTML error:', e); } "
+		+ "})();";
 	    webView.evaluateJavascript(jsCode, null);
 	});
     }

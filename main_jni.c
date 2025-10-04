@@ -35,7 +35,7 @@ sexp sexp_set_element_outer_html(sexp ctx, sexp self, sexp_sint_t n,
 				 sexp selector, sexp html);
 
 static bool attach_jni_env(JNIEnv **env, bool *detach_needed,
-			    const char *caller) {
+			   const char *caller) {
   if (!cached_jvm) {
     LOGE("%s: cached_jvm is NULL.", caller);
     return false;
@@ -83,7 +83,8 @@ void bluetooth_output_write(const char *data, size_t length) {
     if (streamPartialOutput) {
       jstring jdata = (*env)->NewStringUTF(env, data);
 
-      (*env)->CallVoidMethod(env, bluetooth_instance, streamPartialOutput, jdata);
+      (*env)->CallVoidMethod(env, bluetooth_instance, streamPartialOutput,
+			     jdata);
       (*env)->DeleteLocalRef(env, jdata);
     } else {
       LOGE("bluetooth_output_write: Method streamPartialOutput not found.");
@@ -100,7 +101,8 @@ void bluetooth_output_write(const char *data, size_t length) {
     if (displayCapturedOutput) {
       jstring jdata = (*env)->NewStringUTF(env, data);
 
-      (*env)->CallVoidMethod(env, main_activity_instance, displayCapturedOutput, jdata);
+      (*env)->CallVoidMethod(env, main_activity_instance, displayCapturedOutput,
+			     jdata);
       (*env)->DeleteLocalRef(env, jdata);
     } else {
       LOGE("bluetooth_output_write: Method displayCapturedOutput not found.");
@@ -147,14 +149,13 @@ sexp bluetooth_port_writer(sexp ctx, sexp self, sexp_sint_t n, sexp str,
 sexp sexp_set_element_outer_html(sexp ctx, sexp self, sexp_sint_t n,
 				 sexp selector, sexp html) {
   if (!sexp_stringp(selector)) {
-    return sexp_user_exception(ctx, self,
-			       "set-element-outer-html!: Selector must be a string.",
-			       selector);
+    return sexp_user_exception(
+	ctx, self, "set-element-outer-html!: Selector must be a string.",
+	selector);
   }
   if (!sexp_stringp(html)) {
-    return sexp_user_exception(ctx, self,
-			       "set-element-outer-html!: HTML must be a string.",
-			       html);
+    return sexp_user_exception(
+	ctx, self, "set-element-outer-html!: HTML must be a string.", html);
   }
 
   const char *selector_cstr = sexp_string_data(selector);
@@ -453,12 +454,12 @@ Java_com_speechcode_schmeep_ChibiScheme_evaluateScheme(JNIEnv *env,
   } else {
     while ((expr_obj = sexp_read(scheme_ctx, input_port)) != SEXP_EOF) {
       if (sexp_exceptionp(expr_obj)) {
-        result = expr_obj;
-        break;
+	result = expr_obj;
+	break;
       }
       result = sexp_eval(scheme_ctx, expr_obj, scheme_env);
       if (sexp_exceptionp(result)) {
-        break;
+	break;
       }
     }
     sexp_close_port(scheme_ctx, input_port);
@@ -531,9 +532,8 @@ Java_com_speechcode_schmeep_ChibiScheme_evaluateScheme(JNIEnv *env,
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_speechcode_schmeep_ChibiScheme_isCompleteExpression(JNIEnv *env,
-                                                              jobject object,
-                                                              jstring expression) {
+Java_com_speechcode_schmeep_ChibiScheme_isCompleteExpression(
+    JNIEnv *env, jobject object, jstring expression) {
   LOGI("JNI: isCompleteExpression called.");
 
   pthread_mutex_lock(&scheme_mutex);
@@ -619,8 +619,8 @@ Java_com_speechcode_schmeep_Bluetooth_setNativeOutputCallback(JNIEnv *env,
 }
 
 JNIEXPORT void JNICALL
-Java_com_speechcode_schmeep_MainActivity_registerForOutputCapture(JNIEnv *env,
-								  jobject object) {
+Java_com_speechcode_schmeep_MainActivity_registerForOutputCapture(
+    JNIEnv *env, jobject object) {
   LOGI("JNI: registerForOutputCapture called.");
 
   if (main_activity_instance) {
