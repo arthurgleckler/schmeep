@@ -375,13 +375,21 @@ public class Bluetooth {
     }
 
     private void handleEvaluateCommand() {
-	String expression = expressionBuffer.toString().trim();
-	expressionBuffer.setLength(0);
+	String expression = expressionBuffer.toString();
 
 	if (expression.isEmpty()) {
-	    streamToClient("");
 	    return;
 	}
+
+	boolean isComplete = chibiScheme.isCompleteExpression(expression);
+
+	if (!isComplete) {
+	    Log.i(LOG_TAG, "Expression incomplete.  Waiting for more input: " +
+			       expression.replace("\n", "\\n"));
+	    return;
+	}
+
+	expressionBuffer.setLength(0);
 
 	Log.i(LOG_TAG,
 	      "Executing expression: " + expression.replace("\n", "\\n"));

@@ -10,6 +10,7 @@ public class ChibiScheme {
     public native String evaluateScheme(String expression);
     public native void initializeScheme();
     public native String interruptScheme();
+    public native boolean isCompleteExpression(String expression);
 
     public ChibiScheme(MainActivity activity) {
 	try {

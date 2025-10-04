@@ -23,6 +23,11 @@ send "(+ 100 20 3)\r"
 expect_or_fail "123"
 expect_or_fail "scheme> "
 
+send "(+ 1 2\r"
+send "3)\r"
+expect_or_fail "6"
+expect_or_fail "scheme> "
+
 send "(/ 1 0)\r"
 expect_or_fail "Exception: divide by zero"
 expect_or_fail "scheme> "

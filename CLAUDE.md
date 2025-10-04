@@ -93,15 +93,18 @@ Content Encoding: UTF-8 text (supports multi-line expressions)
 ```
 
 **Client Behavior:**
-- **Interactive Mode**: Displays initial "scheme> " prompt on connection, then after receiving EVALUATION_COMPLETE (255) command from server
+- **Interactive Mode**: Displays "scheme> " prompt on connection, then after receiving EVALUATION_COMPLETE (255) command from server
 - **Block-based Input**: Automatically splits large expressions into 252-byte blocks
 - **Real-time Results**: Displays evaluation results as they stream from server
 - **Connection Retry**: Implements EBUSY-specific retry logic with exponential backoff for robust reconnection
+- **Multi-line Expressions**: Supports incomplete expressions; no prompt shown until EVALUATION_COMPLETE received
 
 **Server Behavior:**
 - **RFCOMM Cleanup Delay**: Waits 3 seconds after connection close before accepting new connections to allow BlueZ cleanup
 - **Connection State Management**: Properly manages RFCOMM connection state to prevent "Device or resource busy" errors on reconnection
 - **Output Capture**: Intercepts `(display)` and `(write)` output to `(current-output-port)` and streams it to client in blocks
+- **Expression Completeness**: Uses `complete-sexp?` from `(chibi repl)` to check if expressions are complete before evaluation
+- **Incomplete Expression Handling**: When EVALUATE received with incomplete expression, server remains silent (no response)
 
 **Usage:**
 ```bash

@@ -652,15 +652,6 @@ void *input_thread(void *arg) {
       break;
     }
 
-    if (nread > 0 && line[nread - 1] == '\n') {
-      line[nread - 1] = '\0';
-    }
-
-    if (strlen(line) == 0) {
-      free(line);
-      continue;
-    }
-
     if (send_expression_in_blocks(sock, line) < 0) {
       fprintf(stderr, "Failed to send expression.\n");
       free(line);

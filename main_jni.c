@@ -530,6 +530,65 @@ Java_com_speechcode_schmeep_ChibiScheme_evaluateScheme(JNIEnv *env,
   return java_result;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_speechcode_schmeep_ChibiScheme_isCompleteExpression(JNIEnv *env,
+                                                              jobject object,
+                                                              jstring expression) {
+  LOGI("JNI: isCompleteExpression called.");
+
+  pthread_mutex_lock(&scheme_mutex);
+  if (scheme_ctx == NULL || scheme_env == NULL) {
+    LOGE("JNI: Scheme not initialized - ctx=%p env=%p", scheme_ctx, scheme_env);
+    pthread_mutex_unlock(&scheme_mutex);
+    return JNI_FALSE;
+  }
+
+  const char *expr_cstr = (*env)->GetStringUTFChars(env, expression, NULL);
+
+  if (!expr_cstr) {
+    LOGE("JNI: Failed to convert expression string.");
+    pthread_mutex_unlock(&scheme_mutex);
+    return JNI_FALSE;
+  }
+
+  sexp_gc_var2(input_port, expr_string);
+  sexp_gc_preserve2(scheme_ctx, input_port, expr_string);
+
+  expr_string = sexp_c_string(scheme_ctx, expr_cstr, -1);
+  (*env)->ReleaseStringUTFChars(env, expression, expr_cstr);
+
+  input_port = sexp_open_input_string(scheme_ctx, expr_string);
+
+  if (sexp_exceptionp(input_port)) {
+    LOGE("JNI: Failed to create input port.");
+    sexp_gc_release2(scheme_ctx);
+    pthread_mutex_unlock(&scheme_mutex);
+    return JNI_FALSE;
+  }
+
+  sexp expr_obj = sexp_read(scheme_ctx, input_port);
+
+  while (expr_obj != SEXP_EOF && !sexp_exceptionp(expr_obj)) {
+    expr_obj = sexp_read(scheme_ctx, input_port);
+  }
+
+  sexp_close_port(scheme_ctx, input_port);
+
+  jboolean result;
+
+  if (sexp_exceptionp(expr_obj)) {
+    LOGI("JNI: Expression is incomplete (read error).");
+    result = JNI_FALSE;
+  } else {
+    LOGI("JNI: Expression is complete.");
+    result = JNI_TRUE;
+  }
+
+  sexp_gc_release2(scheme_ctx);
+  pthread_mutex_unlock(&scheme_mutex);
+  return result;
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
   cached_jvm = vm;
   LOGI("JNI: Library loaded.  JavaVM cached.");
