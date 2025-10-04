@@ -154,14 +154,14 @@ sexp sexp_set_element_outer_html(sexp ctx, sexp self, sexp_sint_t n,
   JNIEnv *env;
   int attach_status =
       (*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_6);
-  int detach_needed = 0;
+  bool detach_needed = false;
 
   if (attach_status == JNI_EDETACHED) {
     if ((*cached_jvm)->AttachCurrentThread(cached_jvm, &env, NULL) != 0) {
       LOGE("set-element-outer-html!: Failed to attach thread.");
       return SEXP_VOID;
     }
-    detach_needed = 1;
+    detach_needed = true;
   }
 
   jclass activity_class = (*env)->GetObjectClass(env, main_activity_instance);
