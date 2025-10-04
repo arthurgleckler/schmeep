@@ -406,7 +406,12 @@ Java_com_speechcode_schmeep_ChibiScheme_interruptScheme(JNIEnv *env,
 							jobject object) {
   LOGI("JNI: interruptScheme called.");
 
-  sexp_context_interruptp(sexp_context_child(scheme_ctx)) = 1;
+  if (scheme_ctx != NULL) {
+    sexp child_ctx = sexp_context_child(scheme_ctx);
+    if (child_ctx != NULL) {
+      sexp_context_interruptp(child_ctx) = 1;
+    }
+  }
   return (*env)->NewStringUTF(env, "Interrupted.");
 }
 
