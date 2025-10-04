@@ -581,11 +581,17 @@ Java_com_speechcode_schmeep_ChibiScheme_isCompleteExpression(
 
   jboolean result;
 
-  // <> Do we need to distinguish errors about incomplete input from other
-  // errors?
   if (sexp_exceptionp(expr_obj)) {
-    LOGI("JNI: Expression is incomplete (read error).");
-    result = JNI_FALSE;
+    sexp kind = sexp_exception_kind(expr_obj);
+    sexp incomplete_symbol = sexp_intern(scheme_ctx, "read-incomplete", -1);
+
+    if (kind == incomplete_symbol) {
+      LOGI("JNI: Expression is incomplete.");
+      result = JNI_FALSE;
+    } else {
+      LOGI("JNI: Expression is malformed (not incomplete).");
+      result = JNI_TRUE;
+    }
   } else {
     LOGI("JNI: Expression is complete.");
     result = JNI_TRUE;
