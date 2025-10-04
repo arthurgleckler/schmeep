@@ -254,7 +254,11 @@ public class Bluetooth {
     }
 
     private String escapeForJavaScript(String input) {
-	return input.replace("\"", "\\\"");
+	return input.replace("\\", "\\\\")
+	    .replace("\"", "\\\"")
+	    .replace("\n", "\\n")
+	    .replace("\r", "\\r")
+	    .replace("\t", "\\t");
     }
 
     private void executeJavaScriptOnWebView(String javascript,
