@@ -31,6 +31,8 @@ char *format_exception(sexp exception_obj, sexp ctx, const char *prefix,
 void bluetooth_output_write(const char *data, size_t length);
 sexp bluetooth_port_writer(sexp ctx, sexp self, sexp_sint_t n, sexp str,
 			   sexp start, sexp end);
+sexp sexp_set_element_outer_html(sexp ctx, sexp self, sexp_sint_t n,
+				 sexp selector, sexp html);
 
 void bluetooth_output_write(const char *data, size_t length) {
   LOGI("bluetooth_output_write called: bluetooth_instance=%p cached_jvm=%p "
@@ -124,6 +126,69 @@ sexp bluetooth_port_writer(sexp ctx, sexp self, sexp_sint_t n, sexp str,
 
   free(buffer);
   return sexp_make_fixnum(length);
+}
+
+sexp sexp_set_element_outer_html(sexp ctx, sexp self, sexp_sint_t n,
+				 sexp selector, sexp html) {
+  if (!sexp_stringp(selector)) {
+    return sexp_user_exception(ctx, self,
+			       "set-element-outer-html!: Selector must be a string.",
+			       selector);
+  }
+  if (!sexp_stringp(html)) {
+    return sexp_user_exception(ctx, self,
+			       "set-element-outer-html!: HTML must be a string.",
+			       html);
+  }
+
+  const char *selector_cstr = sexp_string_data(selector);
+  const char *html_cstr = sexp_string_data(html);
+
+  LOGI("set-element-outer-html! called: selector=%s", selector_cstr);
+
+  if (!cached_jvm || !main_activity_instance) {
+    LOGE("set-element-outer-html!: JVM or MainActivity instance not available.");
+    return SEXP_VOID;
+  }
+
+  JNIEnv *env;
+  int attach_status =
+      (*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_6);
+  int detach_needed = 0;
+
+  if (attach_status == JNI_EDETACHED) {
+    if ((*cached_jvm)->AttachCurrentThread(cached_jvm, &env, NULL) != 0) {
+      LOGE("set-element-outer-html!: Failed to attach thread.");
+      return SEXP_VOID;
+    }
+    detach_needed = 1;
+  }
+
+  jclass activity_class = (*env)->GetObjectClass(env, main_activity_instance);
+  jmethodID replaceElementHTML =
+      (*env)->GetMethodID(env, activity_class, "replaceElementHTML",
+			  "(Ljava/lang/String;Ljava/lang/String;)V");
+
+  if (replaceElementHTML) {
+    jstring jselector = (*env)->NewStringUTF(env, selector_cstr);
+    jstring jhtml = (*env)->NewStringUTF(env, html_cstr);
+
+    (*env)->CallVoidMethod(env, main_activity_instance, replaceElementHTML,
+			   jselector, jhtml);
+
+    (*env)->DeleteLocalRef(env, jselector);
+    (*env)->DeleteLocalRef(env, jhtml);
+  } else {
+    LOGE("set-element-outer-html!: Method replaceElementHTML not found.");
+  }
+
+  (*env)->DeleteLocalRef(env, activity_class);
+
+  if (detach_needed) {
+    (*cached_jvm)->DetachCurrentThread(cached_jvm);
+  }
+
+  return SEXP_VOID;
 }
 
 void cleanup_scheme() {
@@ -242,6 +307,10 @@ int init_scheme() {
   } else {
     LOGE("init_scheme: Failed to set library search path.");
   }
+
+  sexp_define_foreign(scheme_ctx, scheme_env, "set-element-outer-html!", 2,
+		      sexp_set_element_outer_html);
+  LOGI("init_scheme: Registered set-element-outer-html! native function.");
 
   sexp import_result = sexp_eval_string(
       scheme_ctx, "(import (schmeep exception-formatter))", -1, scheme_env);

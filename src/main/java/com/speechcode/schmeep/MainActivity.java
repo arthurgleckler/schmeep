@@ -111,6 +111,30 @@ public class MainActivity extends Activity {
 	});
     }
 
+    @JavascriptInterface
+    public void replaceElementHTML(String selector, String html) {
+	runOnUiThread(() -> {
+	    String escapedSelector = selector.replace("\\", "\\\\")
+					     .replace("\"", "\\\"")
+					     .replace("\n", "\\n")
+					     .replace("\r", "\\r")
+					     .replace("\t", "\\t");
+	    String escapedHtml = html.replace("\\", "\\\\")
+				     .replace("\"", "\\\"")
+				     .replace("\n", "\\n")
+				     .replace("\r", "\\r")
+				     .replace("\t", "\\t");
+	    String jsCode = "(function() { " +
+			    "try { " +
+			    "var el = document.querySelector(\"" + escapedSelector + "\"); " +
+			    "if (el) { el.outerHTML = \"" + escapedHtml + "\"; } " +
+			    "else { console.error('Element not found: " + escapedSelector + "'); } " +
+			    "} catch (e) { console.error('replaceElementHTML error:', e); } " +
+			    "})();";
+	    webView.evaluateJavascript(jsCode, null);
+	});
+    }
+
     public void initializeBluetooth() {
 	bluetooth = new Bluetooth(this, chibiScheme, webView);
 	bluetooth.requestBluetoothPermissions();
