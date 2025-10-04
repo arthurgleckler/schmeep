@@ -34,27 +34,45 @@ sexp bluetooth_port_writer(sexp ctx, sexp self, sexp_sint_t n, sexp str,
 sexp sexp_set_element_outer_html(sexp ctx, sexp self, sexp_sint_t n,
 				 sexp selector, sexp html);
 
+static bool attach_jni_env(JNIEnv **env, bool *detach_needed,
+			    const char *caller) {
+  if (!cached_jvm) {
+    LOGE("%s: cached_jvm is NULL.", caller);
+    return false;
+  }
+
+  int attach_status =
+      (*cached_jvm)->GetEnv(cached_jvm, (void **)env, JNI_VERSION_1_6);
+
+  *detach_needed = false;
+
+  if (attach_status == JNI_EDETACHED) {
+    if ((*cached_jvm)->AttachCurrentThread(cached_jvm, env, NULL) != 0) {
+      LOGE("%s: Failed to attach thread.", caller);
+      return false;
+    }
+    *detach_needed = true;
+  }
+
+  return true;
+}
+
+static void maybe_detach_jni_env(bool detach_needed) {
+  if (detach_needed) {
+    (*cached_jvm)->DetachCurrentThread(cached_jvm);
+  }
+}
+
 void bluetooth_output_write(const char *data, size_t length) {
   LOGI("bluetooth_output_write called: bluetooth_instance=%p cached_jvm=%p "
        "length=%zu",
        bluetooth_instance, cached_jvm, length);
 
-  if (!cached_jvm) {
-    LOGE("bluetooth_output_write: cached_jvm is NULL, returning");
-    return;
-  }
-
   JNIEnv *env;
-  int attach_status =
-      (*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_6);
-  bool detach_needed = false;
+  bool detach_needed;
 
-  if (attach_status == JNI_EDETACHED) {
-    if ((*cached_jvm)->AttachCurrentThread(cached_jvm, &env, NULL) != 0) {
-      LOGE("bluetooth_output_write: Failed to attach thread.");
-      return;
-    }
-    detach_needed = true;
+  if (!attach_jni_env(&env, &detach_needed, "bluetooth_output_write")) {
+    return;
   }
 
   if (bluetooth_instance) {
@@ -91,9 +109,7 @@ void bluetooth_output_write(const char *data, size_t length) {
     (*env)->DeleteLocalRef(env, activity_class);
   }
 
-  if (detach_needed) {
-    (*cached_jvm)->DetachCurrentThread(cached_jvm);
-  }
+  maybe_detach_jni_env(detach_needed);
 }
 
 sexp bluetooth_port_writer(sexp ctx, sexp self, sexp_sint_t n, sexp str,
@@ -146,22 +162,15 @@ sexp sexp_set_element_outer_html(sexp ctx, sexp self, sexp_sint_t n,
 
   LOGI("set-element-outer-html! called: selector=%s", selector_cstr);
 
-  if (!cached_jvm || !main_activity_instance) {
-    LOGE("set-element-outer-html!: JVM or MainActivity instance not available.");
+  if (!main_activity_instance) {
+    LOGE("set-element-outer-html!: MainActivity instance not available.");
     return SEXP_VOID;
   }
 
   JNIEnv *env;
-  int attach_status =
-      (*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_6);
-  bool detach_needed = false;
-
-  if (attach_status == JNI_EDETACHED) {
-    if ((*cached_jvm)->AttachCurrentThread(cached_jvm, &env, NULL) != 0) {
-      LOGE("set-element-outer-html!: Failed to attach thread.");
-      return SEXP_VOID;
-    }
-    detach_needed = true;
+  bool detach_needed;
+  if (!attach_jni_env(&env, &detach_needed, "set-element-outer-html!")) {
+    return SEXP_VOID;
   }
 
   jclass activity_class = (*env)->GetObjectClass(env, main_activity_instance);
@@ -184,9 +193,7 @@ sexp sexp_set_element_outer_html(sexp ctx, sexp self, sexp_sint_t n,
 
   (*env)->DeleteLocalRef(env, activity_class);
 
-  if (detach_needed) {
-    (*cached_jvm)->DetachCurrentThread(cached_jvm);
-  }
+  maybe_detach_jni_env(detach_needed);
 
   return SEXP_VOID;
 }
