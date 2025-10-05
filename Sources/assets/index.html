@@ -5,16 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link rel="stylesheet" href="style.css">
 <script src="main.js"></script>
-<script type="application/x-scheme">
-(define (fibonacci n)
-  (let loop ((i 1)
-	     (x 1)
-	     (y 1))
-    (if (= i n)
-	x
-	(loop (+ i 1) y (+ x y)))))
-(fibonacci 10)
-</script>
+<script type="application/x-scheme" src="fibonacci.scm"></script>
 </head>
   <body>
     <div id="status-bar" class="status-bar">

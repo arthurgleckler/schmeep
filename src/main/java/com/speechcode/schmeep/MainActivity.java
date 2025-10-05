@@ -41,6 +41,7 @@ public class MainActivity extends Activity {
 	webSettings.setDomStorageEnabled(true);
 	webSettings.setAllowFileAccess(true);
 	webSettings.setAllowContentAccess(true);
+	webSettings.setAllowFileAccessFromFileURLs(true);
 	try {
 	    Log.i(LOG_TAG, "Direct JNI test result: " +
 			       chibiScheme.evaluateScheme("(+ 2 3)"));

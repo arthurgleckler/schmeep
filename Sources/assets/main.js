@@ -149,7 +149,25 @@ function updateConnectionStatus(statusType, message) {
 
 function runSchemeScripts() {
   for (const s of document.querySelectorAll('script[type="application/x-scheme"]')) {
-    runSchemeExpression(s.textContent);
+    if (s.hasAttribute("src")) {
+      const src = s.getAttribute("src");
+      const xhr = new XMLHttpRequest();
+
+      xhr.open("GET", src, true);
+      xhr.onload = function() {
+        if (xhr.status === 200 || xhr.status === 0) {
+          runSchemeExpression(xhr.responseText);
+        } else {
+          displayResult("Error loading " + src + ": HTTP " + xhr.status, "local", "error");
+        }
+      };
+      xhr.onerror = function() {
+        displayResult("Error loading " + src + ": Network error", "local", "error");
+      };
+      xhr.send();
+    } else {
+      runSchemeExpression(s.textContent);
+    }
   }
 }
 
