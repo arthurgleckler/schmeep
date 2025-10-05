@@ -23,11 +23,6 @@ send "(+ 100 20 3)\r"
 expect_or_fail "123"
 expect_or_fail "scheme> "
 
-send "(+ 1 2\r"
-send "3)\r"
-expect_or_fail "6"
-expect_or_fail "scheme> "
-
 send "(/ 1 0)\r"
 expect_or_fail "Exception: divide by zero"
 expect_or_fail "scheme> "
@@ -40,6 +35,31 @@ expect_or_fail "scheme> "
 send "(begin (write \"delta echo\") (newline) 345)\r"
 expect_or_fail "delta echo"
 expect_or_fail 345
+expect_or_fail "scheme> "
+
+send "(+ 1 2\r"
+send "3)\r"
+expect_or_fail "6"
+expect_or_fail "scheme> "
+
+send "'(a .\r"
+send "b)\r"
+expect_or_fail "(a . b)"
+expect_or_fail "scheme> "
+
+send "'(a\r"
+send ". b)\r"
+expect_or_fail "(a . b)"
+expect_or_fail "scheme> "
+
+send "#| alpha bravo\r"
+send "charlie |# 'foxtrot\r"
+expect_or_fail "foxtrot"
+expect_or_fail "scheme> "
+
+send "\"This is\r"
+send "a test.\"\r"
+expect_or_fail "a test.\""
 expect_or_fail "scheme> "
 
 send "(let loop () (loop))\r"
