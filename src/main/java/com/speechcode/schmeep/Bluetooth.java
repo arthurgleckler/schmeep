@@ -237,7 +237,7 @@ public class Bluetooth {
     private void displayExpression(String expression) {
 	executeJavaScriptOnWebView(
 	    String.format("displayBluetoothExpression(\"%s\");",
-			  escapeForJavaScript(expression)),
+			  JavaScript.escape(expression)),
 	    "Executing JavaScript for received Bluetooth expression: " +
 		expression,
 	    "displayExpression");
@@ -246,19 +246,11 @@ public class Bluetooth {
     private void displayResult(String expression, String result) {
 	executeJavaScriptOnWebView(
 	    String.format("displayBluetoothResult(\"%s\", \"%s\");",
-			  escapeForJavaScript(expression),
-			  escapeForJavaScript(result)),
+			  JavaScript.escape(expression),
+			  JavaScript.escape(result)),
 	    "Executing JavaScript for Bluetooth result: " + expression + " = " +
 		result,
 	    "displayResult");
-    }
-
-    private String escapeForJavaScript(String input) {
-	return input.replace("\\", "\\\\")
-	    .replace("\"", "\\\"")
-	    .replace("\n", "\\n")
-	    .replace("\r", "\\r")
-	    .replace("\t", "\\t");
     }
 
     private void executeJavaScriptOnWebView(String javascript,

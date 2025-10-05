@@ -69,11 +69,7 @@ public class MainActivity extends Activity {
     @JavascriptInterface
     public void displayExpression(String expression) {
 	runOnUiThread(() -> {
-	    String escapedExpr = expression.replace("\\", "\\\\")
-				     .replace("\"", "\\\"")
-				     .replace("\n", "\\n")
-				     .replace("\r", "\\r")
-				     .replace("\t", "\\t");
+	    String escapedExpr = JavaScript.escape(expression);
 	    String jsCode = "if (window.nativeDisplayExpression) { "
 			    + "window.nativeDisplayExpression(\"" +
 			    escapedExpr + "\"); }";
@@ -84,11 +80,7 @@ public class MainActivity extends Activity {
     @JavascriptInterface
     public void displayResult(String text, String source, String type) {
 	runOnUiThread(() -> {
-	    String escapedText = text.replace("\\", "\\\\")
-				     .replace("\"", "\\\"")
-				     .replace("\n", "\\n")
-				     .replace("\r", "\\r")
-				     .replace("\t", "\\t");
+	    String escapedText = JavaScript.escape(text);
 	    String jsCode = "if (window.nativeDisplayResult) { "
 			    + "window.nativeDisplayResult(\"" + escapedText +
 			    "\", \"" + source + "\", \"" + type + "\"); }";
@@ -99,11 +91,7 @@ public class MainActivity extends Activity {
     @JavascriptInterface
     public void displayCapturedOutput(String output) {
 	runOnUiThread(() -> {
-	    String escapedOutput = output.replace("\\", "\\\\")
-				       .replace("\"", "\\\"")
-				       .replace("\n", "\\n")
-				       .replace("\r", "\\r")
-				       .replace("\t", "\\t");
+	    String escapedOutput = JavaScript.escape(output);
 	    String jsCode = "if (window.nativeDisplayCapturedOutput) { "
 			    + "window.nativeDisplayCapturedOutput(\"" +
 			    escapedOutput + "\"); }";
@@ -114,16 +102,8 @@ public class MainActivity extends Activity {
     @JavascriptInterface
     public void replaceElementHTML(String selector, String html) {
 	runOnUiThread(() -> {
-	    String escapedSelector = selector.replace("\\", "\\\\")
-					 .replace("\"", "\\\"")
-					 .replace("\n", "\\n")
-					 .replace("\r", "\\r")
-					 .replace("\t", "\\t");
-	    String escapedHtml = html.replace("\\", "\\\\")
-				     .replace("\"", "\\\"")
-				     .replace("\n", "\\n")
-				     .replace("\r", "\\r")
-				     .replace("\t", "\\t");
+	    String escapedSelector = JavaScript.escape(selector);
+	    String escapedHtml = JavaScript.escape(html);
 	    String jsCode =
 		"(function() { "
 		+ "try { "
