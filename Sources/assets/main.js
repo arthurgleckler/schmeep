@@ -174,6 +174,7 @@ function runSchemeScripts() {
 function initializePage() {
   generateSchemeButtons();
   runSchemeScripts();
+  installRAXHandlers(document.body);
 }
 
 window.addEventListener("load", initializePage);
