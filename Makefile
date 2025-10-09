@@ -78,7 +78,7 @@ makecapk/lib/arm64-v8a/lib$(APPNAME).so: $(ANDROID_SRCS) $(CHIBI_TARGET_ARM64)
 $(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64) chibi-lib-sos lib/schmeep/exception-formatter.sld
 	mkdir -p $@
 	cd $(CHIBI_SCHEME_DIR)/lib && find . \( -name "*.scm" -o -name "*.sld" \) \
-		-exec cp --parents {} ../../$@/ \;
+		! -name "*~" -exec cp --parents {} ../../$@/ \;
 	mkdir -p $@/schmeep
 	cp lib/schmeep/exception-formatter.sld $@/schmeep/
 	@for so_file in $(CHIBI_LIB_SO_FILES); do \
@@ -131,7 +131,7 @@ format-java: src/main/java/com/speechcode/schmeep/*.java
 makecapk.apk: $(TARGETS) $(CHIBI_ASSETS_DIR) AndroidManifest.xml classes.dex
 	rm -f $(APKFILE)
 	mkdir -p makecapk/assets
-	cp -r Sources/assets/* makecapk/assets
+	rsync -a --exclude='*~' Sources/assets/ makecapk/assets/
 	cp classes.dex makecapk/
 	$(AAPT) package -f -F temp.apk -I $(ANDROID_JAR) -M AndroidManifest.xml \
 		-S Sources/res -A makecapk/assets -v --target-sdk-version $(ANDROID_TARGET)
