@@ -27,14 +27,22 @@ combines:
   interface to avoid inner class compilation issues
 - **Bluetooth.java**: Background Bluetooth SPP server for
   client communication and result display with thread-safe operations
+- **Assets.java**: Separate class managing JNI asset extraction with
+  version tracking and caching of 100+ essential R7RS library files
+- **JavaScript.java**: Utility class providing `escape()` method for
+  JavaScript string escaping
+- **EvaluationRequest.java**: Data structure holding expression and
+  output stream for Scheme evaluation requests
+- **PageLoadedWebViewClient.java**: WebViewClient that triggers
+  Bluetooth initialization after page load completion
 - **DebugWebChromeClient.java**: Separate WebView console logging
   implementation for JavaScript debugging
 - **main_jni.c**: JNI implementation with Chibi Scheme integration,
   comprehensive asset extraction, and pthread mutex synchronization
 - **chibi-scheme/**: Full R7RS Scheme implementation with 583+ library
   files and dynamic shared library support
-- **Sources/assets/index.html**: Interactive WebView HTML interface
-  with real-time local and remote Scheme evaluation
+- **Sources/assets/**: WebView assets including HTML, JavaScript, CSS,
+  and Scheme example files
 
 ### JavaScript Bridge Architecture
 
@@ -121,6 +129,98 @@ make schmeep
 echo "(+ 2 3)" | ./schmeep AA:BB:CC:DD:EE:FF
 ```
 
+### RAX (Read And eXecute) System
+
+The application implements RAX, a declarative event-handling system
+that bridges DOM events to Scheme code, analogous to FAX (Form And
+eXecute) but for arbitrary events.
+
+**Core Functionality:**
+- **Declarative Event Handlers**: HTML elements with `data-rax-*`
+  attributes automatically invoke Scheme expressions on events
+- **Event-to-JSON Conversion**: DOM events converted to JSON with
+  event-specific properties (30+ event types supported)
+- **Form-to-JSON Conversion**: Form data automatically serialized to
+  JSON for Scheme processing
+- **Automatic Escaping**: JavaScript strings properly escaped for
+  Scheme expression context
+
+**Supported Event Types:**
+- **Mouse Events**: click, dblclick, mousedown, mouseup, mouseenter,
+  mouseleave, mousemove
+- **Keyboard Events**: keydown, keyup, keypress (with key codes,
+  modifiers)
+- **Form Events**: change, input, submit (with form data serialization)
+- **Focus Events**: focus, blur, focusin, focusout
+- **Drag Events**: drag, dragstart, dragend, dragenter, dragleave,
+  dragover, drop
+- **Touch Events**: touchstart, touchend, touchmove, touchcancel
+- **Animation/Transition Events**: animationstart, animationend,
+  transitionend
+- **Media Events**: play, pause, ended, volumechange
+- **Clipboard Events**: copy, cut, paste
+- **Scroll/Wheel Events**: scroll, wheel
+
+**HTML Attribute Syntax:**
+```html
+<!-- Single attribute format: data-rax="<event-type> <scheme-expression>" -->
+<button data-rax="click (on-click 'button1')">Click Me</button>
+
+<!-- Form submission with automatic data serialization -->
+<form data-rax="submit (on-form-submit)">...</form>
+
+<!-- Multiple event handlers on same element -->
+<input data-rax="input (on-input-change)"
+       data-rax="blur (on-field-blur)">
+
+<!-- Expression can include arguments -->
+<button data-rax="click (make-handler 'submit-button #t)">Submit</button>
+```
+
+**Scheme Handler Pattern:**
+The Scheme expression in the `data-rax` attribute is evaluated and
+must return a procedure that accepts a single JSON string argument
+containing event-specific properties:
+```scheme
+;; Handler factory that returns event handler procedure
+(define (on-click button-id)
+  (lambda (event-json)
+    (let ((event (json-parse event-json)))
+      ;; Access event.clientX, event.clientY, event.button, etc.
+      (display "Button clicked: ")
+      (display button-id)
+      (display " at ")
+      (display (json-ref event "clientX"))
+      (display ",")
+      (display (json-ref event "clientY"))
+      (newline))))
+
+;; Simple handler without factory pattern
+(define (on-form-submit)
+  (lambda (form-json)
+    (let ((data (json-parse form-json)))
+      ;; Process form data
+      ...)))
+```
+
+**Implementation Files:**
+- **rax.js**: Core RAX implementation with event-to-JSON conversion
+  and handler installation
+- **main.js**: Calls `installRAXHandlers(document.body)` after page
+  load to activate RAX system
+- **index.html**: Loads rax.js via `<script src="rax.js">`
+
+**Key Functions:**
+- `installRAXHandlers(element)`: Recursively installs event handlers
+  for all `data-rax-*` attributes
+- `eventToJSON(event)`: Converts DOM event to JSON with
+  type-specific properties
+- `formToJSON(form)`: Serializes form data to JSON object
+- `escapeForScheme(string)`: Escapes JavaScript strings for Scheme
+  expression context
+- `readAndExecute(expression)`: Returns event handler that evaluates
+  Scheme expression with event JSON
+
 ### Build System Integration
 
 - **makecapk**: Command-line Android build system using Android NDK
@@ -133,6 +233,34 @@ echo "(+ 2 3)" | ./schmeep AA:BB:CC:DD:EE:FF
   libraries for Android ARM64 with proper linking
 - **Asset Packaging**: 583 Scheme library files automatically included
   in APK with .so files properly placed
+- **APK Analysis**: `compute-apk-sizes.sh` script computes APK content
+  file sizes by extension for optimization analysis
+- **Script Loading**: Supports `<script src="">` tags for loading
+  external JavaScript files in WebView
+
+### Recent Infrastructure Improvements
+
+**Code Refactoring:**
+- **JavaScript.escape Utility** (commit 217f0c2): Extracted string
+  escaping logic into reusable `JavaScript.escape()` method used by
+  both MainActivity and Bluetooth classes
+- **Assets Class Extraction**: Moved asset extraction logic from
+  main_jni.c to separate Assets.java class with version tracking and
+  caching
+
+**Build Tooling:**
+- **APK Size Analysis** (commit 8183b96): Added
+  `compute-apk-sizes.sh` for analyzing APK content by file extension
+- **Backup File Filtering** (commit 55171d5): Build system now
+  excludes `*~` backup files from APK
+
+**Feature Additions:**
+- **RAX System** (commit 96c56db): Implemented declarative
+  event-handling bridge between DOM and Scheme
+- **Script Tag Support** (commit 949cafb): WebView now supports
+  external JavaScript loading via `<script src="">`
+- **CSS/JS Factoring** (commit d0707f2): Separated CSS and JavaScript
+  into standalone files (style.css, main.js, rax.js)
 
 ## Common Development Commands
 
@@ -249,13 +377,23 @@ echo -e "(define x 42)\nx\n(* x 2)" | ./schmeep AA:BB:CC:DD:EE:FF
 
 ## Project Structure Notes
 
+### Source Code Layout
+- **src/main/java/com/speechcode/schmeep/**: Java source files
+  (MainActivity.java, ChibiScheme.java, Bluetooth.java, Assets.java,
+  JavaScript.java, EvaluationRequest.java, PageLoadedWebViewClient.java,
+  DebugWebChromeClient.java)
+- **main_jni.c**: JNI native code in project root
+- **schmeep.c**: Bluetooth client in project root
+- **io-stub.c**: Custom I/O port implementation in project root
+
 ### Configuration Files
 - **Makefile**: Build configuration with Android NDK toolchain setup
 - **AndroidManifest.xml.template**: Template for app manifest (gets
   processed during build)
 - **Sources/res/**: Android resources (icons, etc.)
 - **Sources/assets/**: Files packaged into APK and accessible via
-  AssetManager
+  AssetManager (includes index.html, main.js, rax.js, style.css, and
+  Scheme example files)
 
 ### Key Variables
 - `APPNAME`: Application name (default: "schmeep")
