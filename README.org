@@ -12,6 +12,10 @@ Schmeep is an Android app that combines:
 - *JavaScript-to-Native Bridge*: JavaScript-to-JNI communication for
   Scheme evaluation
 
+* Demo video
+
+https://github.com/user-attachments/assets/2158edab-2e02-4f8c-a2da-103a7c11e484
+
 * Credit
 
 Thanks to Nawal Husnoo, author of [[https://github.com/husnoo/chibi-droid/][chibi-droid]], and cnlohr, author of
