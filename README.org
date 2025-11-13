@@ -16,6 +16,16 @@ Schmeep is an Android app that combines:
 
 https://github.com/user-attachments/assets/2158edab-2e02-4f8c-a2da-103a7c11e484
 
+* Talk
+
+I gave a lightning talk about Schmeep at the BALISP (Bay Area Lisp and Scheme)
+meeting on 3 Nov 2025:
+
+https://www.youtube.com/watch?v=YlmrYAyJxdE
+
+The demo video above was supposed to be included, but I ended up not
+being able to show it for technical reasons.
+
 * Credit
 
 Thanks to Nawal Husnoo, author of [[https://github.com/husnoo/chibi-droid/][chibi-droid]], and cnlohr, author of
