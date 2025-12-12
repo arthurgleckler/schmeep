@@ -75,12 +75,13 @@ makecapk/lib/arm64-v8a/lib$(APPNAME).so: $(ANDROID_SRCS) $(CHIBI_TARGET_ARM64)
 	-L$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/sysroot/usr/lib/aarch64-linux-android/$(ANDROID_VERSION) \
 	$(LDFLAGS) -lchibi-scheme
 
-$(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64) chibi-lib-sos lib/schmeep/exception-formatter.sld
+$(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64) chibi-lib-sos lib/schmeep/exception-formatter.sld lib/eg.scm lib/eg.sld
 	mkdir -p $@
 	cd $(CHIBI_SCHEME_DIR)/lib && find . \( -name "*.scm" -o -name "*.sld" \) \
 		! -name "*~" -exec cp --parents {} ../../$@/ \;
 	mkdir -p $@/schmeep
 	cp lib/schmeep/exception-formatter.sld $@/schmeep/
+	cp lib/eg.scm lib/eg.sld $@/
 	@for so_file in $(CHIBI_LIB_SO_FILES); do \
 		rel_path=$$(echo $$so_file | sed 's|makecapk/lib/arm64-v8a/||' | sed 's|\.so$$||'); \
 		target_dir=$@/$$(dirname $$rel_path); \

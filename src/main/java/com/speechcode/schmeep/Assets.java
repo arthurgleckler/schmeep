@@ -16,6 +16,8 @@ public class Assets {
     private static final String LOG_TAG = "schmeep";
 
     private static final String[] ESSENTIAL_FILES = {
+	"eg.scm",
+	"eg.sld",
 	"schmeep/exception-formatter.sld",
 	"chibi/ast.scm",
 	"chibi/ast.sld",
@@ -59,6 +61,8 @@ public class Assets {
 	"chibi/optimize/rest.so",
 	"chibi/string.scm",
 	"chibi/string.sld",
+	"chibi/sxml.scm",
+	"chibi/sxml.sld",
 	"chibi/weak.sld",
 	"chibi/weak.so",
 	"init-7.scm",
@@ -79,6 +83,7 @@ public class Assets {
 	"scheme/inexact.sld",
 	"scheme/misc-macros.scm",
 	"scheme/lazy.sld",
+	"scheme/list.sld",
 	"scheme/load.sld",
 	"scheme/process-context.sld",
 	"scheme/r5rs.sld",
@@ -107,6 +112,8 @@ public class Assets {
 	"srfi/27.sld",
 	"srfi/27/constructors.scm",
 	"srfi/27/rand.so",
+	"srfi/38.scm",
+	"srfi/38.sld",
 	"srfi/39.sld",
 	"srfi/39/param.so",
 	"srfi/39/syntax.scm",
@@ -179,9 +186,10 @@ public class Assets {
 	int count = 0;
 	for (String assetPath : ESSENTIAL_FILES) {
 	    String targetPath = targetBase + "/" + assetPath;
+	    String sourceAssetPath = "lib/" + assetPath;
 
 	    try {
-		if (extractAssetFile(assetManager, "lib/" + assetPath,
+		if (extractAssetFile(assetManager, sourceAssetPath,
 				     targetPath)) {
 		    count++;
 		    if (assetPath.endsWith(".so")) {

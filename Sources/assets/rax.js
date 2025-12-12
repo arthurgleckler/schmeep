@@ -83,14 +83,53 @@ function escapeForScheme(string) {
     .replace(/\t/g, "\\t");
 }
 
+function processHandlerResult(result) {
+  if (!result || result === "...") return;
+
+  try {
+    const updates = JSON.parse(result);
+
+    for (const [selector, action] of Object.entries(updates)) {
+      const verb = action.verb || "replace";
+      const html = action.html;
+      const element = document.querySelector(selector);
+
+      if (!element) {
+        console.warn("RAX: Selector not found:", selector);
+        continue;
+      }
+
+      if (verb === "replace") {
+        element.outerHTML = html;
+
+        const newElement = document.querySelector(selector);
+
+        if (newElement) installRAXHandlers(newElement);
+      } else if (verb === "append") {
+        element.insertAdjacentHTML("beforeend", html);
+        if (element.lastElementChild) { // <> What if more than one element has
+                                        // been added?
+          installRAXHandlers(element.lastElementChild);
+        }
+      } else {
+        console.warn("RAX: Unknown verb:", verb);
+      }
+    }
+  } catch (e) {
+    console.debug("RAX: Handler result not JSON:", result);
+    console.debug("RAX: Parse error:", e.message);
+  }
+}
+
 function readAndExecute(expression) {
   let enabled = true;
 
   return function(event) {
     if (enabled) {
       enabled = false;
-      runSchemeExpression(
+      const result = evaluateScheme(
         `(${expression} "${escapeForScheme(eventToJSON(event))}")`);
+      processHandlerResult(result);
       enabled = true;
     }
   };
@@ -103,8 +142,11 @@ function submitAndExecute(element) {
       event.stopPropagation();
       event.target.classList.add("rax-executing");
 
-      runSchemeExpression(
+      const result = evaluateScheme(
         `(${element["action"]} "${escapeForScheme(formToJSON(element))}")`);
+      processHandlerResult(result);
+
+      event.target.classList.remove("rax-executing");
     }
   };
 }

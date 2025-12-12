@@ -117,7 +117,7 @@ function generateSchemeButtons() {
 
     localButton.className = "scheme-button";
     localButton.textContent = expression;
-    localButton.onclick = () => runSchemeExpression(expression);
+    localButton.setAttribute("data-rax", `click (eg ${expression})`);
     localButton.title = "Run locally";
     buttonGrid.appendChild(localButton);
   });
@@ -126,7 +126,7 @@ function generateSchemeButtons() {
 
   clearButton.className = "scheme-button";
   clearButton.textContent = "🗑️ Clear Output";
-  clearButton.onclick = () => document.querySelector("#scheme-content ul").innerHTML = "";
+  clearButton.setAttribute("data-rax", "click eg-clear");
   buttonGrid.appendChild(clearButton);
 }
 
@@ -134,12 +134,14 @@ function runSchemeExpression(expression) {
   updateConnectionStatus("evaluating", "Evaluating: " + expression);
   displayExpressionWithSpans(" " + expression, "local", "local");
 
-  setTimeout(() => {
-    const result = evaluateScheme(expression);
+  const result = evaluateScheme(expression);
 
+  setTimeout(() => {
     updateConnectionStatus("connected", "Ready.");
     completeEvaluation(expression, result, "local");
   }, 10);
+
+  return result;
 }
 
 function updateConnectionStatus(statusType, message) {

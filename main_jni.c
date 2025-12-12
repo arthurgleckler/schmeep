@@ -199,6 +199,23 @@ sexp sexp_set_element_outer_html(sexp ctx, sexp self, sexp_sint_t n,
   return SEXP_VOID;
 }
 
+sexp sexp_log_info(sexp ctx, sexp self, sexp_sint_t n, sexp message) {
+  if (!sexp_stringp(message)) {
+    sexp str = sexp_write_to_string(ctx, message);
+
+    if (str && sexp_stringp(str)) {
+      const char *msg_cstr = sexp_string_data(str);
+
+      LOGI("Scheme: %s", msg_cstr);
+    }
+  } else {
+    const char *msg_cstr = sexp_string_data(message);
+
+    LOGI("Scheme: %s", msg_cstr);
+  }
+  return SEXP_VOID;
+}
+
 void cleanup_scheme() {
   if (scheme_ctx) {
     LOGI("cleanup_scheme: Destroying Scheme context.");
@@ -275,33 +292,16 @@ int init_scheme() {
     LOGE("init_scheme: Failed to create Scheme context.");
     return -1;
   }
-  scheme_env = sexp_context_env(scheme_ctx);
-  if (!scheme_env) {
-    LOGE("init_scheme: Failed to get Scheme environment.");
-    sexp_destroy_context(scheme_ctx);
-    scheme_ctx = NULL;
-    return -1;
-  }
-
   sexp module_path_string =
       sexp_c_string(scheme_ctx, "/data/data/com.speechcode.schmeep/lib", -1);
 
   sexp_global(scheme_ctx, SEXP_G_MODULE_PATH) =
       sexp_list1(scheme_ctx, module_path_string);
+
+  sexp_load_standard_env(scheme_ctx, NULL, SEXP_SEVEN);
+  scheme_env = sexp_context_env(scheme_ctx);
+
   sexp_load_standard_ports(scheme_ctx, scheme_env, stdin, stdout, stderr, 1);
-
-  sexp std_env = sexp_load_standard_env(scheme_ctx, scheme_env, SEXP_SEVEN);
-
-  if (sexp_exceptionp(std_env)) {
-    LOGE("init_scheme: Failed to load R7RS standard environment.");
-    sexp_destroy_context(scheme_ctx);
-    scheme_ctx = NULL;
-    scheme_env = NULL;
-    return -1;
-  } else {
-    LOGI("init_scheme: R7RS environment loaded successfully.");
-    scheme_env = std_env;
-  }
 
   const char *set_path_expr =
       "(current-module-path (cons \"/data/data/com.speechcode.schmeep/lib\" "
@@ -320,6 +320,9 @@ int init_scheme() {
 		      sexp_set_element_outer_html);
   LOGI("init_scheme: Registered set-element-outer-html! native function.");
 
+  sexp_define_foreign(scheme_ctx, scheme_env, "log-info", 1, sexp_log_info);
+  LOGI("init_scheme: Registered log-info native function.");
+
   sexp import_result = sexp_eval_string(
       scheme_ctx, "(import (schmeep exception-formatter))", -1, scheme_env);
 
@@ -327,6 +330,17 @@ int init_scheme() {
     LOGI("init_scheme: Exception formatter imported.");
   } else {
     LOGE("init_scheme: Failed to import exception formatter.");
+  }
+
+  /* Load eg.scm from assets */
+  sexp eg_file = sexp_c_string(scheme_ctx, "/data/data/com.speechcode.schmeep/lib/eg.scm", -1);
+  sexp eg_result = sexp_load(scheme_ctx, eg_file, scheme_env);
+
+  if (sexp_exceptionp(eg_result)) {
+    char* err = format_exception(eg_result, scheme_ctx, "eg.scm load", "");
+    LOGE("init_scheme: Failed to load eg.scm: %s", err);
+  } else {
+    LOGI("init_scheme: eg.scm loaded successfully.");
   }
 
   LOGI("init_scheme: Scheme context initialized successfully.");
@@ -510,25 +524,41 @@ Java_com_speechcode_schmeep_ChibiScheme_evaluateScheme(JNIEnv *env,
     return (*env)->NewStringUTF(env, error_msg);
   }
 
-  sexp result_str = sexp_write_to_string(scheme_ctx, result);
+  const char *result_cstr;
 
-  if (!result_str || sexp_exceptionp(result_str)) {
-    LOGE(
-	"JNI: Failed to convert result to string - result_str=%p exception=%d.",
-	result_str, result_str ? sexp_exceptionp(result_str) : -1);
-    pthread_mutex_unlock(&scheme_mutex);
-    return (*env)->NewStringUTF(env, "Error: Result conversion error.");
+  if (sexp_stringp(result)) {
+    result_cstr = sexp_string_data(result);
+
+    if (!result_cstr) {
+      LOGE("JNI: sexp_string_data returned NULL for string result.");
+      pthread_mutex_unlock(&scheme_mutex);
+      return (*env)->NewStringUTF(env, "Error: String data extraction failed.");
+    }
+
+    LOGI("JNI: Scheme result (string): %s", result_cstr);
+  } else {
+    sexp result_str = sexp_write_to_string(scheme_ctx, result);
+
+    if (!result_str || sexp_exceptionp(result_str)) {
+      LOGE(
+	  "JNI: Failed to convert result to string - result_str=%p exception=%d.",
+	  result_str, result_str ? sexp_exceptionp(result_str) : -1);
+      pthread_mutex_unlock(&scheme_mutex);
+      return (*env)->NewStringUTF(env, "Error: Result conversion error.");
+    }
+
+    result_cstr = sexp_string_data(result_str);
+
+    if (!result_cstr) {
+      LOGE("JNI: sexp_string_data returned NULL for valid result_str.");
+      pthread_mutex_unlock(&scheme_mutex);
+      return (*env)->NewStringUTF(env, "Error: String data extraction failed.");
+    }
+
+    LOGI("JNI: Scheme result (non-string): %s", result_cstr);
   }
 
-  const char *result_cstr = sexp_string_data(result_str);
-
-  if (!result_cstr) {
-    LOGE("JNI: sexp_string_data returned NULL for valid result_str.");
-    pthread_mutex_unlock(&scheme_mutex);
-    return (*env)->NewStringUTF(env, "Error: String data extraction failed.");
-  }
-
-  LOGI("JNI: Scheme result: %s", result_cstr);
+  LOGI("JNI: Using scheme_ctx=%p scheme_env=%p", scheme_ctx, scheme_env);
 
   jstring java_result = (*env)->NewStringUTF(env, result_cstr);
 

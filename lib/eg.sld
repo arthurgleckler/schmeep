@@ -1,0 +1,7 @@
+(define-library (eg)
+  (import (scheme base)
+          (scheme write)
+          (chibi json)
+          (chibi sxml))
+  (export eg eg-clear rax-update rax-response fibonacci with-output-to-string)
+  (include "eg.scm"))
