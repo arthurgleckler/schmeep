@@ -6,6 +6,7 @@
 AndroidManifest.xml
 /build/
 classes.dex
+estranscript.txt
 /makecapk/
 /output.map
 /schmeep
