@@ -16,6 +16,136 @@ Schmeep is an Android app that combines:
 
 https://github.com/user-attachments/assets/2158edab-2e02-4f8c-a2da-103a7c11e484
 
+* Installation
+
+To install Schmeep on your Android phone:
+
+- Attach your phone to your computer using a USB cable.
+- Run:
+
+  #+begin_src sh
+  cd schemep/
+  make distclean schmeep run logs
+  #+end_src
+
+  This will build the app, install it on your phone, and run it,
+  showing you the Android logs.  It will also build ~schmeep~, the
+  command-line Bluetooth REPL client.
+
+- After this, you can disconnect the USB cable.
+
+* Try it
+
+** app buttons
+
+Press the app's buttons.  Each is labeled with a Scheme expression,
+e.g. ~(* 6 7)~, which is evaluated when you press the button.  The
+result and any other output will be displayed above the buttons.
+There is also a ~Clear Output~ button.
+
+Note that some buttons won't work until you press other ones first.
+For example, ~factorial~ must be defined before it is called, and [[https://srfi.schemers.org/srfi-27/][SRFI
+27]] must be loaded before ~random-integer~ is called.
+
+** ~schmeep~ client
+
+On your computer, run ~schmeep~ while the app is still running on your
+phone.  It will find your phone and connect to it.  At that point,
+when you enter a Scheme expression at the REPL, it will be transmitted
+to the phone, which will evaluate it and send you back the output and
+result.  The expression, output, and result will be displayed on the
+app, too.
+
+If your expression produces an infinite loop, you can enter ~C-c~ to
+stop it.
+
+Hit ~C-\~ to exit the app.
+
+* Change it
+
+- Try editing [[file:Sources/assets/index.html][index.html]], which defines the app's one screen.  Add
+  this:
+
+  #+begin_src html
+  <script type="application/x-scheme">
+  (define (fibonacci n)
+    (let loop ((i 0) (a 0) (b 1))
+      (if (= i n)
+          a
+          (loop (+ i 1) b (+ a b)))))
+  </script>
+  #+end_src
+
+- Connect your phone using USB.
+
+- Run ~make run~ to rebuild the app and install the new version on
+  your phone.  This should only take a few seconds.
+
+- Connect using ~schmeep~.
+
+- Try evaluating ~(fibonacci 10)~.
+
+- Of course, you could have entered the definition of ~fibonacci~
+  directly from ~schmeep~ rather than rebuilding the app.  But
+  rebuilding the app makes the change survive app restarts.
+
+* Use RAX (Read and Execute)
+
+RAX is a simple framework for building web user interfaces in
+Schmeep.  Let's try an example.
+
+- Add this to ~index.html~ just before ~<div
+  class="button-grid"></div>~:
+
+  #+begin_src html
+  <button class="scheme-button" data-rax='click (eg "Hello, world.")'>Hello, world.</button>
+  #+end_src
+
+- Run ~make run~.
+
+- Click the "Hello, world." button that appears above all the other
+  buttons.
+
+- You should see the input expression and the result.
+
+- Here's how that worked:
+
+  You added the ~<button>~.  The class was just for CSS styling.  The
+  ~data-rax~ attribute had two parts: ~click~, which specified that
+  Scheme code would be executed on a ~click~ event; and ~(eg "Hello,
+  world.")~, which specified that the string would be evaluated and
+  returned.  The ~eg~ macro is just for examples, but it illustrates
+  RAX.  You can find its definition in [[file:lib/eg.scm][eg.scm]].
+
+  Any expression used after the event name must return a procedure
+  that accepts an event decoded from JSON.  Instead of calling the
+  macro ~eg~, we could have used any expression that returns such a
+  procedure.  That procedure can execute any Scheme code, and must
+  return an alist mapping CSS selectors to HTML and a "verb."  RAX
+  finds each returned selector, and uses the verb to decide what to
+  do.
+
+  For each selector that it found:
+
+  - If the verb missing or is ~replace~, RAX replaces the first
+    element that matches the selector with that HTML.
+
+  - If the verb is ~append~, RAX appends the HTML to the end of the
+    matching element.
+
+  - Other verb names are reserved for future extensions to RAX.
+
+  You can use ~(chibi sxml)~ to produce HTML, and ~(chibi json)~ to
+  produce JSON.  Use [[file:lib/eg.scm][eg.scm]] as an example.  It handles exceptions as
+  well.
+
+  With these simple primitives, you should be able to build
+  interesting apps.
+
+  Of course, we'll need to add the ability to read and write output,
+  e.g. in a database; and to connect to the network.  I plan to add
+  those.
+
 * Talk
 
 I gave a lightning talk about Schmeep at the BALISP (Bay Area Lisp and Scheme)
