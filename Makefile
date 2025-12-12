@@ -1,4 +1,4 @@
-.PHONY: logs push run test
+.PHONY: logs push run test chibi-lib-sos $(CHIBI_ASSETS_DIR)
 
 ADB ?= adb
 ANDROID_VERSION ?= 33
@@ -37,10 +37,35 @@ CFLAGS_ARM64 := -m64
 CHIBI_CFLAGS := $(filter-out -fvisibility=hidden -Os, $(CFLAGS)) -g -O0 -DSEXP_USE_GREEN_THREADS=1 -DSEXP_DEFAULT_QUANTUM=50
 TARGETS += makecapk/lib/arm64-v8a/lib$(APPNAME).so
 
+# Note: CHIBI_LIB_C_FILES is evaluated at parse time, before stub .c files are generated
+# The chibi-lib-sos target will dynamically find all .c files after generation
 CHIBI_LIB_C_FILES := $(shell find chibi-scheme/lib -name "*.c" 2>/dev/null)
 CHIBI_LIB_SO_FILES := $(patsubst chibi-scheme/lib/%.c,makecapk/lib/arm64-v8a/%.so,$(CHIBI_LIB_C_FILES))
 
-$(CHIBI_TARGET_ARM64):
+# Sentinel file to track whether stub .c files have been generated
+CHIBI_STUB_SENTINEL := chibi-scheme/.stub-files-generated
+
+# Sentinel file to track whether .so files have been built
+CHIBI_SO_SENTINEL := chibi-scheme/.so-files-built
+
+$(CHIBI_STUB_SENTINEL):
+	@echo "Generating .c files from .stub files..."
+	@cd chibi-scheme && \
+		if $(MAKE) all-c-files 2>/dev/null; then \
+			echo "Generated using chibi-scheme Makefile"; \
+		else \
+			echo "Chibi Makefile target not found, building native chibi-scheme..."; \
+			$(MAKE) chibi-scheme; \
+			for stub in $$(find lib -name "*.stub"); do \
+				echo "Generating $${stub%.stub}.c"; \
+				./chibi-scheme -q tools/chibi-ffi "$$stub" > "$${stub%.stub}.c" || true; \
+			done; \
+			echo "Cleaning native chibi-scheme build artifacts..."; \
+			rm -f chibi-scheme libchibi-scheme.so* *.o; \
+		fi
+	@touch $@
+
+$(CHIBI_TARGET_ARM64): $(CHIBI_STUB_SENTINEL)
 	mkdir -p makecapk/lib/arm64-v8a
 	mkdir -p $(CHIBI_SCHEME_DIR)/lib/chibi/io
 	cp io-stub.c $(CHIBI_SCHEME_DIR)/lib/chibi/io/io-stub.c
@@ -52,7 +77,17 @@ $(CHIBI_TARGET_ARM64):
 		PLATFORM=android ARCH=aarch64
 	cp $(CHIBI_SCHEME_LIB) $@
 
-chibi-lib-sos: $(CHIBI_LIB_SO_FILES)
+$(CHIBI_SO_SENTINEL): $(CHIBI_STUB_SENTINEL) $(CHIBI_TARGET_ARM64)
+	@echo "Building .so files from all .c files (including generated ones)..."
+	@for c_file in $$(find chibi-scheme/lib -name "*.c" 2>/dev/null); do \
+		so_file=$$(echo $$c_file | sed 's|chibi-scheme/lib/|makecapk/lib/arm64-v8a/|' | sed 's|\.c$$|.so|'); \
+		if [ ! -f "$$so_file" ] || [ "$$c_file" -nt "$$so_file" ]; then \
+			$(MAKE) "$$so_file"; \
+		fi; \
+	done
+	@touch $@
+
+chibi-lib-sos: $(CHIBI_SO_SENTINEL)
 
 logs:
 	adb logcat -s schmeep
@@ -75,19 +110,22 @@ makecapk/lib/arm64-v8a/lib$(APPNAME).so: $(ANDROID_SRCS) $(CHIBI_TARGET_ARM64)
 	-L$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/sysroot/usr/lib/aarch64-linux-android/$(ANDROID_VERSION) \
 	$(LDFLAGS) -lchibi-scheme
 
-$(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_TARGET_ARM64) chibi-lib-sos lib/schmeep/exception-formatter.sld lib/eg.scm lib/eg.sld
+$(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_SO_SENTINEL) lib/schmeep/exception-formatter.sld lib/eg.scm lib/eg.sld
 	mkdir -p $@
 	cd $(CHIBI_SCHEME_DIR)/lib && find . \( -name "*.scm" -o -name "*.sld" \) \
 		! -name "*~" -exec cp --parents {} ../../$@/ \;
 	mkdir -p $@/schmeep
 	cp lib/schmeep/exception-formatter.sld $@/schmeep/
 	cp lib/eg.scm lib/eg.sld $@/
-	@for so_file in $(CHIBI_LIB_SO_FILES); do \
-		rel_path=$$(echo $$so_file | sed 's|makecapk/lib/arm64-v8a/||' | sed 's|\.so$$||'); \
+	@echo "Copying .so files (including those from generated .c files)..."
+	@for so_file in $$(find makecapk/lib/arm64-v8a -name "*.so" 2>/dev/null); do \
+		rel_path=$$(echo $$so_file | sed 's|makecapk/lib/arm64-v8a/||'); \
 		target_dir=$@/$$(dirname $$rel_path); \
-		target_file=$$target_dir/$$(basename $$rel_path).so; \
+		target_file=$$target_dir/$$(basename $$rel_path); \
 		mkdir -p $$target_dir; \
-		if [ -f $$so_file ]; then cp $$so_file $$target_file; fi; \
+		if [ -f "$$so_file" ]; then \
+			cp "$$so_file" "$$target_file"; \
+		fi; \
 	done
 
 all: makecapk.apk schmeep
@@ -112,6 +150,21 @@ clean:
 	rm -rf AndroidManifest.xml $(APKFILE) schmeep classes.dex build/ makecapk.apk makecapk temp.apk
 	rm -f $(CHIBI_SCHEME_DIR)/libchibi-scheme.so*
 	rm -f $(CHIBI_SCHEME_DIR)/*.o
+	rm -f $(CHIBI_STUB_SENTINEL)
+	rm -f $(CHIBI_SO_SENTINEL)
+
+distclean: clean
+	@echo "Removing generated .c files from .stub files..."
+	@cd $(CHIBI_SCHEME_DIR) && \
+		for stub in $$(find lib -name "*.stub" 2>/dev/null); do \
+			c_file="$${stub%.stub}.c"; \
+			if [ -f "$$c_file" ]; then \
+				echo "Removing $$c_file"; \
+				rm -f "$$c_file"; \
+			fi; \
+		done
+	@echo "Removing chibi-scheme build artifacts..."
+	@cd $(CHIBI_SCHEME_DIR) && $(MAKE) clean 2>/dev/null || true
 
 format: format-c format-java
 
