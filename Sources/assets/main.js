@@ -158,7 +158,7 @@ function runSchemeScripts() {
       xhr.open("GET", src, true);
       xhr.onload = function() {
         if (xhr.status === 200 || xhr.status === 0) {
-          runSchemeExpression(xhr.responseText);
+          evaluateScheme(xhr.responseText);
         } else {
           displayResult("Error loading " + src + ": HTTP " + xhr.status, "local", "error");
         }
@@ -168,7 +168,7 @@ function runSchemeScripts() {
       };
       xhr.send();
     } else {
-      runSchemeExpression(s.textContent);
+      evaluateScheme(s.textContent);
     }
   }
 }
