@@ -110,13 +110,13 @@ makecapk/lib/arm64-v8a/lib$(APPNAME).so: $(ANDROID_SRCS) $(CHIBI_TARGET_ARM64)
 	-L$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/sysroot/usr/lib/aarch64-linux-android/$(ANDROID_VERSION) \
 	$(LDFLAGS) -lchibi-scheme
 
-$(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_SO_SENTINEL) lib/schmeep/exception-formatter.sld lib/eg.scm lib/eg.sld
+$(CHIBI_ASSETS_DIR): $(CHIBI_SCHEME_DIR)/lib $(CHIBI_SO_SENTINEL) lib/schmeep/exception-formatter.sld lib/eg.scm
 	mkdir -p $@
 	cd $(CHIBI_SCHEME_DIR)/lib && find . \( -name "*.scm" -o -name "*.sld" \) \
 		! -name "*~" -exec cp --parents {} ../../$@/ \;
 	mkdir -p $@/schmeep
 	cp lib/schmeep/exception-formatter.sld $@/schmeep/
-	cp lib/eg.scm lib/eg.sld $@/
+	cp lib/eg.scm $@/
 	@echo "Copying .so files (including those from generated .c files)..."
 	@for so_file in $$(find makecapk/lib/arm64-v8a -name "*.so" 2>/dev/null); do \
 		rel_path=$$(echo $$so_file | sed 's|makecapk/lib/arm64-v8a/||'); \

@@ -17,7 +17,6 @@ public class Assets {
 
     private static final String[] ESSENTIAL_FILES = {
 	"eg.scm",
-	"eg.sld",
 	"schmeep/exception-formatter.sld",
 	"chibi/ast.scm",
 	"chibi/ast.sld",

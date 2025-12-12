@@ -332,17 +332,6 @@ int init_scheme() {
     LOGE("init_scheme: Failed to import exception formatter.");
   }
 
-  /* Load eg.scm from assets */
-  sexp eg_file = sexp_c_string(scheme_ctx, "/data/data/com.speechcode.schmeep/lib/eg.scm", -1);
-  sexp eg_result = sexp_load(scheme_ctx, eg_file, scheme_env);
-
-  if (sexp_exceptionp(eg_result)) {
-    char* err = format_exception(eg_result, scheme_ctx, "eg.scm load", "");
-    LOGE("init_scheme: Failed to load eg.scm: %s", err);
-  } else {
-    LOGI("init_scheme: eg.scm loaded successfully.");
-  }
-
   LOGI("init_scheme: Scheme context initialized successfully.");
   return 0;
 }
