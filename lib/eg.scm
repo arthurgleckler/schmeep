@@ -1,3 +1,4 @@
+(import (scheme base))
 (import (chibi json))
 (import (chibi sxml))
 (import (schmeep exception-formatter))
@@ -14,17 +15,15 @@
      (lambda (event-json)
        (let* ((expr-list '(expression ...))
               (quoted-expr (cons 'begin expr-list))
-              (output-port (open-output-string))
-              (old-port (current-output-port)))
-         (current-output-port output-port)
+              (port (open-output-string)))
          (let ((result
-		(call-with-current-continuation
-		 (lambda (k)
-		   (with-exception-handler k
-		     (lambda ()
-		       (eval quoted-expr (interaction-environment))))))))
-           (current-output-port old-port)
-           (let* ((output-str (get-output-string output-port))
+                (parameterize ((current-output-port port))
+                  (call-with-current-continuation
+                   (lambda (k)
+                     (with-exception-handler k
+                       (lambda ()
+                         (eval quoted-expr (interaction-environment)))))))))
+           (let* ((output-str (get-output-string port))
                   (expr-sxml `(code ,(call-with-output-string
 				      (lambda (p) (write quoted-expr p)))))
                   (result-sxml (if (exception? result)
