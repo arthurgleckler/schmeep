@@ -179,7 +179,8 @@ being able to show it for technical reasons.
 * Credit
 
 Thanks to Nawal Husnoo, author of [[https://github.com/husnoo/chibi-droid/][chibi-droid]], and cnlohr, author of
-[[https://github.com/cnlohr/rawdrawandroid][rawdrawandroid]], for inspiration.
+[[https://github.com/cnlohr/rawdrawandroid][rawdrawandroid]], for inspiration.  Thanks especially to Alex Shinn,
+author of [[https://synthcode.com/scheme/chibi/][Chibi Scheme]] and editor of the [[https://standards.scheme.org/][R7RS Small]] Scheme standard.
 
 * Testing
 
