@@ -14,7 +14,6 @@
     ((eg expression ...)
      (lambda (event-json)
        (let* ((expr-list '(expression ...))
-              (quoted-expr (cons 'begin expr-list))
               (port (open-output-string))
 	      (result
                (parameterize ((current-output-port port))
@@ -22,20 +21,23 @@
                   (lambda (k)
                     (with-exception-handler k
                       (lambda ()
-                        (eval quoted-expr (interaction-environment))))))))
-	      (output-str (get-output-string port))
+                        (eval (cons 'begin expr-list)
+			      (interaction-environment))))))))
+	      (output (get-output-string port))
               (expr-sxml `(code ,(call-with-output-string
-				  (lambda (p) (write quoted-expr p)))))
+				  (lambda (p)
+				    (for-each (lambda (x) (write x p))
+					      expr-list)))))
               (result-sxml (if (exception? result)
                                `(span (@ (class "error"))
 				      ,(format-exception result ""))
                                `(code ,(call-with-output-string
 					(lambda (p) (write result p))))))
-              (sxml (if (string=? output-str "")
+              (sxml (if (string=? output "")
                         `(li ,expr-sxml " ⇒ " ,result-sxml)
                         `(li ,expr-sxml
 			     (br)
-			     (span (@ (class "output")) ,output-str)
+			     (span (@ (class "output")) ,output)
 			     " ⇒ "
 			     ,result-sxml))))
          (rax-response "#scheme-content ul" "append" (sxml->xml sxml)))))))
