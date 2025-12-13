@@ -208,7 +208,10 @@ containing event-specific properties:
   and handler installation
 - **main.js**: Calls `installRAXHandlers(document.body)` after page
   load to activate RAX system
-- **index.html**: Loads rax.js via `<script src="rax.js">`
+- **index.html**: Loads rax.js via `<script src="rax.js">` and
+  eg.scm via `<script type="application/x-scheme" src="lib/eg.scm">`
+- **lib/eg.scm**: Defines the `eg` macro and helper functions for
+  RAX integration
 
 **Key Functions:**
 - `installRAXHandlers(element)`: Recursively installs event handlers
@@ -220,6 +223,75 @@ containing event-specific properties:
   expression context
 - `readAndExecute(expression)`: Returns event handler that evaluates
   Scheme expression with event JSON
+
+### The `eg` Macro (lib/eg.scm)
+
+The `eg` (example/evaluate-and-generate) macro provides the core
+integration between RAX and the Scheme REPL interface, generating
+HTML output from expression evaluation.
+
+**File Structure:**
+```scheme
+(import (scheme base))      ; Required for parameterize
+(import (chibi json))       ; JSON generation for responses
+(import (chibi sxml))       ; SXML to HTML conversion
+(import (schmeep exception-formatter))  ; Pretty exception display
+```
+
+**Core Components:**
+- **`rax-response` function**: Generates JSON responses for DOM
+  manipulation with selector, verb (append/replace), and HTML content
+- **`eg` macro**: Wraps Scheme expressions in a RAX-compatible event
+  handler that captures output, handles exceptions, and generates
+  styled HTML list items
+- **`eg-clear` function**: Clears the REPL output area
+
+**The `eg` Macro Pattern:**
+```scheme
+(eg expression ...)
+;; Expands to a lambda that:
+;; 1. Redirects output using (parameterize ((current-output-port ...)))
+;; 2. Evaluates expressions in (interaction-environment)
+;; 3. Captures exceptions with with-exception-handler
+;; 4. Generates SXML for expression, output, and result
+;; 5. Returns JSON for appending HTML to #scheme-content ul
+```
+
+**Output Format:**
+Each `(eg ...)` invocation generates an `<li>` element containing:
+- Expression code in `<code>` tags
+- Output from `display`/`write` to `(current-output-port)` (if any)
+- Result value or formatted exception in `<code>` or `<span class="error">`
+- Arrow separator (⇒) between expression and result
+
+**Usage in HTML:**
+```html
+<button data-rax="click (eg (+ 1 2 3 4 5))">Calculate Sum</button>
+<button data-rax="click (eg (factorial 10))">Factorial 10</button>
+<button data-rax="click eg-clear">Clear Output</button>
+```
+
+**Loading Requirement:**
+`eg.scm` is loaded via `<script type="application/x-scheme"
+src="lib/eg.scm">` in `index.html`, which evaluates the file silently
+during page initialization without displaying output to the UI.
+
+### Scheme Script Loading
+
+The application supports loading Scheme code from HTML using `<script
+type="application/x-scheme">` tags:
+
+- **HTML Integration**: Scheme files loaded via `<script
+  type="application/x-scheme" src="path/to/file.scm">` in index.html
+- **Silent Evaluation**: Scripts evaluate without displaying input or
+  output to the UI during initialization
+- **Top-level Loading**: Code loads directly into the top-level
+  environment, making definitions immediately available
+- **Import Requirements**: Loaded files must explicitly import all
+  required libraries (e.g., `(import (scheme base))` for
+  `parameterize`)
+- **Inline Scripts**: Also supports inline Scheme code within
+  `<script type="application/x-scheme">` tags
 
 ### Build System Integration
 
@@ -235,32 +307,8 @@ containing event-specific properties:
   in APK with .so files properly placed
 - **APK Analysis**: `compute-apk-sizes.sh` script computes APK content
   file sizes by extension for optimization analysis
-- **Script Loading**: Supports `<script src="">` tags for loading
-  external JavaScript files in WebView
-
-### Recent Infrastructure Improvements
-
-**Code Refactoring:**
-- **JavaScript.escape Utility** (commit 217f0c2): Extracted string
-  escaping logic into reusable `JavaScript.escape()` method used by
-  both MainActivity and Bluetooth classes
-- **Assets Class Extraction**: Moved asset extraction logic from
-  main_jni.c to separate Assets.java class with version tracking and
-  caching
-
-**Build Tooling:**
-- **APK Size Analysis** (commit 8183b96): Added
-  `compute-apk-sizes.sh` for analyzing APK content by file extension
-- **Backup File Filtering** (commit 55171d5): Build system now
-  excludes `*~` backup files from APK
-
-**Feature Additions:**
-- **RAX System** (commit 96c56db): Implemented declarative
-  event-handling bridge between DOM and Scheme
-- **Script Tag Support** (commit 949cafb): WebView now supports
-  external JavaScript loading via `<script src="">`
-- **CSS/JS Factoring** (commit d0707f2): Separated CSS and JavaScript
-  into standalone files (style.css, main.js, rax.js)
+- **Backup File Filtering**: Build system excludes `*~` backup files
+  from APK
 
 ## Common Development Commands
 
