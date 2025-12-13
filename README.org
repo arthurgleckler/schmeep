@@ -20,7 +20,27 @@ https://github.com/user-attachments/assets/2158edab-2e02-4f8c-a2da-103a7c11e484
 
 To install Schmeep on your Android phone:
 
+- Set your keystore password as an environment variable:
+
+  #+begin_src sh
+  export SCHMEEP_KEYSTORE_PASS=yourpassword
+  #+end_src
+
+  Choose a strong password, and don't share it.  You'll need it for
+  all builds.
+
+- Create a keystore for signing the APK:
+
+  #+begin_src sh
+  make keystore
+  #+end_src
+
+  The keystore will be saved as ~schmeep.keystore~ in the project
+  directory.  Keep this file safe, and don't share it.  You'll need it
+  to sign the app.
+
 - Attach your phone to your computer using a USB cable.
+
 - Run:
 
   #+begin_src sh

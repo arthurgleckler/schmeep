@@ -32,6 +32,10 @@ NDK ?= $(firstword $(ANDROID_NDK) $(ANDROID_NDK_HOME) \
 
 ANDROID_JAR := $(ANDROID_SDK)/platforms/android-$(ANDROID_VERSION)/android.jar
 
+ifndef SCHMEEP_KEYSTORE_PASS
+$(error SCHMEEP_KEYSTORE_PASS is not set.  Set it with: export SCHMEEP_KEYSTORE_PASS=yourpassword)
+endif
+
 CC_ARM64 := $(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/bin/aarch64-linux-android$(ANDROID_VERSION)-clang
 CFLAGS_ARM64 := -m64
 CHIBI_CFLAGS := $(filter-out -fvisibility=hidden -Os, $(CFLAGS)) -g -O0 -DSEXP_USE_GREEN_THREADS=1 -DSEXP_DEFAULT_QUANTUM=50
@@ -193,8 +197,8 @@ makecapk.apk: $(TARGETS) $(CHIBI_ASSETS_DIR) AndroidManifest.xml classes.dex
 	cd makecapk && zip -D4r ../makecapk.apk . && \
 		zip -D0r ../makecapk.apk ./resources.arsc ./AndroidManifest.xml
 	$(BUILD_TOOLS)/zipalign -v 4 makecapk.apk $(APKFILE)
-	$(BUILD_TOOLS)/apksigner sign --key-pass pass:password --ks-pass pass:password \
-		--ks my-release-key.keystore $(APKFILE)
+	$(BUILD_TOOLS)/apksigner sign --key-pass pass:$(SCHMEEP_KEYSTORE_PASS) --ks-pass pass:$(SCHMEEP_KEYSTORE_PASS) \
+		--ks schmeep.keystore $(APKFILE)
 	rm -rf temp.apk makecapk.apk
 	@ls -l $(APKFILE)
 
@@ -205,6 +209,13 @@ run: push
 	$(eval ACTIVITYNAME:=$(shell $(AAPT) dump badging $(APKFILE) | \
 		grep "launchable-activity" | cut -f 2 -d"'"))
 	$(ADB) shell am start -n $(PACKAGE_NAME)/$(ACTIVITYNAME)
+
+keystore:
+	@echo "Creating keystore with password from SCHMEEP_KEYSTORE_PASS environment variable."
+	keytool -genkey -v -keystore schmeep.keystore -alias androidkey \
+		-keyalg RSA -keysize 2048 -validity 10000 \
+		-storepass $(SCHMEEP_KEYSTORE_PASS) -keypass $(SCHMEEP_KEYSTORE_PASS) \
+		-dname "CN=Android Developer, OU=Development, O=Schmeep, L=City, ST=State, C=US"
 
 schmeep: schmeep.c
 	gcc -o schmeep schmeep.c -lbluetooth -lpthread
