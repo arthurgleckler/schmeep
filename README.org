@@ -114,8 +114,7 @@ Hit ~C-\~ to exit the app.
 RAX is a simple framework for building web user interfaces in
 Schmeep.  Let's try an example.
 
-- Add this to ~index.html~ just before ~<div
-  class="button-grid"></div>~:
+- Add this to ~index.html~ just before ~<div class="button-grid"></div>~:
 
   #+begin_src html
   <button class="scheme-button" data-rax='click (eg "Hello, world.")'>Hello, world.</button>
@@ -132,10 +131,10 @@ Schmeep.  Let's try an example.
 
   You added the ~<button>~.  The class was just for CSS styling.  The
   ~data-rax~ attribute had two parts: ~click~, which specified that
-  Scheme code would be executed on a ~click~ event; and ~(eg "Hello,
-  world.")~, which specified that the string would be evaluated and
-  returned.  The ~eg~ macro is just for examples, but it illustrates
-  RAX.  You can find its definition in [[file:lib/eg.scm][eg.scm]].
+  Scheme code would be executed on a ~click~ event; and ~(eg "Hello, world.")~,
+  which specified that the string would be evaluated and returned.
+  The ~eg~ macro is just for examples, but it illustrates RAX.  You
+  can find its definition in [[file:lib/eg.scm][eg.scm]].
 
   Any expression used after the event name must return a procedure
   that accepts an event decoded from JSON.  Instead of calling the
